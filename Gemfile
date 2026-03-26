@@ -18,6 +18,7 @@ gem "stimulus-rails"
 gem "jbuilder"
 gem "pagy", "~> 9.0"  # 경량 페이지네이션
 gem "rails-i18n"  # ko/en 로케일 번역 파일
+gem "csv"         # Ruby 3.4+ 기본 gem에서 제외됨
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

@@ -1,5 +1,3 @@
-require "csv"
-
 namespace :import do
   RESULT_MAP = {
     "인정"     => "approved",
@@ -45,6 +43,7 @@ namespace :import do
   desc "업무상질병 판정서 CSV 임포트\n" \
        "  사용법: rails 'import:disease_cases[판정서.csv,목록.csv]'"
   task :disease_cases, [:cases_path, :list_path] => :environment do |_, args|
+    require "csv"
     cases_path = args[:cases_path] or abort "판정서 CSV 경로를 첫 번째 인자로 지정하세요."
     list_path  = args[:list_path]  or abort "목록 CSV 경로를 두 번째 인자로 지정하세요."
 
