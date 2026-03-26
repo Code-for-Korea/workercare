@@ -38,5 +38,13 @@ module Workercare
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # FTS5 virtual table을 위해 structure.sql 사용 (schema.rb는 virtual table 미지원)
+    config.active_record.schema_format = :sql
+
+    # i18n
+    config.i18n.available_locales = [:ko, :en]
+    config.i18n.default_locale = :ko
+    config.i18n.load_path += Dir[Rails.root.join("config/locales/**/*.yml")]
   end
 end
