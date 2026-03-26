@@ -80,7 +80,7 @@
   <div class="alert alert-info"><%= t("search.fallback_notice") %></div>
 <% end %>
 
-<% if @cases.empty? && (params[:q].present? || params.slice(:result, :year, :disease_category, :body_part, :decided_on_from, :decided_on_to).any?(&:present?)) %>
+<% if @cases.empty? && (params[:q].present? || params.slice(:result, :year, :disease_category, :body_part, :decided_on_from, :decided_on_to).values.any?(&:present?)) %>
   <p class="text-muted"><%= t("search.no_results") %></p>
 <% elsif @cases.any? %>
   <%= render "searches/case_list", cases: @cases %>

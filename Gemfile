@@ -16,7 +16,7 @@ gem "turbo-rails"
 gem "stimulus-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
-gem "pagy"        # 경량 페이지네이션
+gem "pagy", "~> 9.0"  # 경량 페이지네이션
 gem "rails-i18n"  # ko/en 로케일 번역 파일
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]

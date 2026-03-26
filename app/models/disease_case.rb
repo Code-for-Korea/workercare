@@ -46,8 +46,8 @@ class DiseaseCase < ApplicationRecord
   scope :fulltext, ->(q) {
     return all unless q.present?
 
-    joins("JOIN disease_cases_fts fts ON fts.rowid = disease_cases.id")
-      .where("fts MATCH ?", q)
+    joins("JOIN disease_cases_fts ON disease_cases_fts.rowid = disease_cases.id")
+      .where("disease_cases_fts MATCH ?", q)
   }
 
   scope :by_result,    ->(v) { where(result: v)            if v.present? }
