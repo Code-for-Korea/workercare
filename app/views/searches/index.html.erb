@@ -1,0 +1,38 @@
+<% content_for :title, t("search.title") %>
+
+<div style="max-width: 720px; margin: 0 auto;">
+  <h1 class="mb-4"><%= t("search.title") %></h1>
+
+  <%= form_with url: root_path, method: :get, local: true do |f| %>
+    <div class="input-group mb-3">
+      <%= f.text_field :q, value: params[:q],
+            placeholder: t("search.placeholder"),
+            class: "form-control form-control-lg",
+            autofocus: true %>
+      <%= f.submit t("helpers.submit.search"), class: "btn btn-primary" %>
+    </div>
+  <% end %>
+
+  <div class="text-end mb-2">
+    <%= link_to t("search.advanced"), search_path(q: params[:q]), class: "link" %>
+  </div>
+
+  <% if params[:q].present? %>
+    <% if @over_cap %>
+      <p class="text-muted"><%= t("search.over_cap") %></p>
+    <% elsif @result_count %>
+      <p class="text-muted"><%= @result_count %> <%= t("search.results") %></p>
+    <% end %>
+
+    <% if @search.fallback? %>
+      <div class="alert alert-info"><%= t("search.fallback_notice") %></div>
+    <% end %>
+
+    <% if @cases.empty? %>
+      <p class="text-muted"><%= t("search.no_results") %></p>
+    <% else %>
+      <%= render "searches/case_list", cases: @cases %>
+      <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
+    <% end %>
+  <% end %>
+</div>
