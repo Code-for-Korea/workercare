@@ -1,22 +1,22 @@
 <% content_for :title, t("search.title") %>
 
-<div style="max-width: 720px; margin: 0 auto;">
+
+<section>
   <h1 class="mb-4"><%= t("search.title") %></h1>
 
-  <%= form_with url: root_path, method: :get, local: true do |f| %>
+  <%= form_with url: root_path, method: :get, local: true do |form| %>
     <div class="input-group mb-3">
-      <%= f.text_field :q, value: params[:q],
-            placeholder: t("search.placeholder"),
-            class: "form-control form-control-lg",
-            autofocus: true %>
-      <%= f.submit t("helpers.submit.search"), class: "btn btn-primary" %>
+      <%= form.text_field :q, value: params[:q], placeholder: t("search.placeholder"), class: "form-control form-control-lg", autofocus: true %>
+      <%= form.submit t("helpers.submit.search"), class: "btn btn-primary" %>
     </div>
   <% end %>
 
   <div class="text-end mb-2">
     <%= link_to t("search.advanced"), search_path(q: params[:q]), class: "link" %>
   </div>
+</section>
 
+<section>
   <% if params[:q].present? %>
     <% if @over_cap %>
       <p class="text-muted"><%= t("search.over_cap") %></p>
@@ -35,4 +35,4 @@
       <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
     <% end %>
   <% end %>
-</div>
+</section>
