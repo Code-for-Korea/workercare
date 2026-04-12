@@ -17,7 +17,10 @@ fi
 export KAMAL_REGISTRY_USERNAME
 export KAMAL_REGISTRY_PASSWORD
 
-kamal setup
-# kamal deploy
+if [ $# -eq 0 ]; then
+  set -- deploy
+fi
+
+bin/kamal "$@"
 
 echo "Done"

@@ -7,18 +7,26 @@ image: wagurano/workercare
 # Deploy to these servers.
 servers:
   web:
-    - web01.workercare
+    hosts:
+      - web01.workercare
+
+  mcp:
+    hosts:
+      - web01.workercare
+    cmd: bundle exec falcon serve --bind http://0.0.0.0:3000 --config mcp/config.ru
+    proxy:
+      host: t-13-67.xyz
+      path_prefix: /mcp
+      app_port: 3000
+      ssl: false
 
 # Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# If used with Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
+# SSL must be set on the root path (web role). The mcp role on the same host inherits TLS automatically.
 #
 # Using an SSL proxy like this requires turning on config.assume_ssl and config.force_ssl in production.rb!
-#
-# Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
-#
-# proxy:
-#   ssl: true
-#   host: app.example.com
+proxy:
+  ssl: true
+  host: t-13-67.xyz
 
 # Where you keep your container images.
 registry:
@@ -26,10 +34,6 @@ registry:
     - KAMAL_REGISTRY_USERNAME
   password:
     - KAMAL_REGISTRY_PASSWORD
-
-proxy:
-  ssl: true
-  host: t-13-67.xyz
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
@@ -60,18 +64,3 @@ builder:
 # SSH 접속 설정 (root가 아닌 사용자)
 ssh:
   user: ubuntu
-
-accessories:
-  mcp:
-    image: wagurano/workercare:latest
-    host: web01.workercare
-    port: "62770:62770"
-    cmd: "bundle exec falcon serve --bind http://0.0.0.0:62770 mcp/config.ru"
-    env:
-      secret:
-        - RAILS_MASTER_KEY
-      clear:
-        RAILS_ENV: production
-        RAILS_LOG_LEVEL: info
-    volumes:
-      - "/data/workercare/storage:/rails/storage"
