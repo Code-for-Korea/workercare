@@ -1,6 +1,4 @@
 module ApplicationHelper
-  include Pagy::Frontend
-
   def result_badge_class(result)
     case result
     when "approved"           then "bg-success"
@@ -13,6 +11,6 @@ module ApplicationHelper
 
   def years_for_select
     current_year = Date.today.year
-    (2000..current_year).to_a.reverse.map { |y| [y.to_s, y.to_s] }
+    (2000..current_year).to_a.reverse.map { |y| [ y.to_s, y.to_s ] }
   end
 end
