@@ -3,6 +3,14 @@
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
   ./bin/rails db:prepare
+
+  if [ "${RAILS_ENV}" == "production" ]; then
+    # Solid Queue migrations are schema-based in this app. If queue DB exists
+    # but its schema was never loaded, boot can fail on recurring task startup.
+    if ! sqlite3 /rails/storage/production_queue.sqlite3 ".tables" | grep -q '\bsolid_queue_recurring_tasks\b'; then
+      ./bin/rails db:schema:load:queue
+    fi
+  fi
 fi
 
 exec "${@}"

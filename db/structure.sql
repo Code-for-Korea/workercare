@@ -20,10 +20,6 @@ USING fts5(
   tokenize='unicode61'
 )
 /* disease_cases_fts(application_content,applicant_claim,medical_records,recognized_facts,committee_decision) */;
-CREATE TABLE IF NOT EXISTS 'disease_cases_fts_data'(id INTEGER PRIMARY KEY, block BLOB);
-CREATE TABLE IF NOT EXISTS 'disease_cases_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS 'disease_cases_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
-CREATE TABLE IF NOT EXISTS 'disease_cases_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID;
 CREATE TRIGGER disease_cases_fts_insert
 AFTER INSERT ON disease_cases BEGIN
   INSERT INTO disease_cases_fts(
@@ -132,4 +128,3 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260327000001'),
 ('20260326000002'),
 ('20260326000001');
-
