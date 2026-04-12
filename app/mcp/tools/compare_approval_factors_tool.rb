@@ -2,7 +2,10 @@
 
 class CompareApprovalFactorsTool < ApplicationMCPTool
   tool_name "compare_approval_factors"
+  title "Compare Approval Factors"
   description "Statistically compare approved vs rejected disease cases to identify key approval/rejection factors."
+  read_only
+  open_world false
 
   property :disease_name,
            type: "string",
@@ -19,49 +22,10 @@ class CompareApprovalFactorsTool < ApplicationMCPTool
            description: "Body part. Allowed: chest_back, ear, other, eye, leg, head, neck, foot, abdomen, multiple, urogenital, digestive, hand, circulatory, nervous_system, face, hip, whole_body, arm, lower_back, respiratory_organ",
            required: false
 
-  property :year_range,
-           type: "array",
-           description: "Year range as [start_year, end_year] (e.g., [2020, 2025])",
-           required: false
-
-  output_schema do
-    property :error, type: "string", required: false
-    property :data, type: "object", required: false do
-      object :statistics do
-        property :approved_count, type: "number", required: true
-        property :rejected_count, type: "number", required: true
-        property :partially_approved_count, type: "number", required: true
-        property :revised_approved_count, type: "number", required: true
-        property :approval_rate, type: "string", required: true
-        property :rejection_rate, type: "string", required: true
-      end
-
-      object :approved_common_patterns do
-        property :medical_evidence, type: "string"
-        property :work_relation, type: "string"
-        property :objective_findings, type: "string"
-      end
-
-      object :rejected_common_patterns do
-        property :medical_evidence, type: "string"
-        property :work_relation, type: "string"
-        property :objective_findings, type: "string"
-      end
-
-      array :key_differences do
-        object :difference do
-          property :factor, type: "string", required: true
-          property :approved, type: "string", required: true
-          property :rejected, type: "string", required: true
-        end
-      end
-
-      object :detailed_evidence_stats do
-      end
-
-      property :llm_explanation, type: "string", required: false
-    end
-  end
+  collection :year_range,
+             type: "integer",
+             description: "Year range as [start_year, end_year] (e.g., [2020, 2025])",
+             required: false
 
   def perform
     rules = load_extraction_rules

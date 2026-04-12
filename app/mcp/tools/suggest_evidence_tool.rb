@@ -2,7 +2,10 @@
 
 class SuggestEvidenceTool < ApplicationMCPTool
   tool_name "suggest_evidence"
+  title "Suggest Evidence"
   description "Analyze rejected cases and suggest additional evidence needed for approval. Rule-based with structured next steps."
+  read_only
+  open_world false
 
   property :user_symptoms,
            type: "string",
@@ -14,57 +17,20 @@ class SuggestEvidenceTool < ApplicationMCPTool
            description: "User's work environment (e.g., 사무실, 하루 8시간 컴퓨터 작업)",
            required: true
 
-  property :current_evidence,
-           type: "array",
-            description: 'List of evidence the user already has (e.g., ["정형외과 진단서"])',
-           required: false
+  collection :current_evidence,
+             type: "string",
+             description: "List of evidence the user already has (e.g., [\"정형외과 진단서\"])",
+             required: false
 
-  property :rejected_case_nos,
-           type: "array",
-            description: 'Array of rejected case numbers to analyze (e.g., ["2023-000123"])',
-           required: false
+  collection :rejected_case_nos,
+             type: "string",
+             description: "Array of rejected case numbers to analyze (e.g., [\"2023-000123\"])",
+             required: false
 
   property :disease_category,
            type: "string",
            description: "Disease category. Allowed: musculoskeletal, other_disease, hearing_loss, cardiovascular, cancer, pneumoconiosis, respiratory",
            required: true
-
-  output_schema do
-    property :error, type: "string", required: false
-    property :data, type: "object", required: false do
-      array :missing_evidence do
-        object :evidence do
-          property :type, type: "string", required: true
-          property :importance, type: "string", required: true
-          property :rationale, type: "string", required: true
-          property :where_to_get, type: "string", required: true
-          property :estimated_time, type: "string", required: false
-          property :estimated_cost, type: "string", required: false
-        end
-      end
-
-      array :recommended_cases do
-        object :case do
-          property :case_no, type: "string", required: true
-          property :title, type: "string", required: true
-          property :key_lesson, type: "string", required: true
-        end
-      end
-
-      array :next_steps do
-        object :step do
-          property :action, type: "string", required: true
-          property :deadline, type: "string", required: true
-        end
-      end
-
-      array :legal_basis do
-        property :basis, type: "string"
-      end
-
-      property :llm_tailored_advice, type: "string", required: false
-    end
-  end
 
   def perform
     rules = load_rules

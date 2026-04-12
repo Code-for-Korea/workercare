@@ -11,9 +11,9 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
     )
     assert result.is_a?(ActionMCP::ToolResponse)
 
-    json = JSON.parse(result.contents.first.text)
-    assert json.key?("error")
-    assert json.key?("data")
+    json = result.structured_content
+    assert json.key?(:error)
+    assert json.key?(:data)
   end
 
   test "returns missing required evidence for musculoskeletal" do
@@ -23,10 +23,10 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
       current_evidence: [],
       disease_category: "musculoskeletal"
     )
-    json = JSON.parse(result.contents.first.text)
+    json = result.structured_content
 
-    missing = json["data"]["missing_evidence"]
-    keys = missing.map { |m| m["type"] }
+    missing = json[:data][:missing_evidence]
+    keys = missing.map { |m| m[:type] }
 
     assert_includes keys, "객관적 검사 (EMG/NCS, MRI, X-ray)"
     assert_includes keys, "요양급여신청소견서"
@@ -39,10 +39,10 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
       current_evidence: ["정형외과 진단서"],
       disease_category: "musculoskeletal"
     )
-    json = JSON.parse(result.contents.first.text)
+    json = result.structured_content
 
-    missing = json["data"]["missing_evidence"]
-    keys = missing.map { |m| m["type"] }
+    missing = json[:data][:missing_evidence]
+    keys = missing.map { |m| m[:type] }
 
     refute_includes keys, "객관적 검사 (EMG/NCS, MRI, X-ray)"
   end
@@ -53,9 +53,9 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
       user_work_environment: "사무실",
       disease_category: "musculoskeletal"
     )
-    json = JSON.parse(result.contents.first.text)
+    json = result.structured_content
 
-    assert_empty json["data"]["recommended_cases"]
+    assert_empty json[:data][:recommended_cases]
   end
 
   test "returns next_steps with immediate hospital visit as first step" do
@@ -64,10 +64,10 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
       user_work_environment: "사무실",
       disease_category: "musculoskeletal"
     )
-    json = JSON.parse(result.contents.first.text)
+    json = result.structured_content
 
-    steps = json["data"]["next_steps"]
-    assert steps.any? { |s| s["action"].include?("산재 지정병원") }
+    steps = json[:data][:next_steps]
+    assert steps.any? { |s| s[:action].include?("산재 지정병원") }
   end
 
   test "returns legal_basis with labor law references" do
@@ -76,9 +76,9 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
       user_work_environment: "사무실",
       disease_category: "musculoskeletal"
     )
-    json = JSON.parse(result.contents.first.text)
+    json = result.structured_content
 
-    legal = json["data"]["legal_basis"]
-    assert legal.any? { |b| b.include?("산업재해보상보험법") }
+    legal = json[:data][:legal_basis]
+    assert legal.any? { |b| b.include?("산업재필보상보험법") }
   end
 end

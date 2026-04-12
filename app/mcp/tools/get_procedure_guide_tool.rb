@@ -2,7 +2,10 @@
 
 class GetProcedureGuideTool < ApplicationMCPTool
   tool_name "get_procedure_guide"
+  title "Get Procedure Guide"
   description "Provide official application procedures, required documents, rejection appeal methods, compensation types, and timeline."
+  read_only
+  open_world false
 
   property :topic,
            type: "string",
@@ -24,11 +27,6 @@ class GetProcedureGuideTool < ApplicationMCPTool
            type: "string",
            description: "User's work environment",
            required: false
-
-  output_schema do
-    property :error, type: "string", required: false
-    property :data, type: "string", required: false
-  end
 
   def perform
     guides = load_guides

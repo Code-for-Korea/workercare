@@ -2,27 +2,30 @@
 
 class SearchDiseaseCasesTool < ApplicationMCPTool
   tool_name "search_disease_cases"
+  title "Search Disease Cases"
   description "Search occupational disease determination cases from the database with statistics and confidence scoring."
+  read_only
+  open_world false
 
   property :q,
            type: "string",
            description: "Natural language search query extracted from user question",
            required: true
 
-  property :search_in,
-           type: "array",
-           description: "Columns to search in. Allowed: application_content, applicant_claim, medical_records, recognized_facts, committee_decision. Defaults to all.",
-           required: false
+  collection :search_in,
+             type: "string",
+             description: "Columns to search in. Allowed: application_content, applicant_claim, medical_records, recognized_facts, committee_decision. Defaults to all.",
+             required: false
 
-  property :disease_category,
-           type: "array",
-           description: "Filter by disease category. Allowed: musculoskeletal, other_disease, hearing_loss, cardiovascular, cancer, pneumoconiosis, respiratory",
-           required: false
+  collection :disease_category,
+             type: "string",
+             description: "Filter by disease category. Allowed: musculoskeletal, other_disease, hearing_loss, cardiovascular, cancer, pneumoconiosis, respiratory",
+             required: false
 
-  property :body_part,
-           type: "array",
-           description: "Filter by body part. Allowed: chest_back, ear, other, eye, leg, head, neck, foot, abdomen, multiple, urogenital, digestive, hand, circulatory, nervous_system, face, hip, whole_body, arm, lower_back, respiratory_organ",
-           required: false
+  collection :body_part,
+             type: "string",
+             description: "Filter by body part. Allowed: chest_back, ear, other, eye, leg, head, neck, foot, abdomen, multiple, urogenital, digestive, hand, circulatory, nervous_system, face, hip, whole_body, arm, lower_back, respiratory_organ",
+             required: false
 
   property :decided_on_from,
            type: "string",
@@ -39,44 +42,6 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
            description: "Maximum number of cases to return in the cases array. Statistics always use the full matching set.",
            required: false,
            default: 10
-
-  output_schema do
-    property :error, type: "string", required: false
-    property :data, type: "object", required: false do
-      property :total_count, type: "number", required: true
-      property :confidence_score, type: "number", required: true
-      property :confidence_reason, type: "string", required: true
-      property :used_fallback, type: "boolean", required: true
-
-      array :cases do
-        object :case do
-          property :case_no, type: "string", required: true
-          property :disease_name, type: "string", required: true
-          property :result, type: "string", required: true
-          property :result_label, type: "string", required: true
-          property :year, type: "number", required: true
-          property :summary, type: "string", required: true
-          property :key_facts, type: "string", required: true
-          property :decision_excerpt, type: "string", required: true
-          array :match_reason do
-            property :reason, type: "string"
-          end
-        end
-      end
-
-      object :statistics do
-        property :approved, type: "number", required: true
-        property :rejected, type: "number", required: true
-        property :partially_approved, type: "number", required: true
-        property :revised_approved, type: "number", required: true
-        property :total, type: "number", required: true
-        property :approval_rate, type: "string", required: true
-        property :rejection_rate, type: "string", required: true
-        property :substantive_approval_rate, type: "string", required: true
-        property :strict_approval_rate, type: "string", required: true
-      end
-    end
-  end
 
   def perform
     search_params = build_search_params

@@ -7,9 +7,9 @@ class CompareApprovalFactorsToolTest < ActiveSupport::TestCase
     result = CompareApprovalFactorsTool.call(disease_category: "musculoskeletal")
     assert result.is_a?(ActionMCP::ToolResponse)
 
-    json = JSON.parse(result.contents.first.text)
-    assert json.key?("error")
-    assert json.key?("data")
+    json = result.structured_content
+    assert json.key?(:error)
+    assert json.key?(:data)
   end
 
   test "extract_status classifies positive correctly" do
