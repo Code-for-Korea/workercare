@@ -1,0 +1,35 @@
+.w-fit {
+  width: fit-content;
+}
+
+.max-w-48 {
+  max-width: 12rem; /* 192px */
+}
+
+.max-w-fit {
+  max-width: fit-content;
+}
+
+.min-w-40 {
+  min-width: 10rem; /* 160px */
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+.overflow-x-scroll {
+  overflow-x: scroll;
+}
+
+.leading-relaxed {
+  line-height: 1.625;
+}

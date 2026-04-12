@@ -1,40 +1,36 @@
 <% content_for :title, t("search.title") %>
-
 <div class="container">
-  <section class="section">
-    <h1 class="align-center mb-4"><%= t("search.title") %></h1>
+  <section>
+    <h1><%= t("search.title") %></h1>
 
-    <%= form_with url: root_path, method: :get, local: true, class: "hstack justify-center mb-4" do |form| %>
-      <fieldset class="group w-100" style="max-width:500px;">
-        <%= form.text_field :q, value: params[:q], placeholder: t("search.placeholder"), class: "form-control form-control-lg", autofocus: true %>
-        <%= button_tag t("helpers.submit.search"), name: "search", class: "outline" %>
-      </fieldset>
+    <%= form_with url: root_path, method: :get, local: true, html: {role: "search"} do |form| %>
+      <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder"), autofocus: true %>
+      <%= form.submit t("helpers.submit.search"), name: "search" %>
     <% end %>
-
-    <div class="align-center">
-      <%= link_to t("search.advanced"), search_path(q: params[:q]), class: "link" %>
+    <div>
+      <%= link_to t("search.advanced"), search_path(q: params[:q]) %>
     </div>
   </section>
-
   <section>
     <% if params[:q].present? %>
       <% if @over_cap %>
-        <p class="text-muted"><%= t("search.over_cap") %></p>
+        <p><%= t("search.over_cap") %></p>
       <% elsif @result_count %>
-        <p class="text-muted"><%= @result_count %> <%= t("search.results") %></p>
+        <p><%= @result_count %> <%= t("search.results") %></p>
       <% end %>
-
-      <% if @search.fallback? %>
-        <div class="alert alert-info"><%= t("search.fallback_notice") %></div>
+      <% if @fallback %>
+        <div><%= t("search.fallback_notice") %></div>
       <% end %>
-
       <% if @cases.empty? %>
-        <p class="text-muted"><%= t("search.no_results") %></p>
+        <p><%= t("search.no_results") %></p>
       <% else %>
-        <%= render "searches/case_list", cases: @cases %>
-        <%== pagy_nav(@pagy) if @pagy.pages > 1 %>
+        <div class="overflow-x-scroll">
+          <%= render "searches/case_list", cases: @cases %>
+        </div>
+        <div class="max-w-fit mx-auto">
+          <%== @pagy.series_nav %>
+        </div>
       <% end %>
     <% end %>
   </section>
-
 </div>

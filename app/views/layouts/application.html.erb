@@ -3,25 +3,34 @@
   <head>
     <title><%= content_for(:title) || t("search.title") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-
-    <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
-
-    <link rel="stylesheet" href="https://unpkg.com/@knadh/oat/oat.min.css">
-    <script src="https://unpkg.com/@knadh/oat/oat.min.js" defer></script>
+    <%= yield :head %>
+    <%= favicon_link_tag "favicon.png", rel: "apple-touch-icon", type: "image/png" %>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-
   <body>
-    <nav>
-      <div>
-        <%= link_to t("search.title"), root_path %>
-      </div>
+    <nav class="container">
+      <ul>
+        <li>
+          <%= link_to root_path do %>
+            <strong>업무상 질병 판정서</strong>
+          <% end %>
+        </li>
+      </ul>
+      <ul>
+        <li>
+          <%= link_to "검색", search_path %>
+        </li>
+        <li>
+          <%= link_to "소개", about_path %>
+        </li>
+      </ul>
     </nav>
-
     <main>
       <%= yield %>
     </main>
