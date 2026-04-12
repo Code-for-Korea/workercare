@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "ostruct"
+
 # Application Gateway - configure your authentication identifiers here
 #
 # The Gateway reads from request.env keys set by upstream middleware
@@ -8,9 +10,22 @@
 # ActionMCP provides ready-to-use identifier examples for common authentication patterns.
 # You can use them directly or customize them for your needs.
 
+# Anonymous identifier for development - allows access without authentication
+class AnonymousIdentifier < ActionMCP::GatewayIdentifier
+  identifier :user
+  authenticates :none
+
+  def resolve
+    OpenStruct.new(id: "anonymous", name: "Anonymous User")
+  end
+end
+
 class ApplicationGateway < ActionMCP::Gateway
   # Register your identifier classes in order of preference
   # The first successful identifier will be used
+
+  # Development: Anonymous access (no authentication required)
+  identified_by AnonymousIdentifier
 
   # Option 1: Use built-in identifiers (recommended for common patterns)
   # identified_by ActionMCP::GatewayIdentifiers::WardenIdentifier  # For Warden/Devise

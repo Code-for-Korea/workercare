@@ -116,7 +116,11 @@ CREATE INDEX "index_action_mcp_session_tasks_on_status" ON "action_mcp_session_t
 CREATE INDEX "index_action_mcp_session_tasks_on_session_id_and_status" ON "action_mcp_session_tasks" ("session_id", "status") /*application='Workercare'*/;
 CREATE INDEX "index_action_mcp_session_tasks_on_created_at" ON "action_mcp_session_tasks" ("created_at") /*application='Workercare'*/;
 CREATE TABLE IF NOT EXISTS "action_mcp_sessions" ("id" varchar NOT NULL PRIMARY KEY, "role" varchar DEFAULT 'server' NOT NULL, "status" varchar DEFAULT 'pre_initialize' NOT NULL, "ended_at" datetime(6), "protocol_version" varchar, "server_capabilities" json, "client_capabilities" json, "server_info" json, "client_info" json, "initialized" boolean DEFAULT FALSE NOT NULL, "messages_count" integer DEFAULT 0 NOT NULL, "tool_registry" json DEFAULT '[]', "prompt_registry" json DEFAULT '[]', "resource_registry" json DEFAULT '[]', "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "consents" json DEFAULT '{}' NOT NULL, "session_data" json DEFAULT '{}' NOT NULL /*application='Workercare'*/);
+CREATE TABLE IF NOT EXISTS "solid_mcp_messages" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "session_id" varchar(36) NOT NULL, "event_type" varchar(50) NOT NULL, "data" text, "created_at" datetime(6) NOT NULL, "delivered_at" datetime(6));
+CREATE INDEX "idx_solid_mcp_messages_on_session_and_id" ON "solid_mcp_messages" ("session_id", "id") /*application='Workercare'*/;
+CREATE INDEX "idx_solid_mcp_messages_on_delivered_and_created" ON "solid_mcp_messages" ("delivered_at", "created_at") /*application='Workercare'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260401000001'),
 ('20260327000009'),
 ('20260327000008'),
 ('20260327000007'),

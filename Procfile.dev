@@ -1,0 +1,2 @@
+web: bundle exec puma -C config/puma.rb -p 3000
+mcp: bundle exec falcon serve --bind http://0.0.0.0:62770 --config mcp/config.ru --count 1
