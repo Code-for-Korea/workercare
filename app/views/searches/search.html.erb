@@ -2,61 +2,43 @@
 <div class="container">
   <h3><%= t("search.advanced") %></h1>
   <%= form_with url: search_path, method: :get, local: true do |form| %>
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label fw-bold">전문 검색</label>
-          <div class="input-group">
-            <%= form.search_field :q, value: params[:q],
-                  placeholder: t("search.placeholder"),
-                  class: "form-control" %>
-            <%= form.submit t("helpers.submit.search"), class: "btn btn-primary" %>
+    <div>
+      <div>
+        <div role="search">
+          <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder") %>
+          <%= form.submit t("helpers.submit.search"), name: "search" %>
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <%= form.label :result %>
+          <%= form.select :result, DiseaseCase.enum_options_for_select_with_blank(:result), { selected: params[:result] } %>
+        </div>
+        <div>
+          <%= form.label :year %>
+          <%= form.select :year, years_for_select_with_blank, { selected: params[:year] } %>
+        </div>
+        <div>
+          <%= form.label :disease_category %>
+          <%= form.select :disease_category, DiseaseCase.enum_options_for_select_with_blank(:disease_category), { selected: params[:disease_category] } %>
+        </div>
+        <div>
+          <%= form.label :body_part %>
+          <%= form.select :body_part, DiseaseCase.enum_options_for_select_with_blank(:body_part), { selected: params[:body_part] } %>
+        </div>
+      </div>
+      <div>
+        <div class="grid">
+          <div>
+            <%= form.label :decided_on_from %> <%= form.date_field :decided_on_from, value: params[:decided_on_from] %>
+          </div>
+          <div>
+            <%= form.label :decided_on_to %> <%= form.date_field :decided_on_to, value: params[:decided_on_to] %>
           </div>
         </div>
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.result") %></label>
-            <%= form.select :result,
-                  [["— #{t("search.all_results")} —", ""]] + DiseaseCase.enum_options_for_select(:result).to_a,
-                  { selected: params[:result] },
-                  class: "form-select" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.year") %></label>
-            <%= form.select :year,
-                  [["— #{t("search.all_results")} —", ""]] + years_for_select,
-                  { selected: params[:year] },
-                  class: "form-select" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.disease_category") %></label>
-            <%= form.select :disease_category,
-                  [["— #{t("search.all_results")} —", ""]] + DiseaseCase.enum_options_for_select(:disease_category).to_a,
-                  { selected: params[:disease_category] },
-                  class: "form-select" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.body_part") %></label>
-            <%= form.select :body_part,
-                  [["— #{t("search.all_results")} —", ""]] + DiseaseCase.enum_options_for_select(:body_part).to_a,
-                  { selected: params[:body_part] },
-                  class: "form-select" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.decided_on_from") %></label>
-            <%= form.date_field :decided_on_from, value: params[:decided_on_from], class: "form-control" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label"><%= t("search.filter.decided_on_to") %></label>
-            <%= form.date_field :decided_on_to, value: params[:decided_on_to], class: "form-control" %>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">정렬</label>
-            <%= form.select :sort,
-                  [[t("search.sort_relevance"), "relevance"], [t("search.sort_recent"), "recent"]],
-                  { selected: params[:sort] || "relevance" },
-                  class: "form-select" %>
-          </div>
+        <div>
+          <%= form.label :sort %>
+          <%= form.select :sort, [[t("search.sort_relevance"), "relevance"], [t("search.sort_recent"), "recent"]], { selected: params[:sort] || "relevance" } %>
         </div>
       </div>
     </div>

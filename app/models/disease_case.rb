@@ -66,6 +66,10 @@ class DiseaseCase < ApplicationRecord
     }.to_h
   end
 
+  def self.enum_options_for_select_with_blank(enum_name)
+    [ [ "— #{I18n.t("search.all_results")} —", "" ] ] + DiseaseCase.enum_options_for_select(enum_name).to_a
+  end
+
   def to_param
     case_no
   end

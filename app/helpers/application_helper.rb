@@ -13,4 +13,8 @@ module ApplicationHelper
     current_year = Date.today.year
     (2000..current_year).to_a.reverse.map { |y| [ y.to_s, y.to_s ] }
   end
+
+  def years_for_select_with_blank
+    [ [ "— #{t("search.all_results")} —", "" ] ] + years_for_select
+  end
 end
