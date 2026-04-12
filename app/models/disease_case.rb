@@ -65,4 +65,8 @@ class DiseaseCase < ApplicationRecord
       [ it,  DiseaseCase.human_attribute_name(it) ]
     }.to_h
   end
+
+  def to_param
+    case_no
+  end
 end

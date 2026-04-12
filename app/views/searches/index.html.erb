@@ -2,7 +2,6 @@
 <div class="container">
   <section>
     <h1><%= t("search.title") %></h1>
-
     <%= form_with url: root_path, method: :get, local: true, html: {role: "search"} do |form| %>
       <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder"), autofocus: true %>
       <%= form.submit t("helpers.submit.search"), name: "search" %>

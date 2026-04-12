@@ -27,7 +27,6 @@ module DiseaseCases
 
         scope = apply_filters(scope, params)
         scope = apply_sort(scope, fts_q, fallback, sort_param)
-
         [ scope, fallback ]
       end
 
@@ -38,7 +37,8 @@ module DiseaseCases
         scope = scope.where(year: params[:year]) if params[:year].present?
         scope = scope.where(disease_category: params[:disease_category]) if params[:disease_category].present?
         scope = scope.where(body_part: params[:body_part]) if params[:body_part].present?
-        scope.by_date_range(params[:decided_on_from], params[:decided_on_to])
+        scope = scope.by_date_range(params[:decided_on_from].presence, params[:decided_on_to].presence)
+        scope
       end
 
       def apply_sort(scope, fts_q, fallback, sort_param)

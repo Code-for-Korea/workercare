@@ -72,7 +72,11 @@
   <% if @cases.empty? && (params[:q].present? || params.slice(:result, :year, :disease_category, :body_part, :decided_on_from, :decided_on_to).values.any?(&:present?)) %>
     <p class="text-muted"><%= t("search.no_results") %></p>
   <% elsif @cases.any? %>
-    <%= render "searches/case_list", cases: @cases %>
-    <%== @pagy.series_nav %>
+    <div class="overflow-x-scroll">
+      <%= render "searches/case_list", cases: @cases %>
+    </div>
+    <div class="max-w-fit mx-auto">
+      <%== @pagy.series_nav %>
+    </div>
   <% end %>
 </div>
