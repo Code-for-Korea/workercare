@@ -19,7 +19,7 @@ gem "turbo-rails"
 gem "stimulus-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
-gem "pagy", "~> 9.0"  # 경량 페이지네이션
+gem "pagy", "~> 43.5"
 gem "rails-i18n"  # ko/en 로케일 번역 파일
 gem "csv"         # Ruby 3.4+ 기본 gem에서 제외됨
 
@@ -55,10 +55,12 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  gem "i18n-tasks"
 end
 
 group :development do
-  # Use console on exceptions pages [https://github.com/rails/web-console]
+  # Use console on exceptions pages [ht
+  # tps://github.com/rails/web-console]
   gem "web-console"
 end
 
