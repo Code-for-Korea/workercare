@@ -14,9 +14,9 @@ module HumanEnumerable
       if value_options[:default].blank?
         default_options = value_options.dup
         default_options[:default] = key
-        value_options[:default] = human_attribute_name([attribute, variant, :undefined].compact_blank.join("."), **default_options)
+        value_options[:default] = human_attribute_name([ attribute, variant, :undefined ].compact_blank.join("."), **default_options)
       end
-      human_attribute_name([attribute, variant, key].compact_blank.join("."), **value_options)
+      human_attribute_name([ attribute, variant, key ].compact_blank.join("."), **value_options)
     end
 
     def enum_options_for_select(attribute, options = {})
@@ -25,7 +25,7 @@ module HumanEnumerable
       send(attribute.to_s.pluralize).keys.filter_map do |key|
         next if onlys.present?    && onlys.exclude?(key)
         next if excludes.present? && excludes.include?(key)
-        [human_attribute_enum(attribute, key, **options), key]
+        [ human_attribute_enum(attribute, key, **options), key ]
       end.to_h
     end
   end
