@@ -1,0 +1,20 @@
+<section class="search-results">
+  <% if @metadata[:over_cap] %>
+    <p class="text-muted"><%= t("search.over_cap") %></p>
+  <% elsif @metadata[:total_count] %>
+    <p class="text-muted"><%= @metadata[:total_count] %> <%= t("search.results") %></p>
+  <% end %>
+  <% if @fallback %>
+    <div class="alert alert-info"><%= t("search.fallback_notice") %></div>
+  <% end %>
+  <% if @cases.empty? %>
+    <p class="text-muted"><%= t("search.no_results") %></p>
+  <% else %>
+    <div class="overflow-x-scroll">
+      <%= render "case_list", cases: @cases %>
+    </div>
+    <div class="max-w-fit mx-auto">
+      <%== @pagy.series_nav %>
+    </div>
+  <% end %>
+</section>
