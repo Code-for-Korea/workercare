@@ -43,17 +43,15 @@ class DiseaseCase < ApplicationRecord
   }, prefix: true
 
   # FTS5 fulltext 검색 (content table JOIN)
-  scope :fulltext, ->(q) {
-    return all unless q.present?
-
-    joins("JOIN disease_cases_fts ON disease_cases_fts.rowid = disease_cases.id")
-      .where("disease_cases_fts MATCH ?", q)
+  scope :fulltext, ->(query) {
+    return all if query.blank?
+    joins("JOIN disease_cases_fts ON disease_cases_fts.rowid = disease_cases.id").where("disease_cases_fts MATCH ?", query)
   }
 
-  scope :by_result,    ->(v) { where(result: v)            if v.present? }
-  scope :by_year,      ->(y) { where(year: y)              if y.present? }
-  scope :by_category,  ->(c) { where(disease_category: c)  if c.present? }
-  scope :by_body,      ->(b) { where(body_part: b)         if b.present? }
+  scope :by_result, ->(result) { where(result: result) if result.present? }
+  scope :by_year, ->(year) { where(year: year) if year.present? }
+  scope :by_category, ->(category) { where(disease_category: category) if category.present? }
+  scope :by_body, ->(body_part) { where(body_part: body_part) if body_part.present? }
 
   scope :by_date_range, ->(from, to) {
     if from && to

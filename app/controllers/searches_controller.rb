@@ -18,16 +18,15 @@ class SearchesController < ApplicationController
   private
 
   def search_params
-    params.permit(:q, :result, :year, :disease_category, :body_part,
-                  :decided_on_from, :decided_on_to, :sort)
+    params.permit(:q, :result, :year, :disease_category, :body_part, :decided_on_from, :decided_on_to, :sort)
   end
 
   def log_search(results)
     Rails.logger.info({
-      event:         "search",
-      query:         @search.raw_query,
-      result_count:  @result_count,
-      over_cap:      @over_cap,
+      event: "search",
+      query: @search.raw_query,
+      result_count: @result_count,
+      over_cap: @over_cap,
       used_fallback: @search.fallback?
     }.to_json)
   end

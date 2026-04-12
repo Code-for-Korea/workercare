@@ -1,5 +1,5 @@
 class DiseaseCaseSearch
-  RESULT_CAP = 500
+  MAX_SEARCH_RESULTS = 500
 
   # 복합 조사를 먼저 — 순서 중요 ("으로"가 "로"보다 앞에 와야 함)
   KOREAN_PARTICLES = /(으로|에서|까지|부터|은|는|이|가|을|를|의|로|도|만|와|과)$/
@@ -8,23 +8,23 @@ class DiseaseCaseSearch
   alias fallback? fallback
 
   def initialize(params = {})
-    @raw_query      = params[:q].to_s.strip
-    @result_param   = params[:result]
-    @year_param     = params[:year]
+    @raw_query = params[:q].to_s.strip
+    @result_param = params[:result]
+    @year_param = params[:year]
     @category_param = params[:disease_category]
-    @body_param     = params[:body_part]
-    @date_from      = params[:decided_on_from]
-    @date_to        = params[:decided_on_to]
-    @sort_param     = params[:sort]
-    @fallback       = false
+    @body_param = params[:body_part]
+    @date_from = params[:decided_on_from]
+    @date_to = params[:decided_on_to]
+    @sort_param = params[:sort]
+    @fallback = false
   end
 
   # 캡 처리된 배열 + 메타데이터 반환. 페이지네이션은 컨트롤러에서 pagy_array로.
   def capped_results
-    raw       = build_scope.capped(RESULT_CAP).to_a
-    over_cap  = raw.size > RESULT_CAP
-    count     = over_cap ? nil : raw.size
-    results   = raw.first(RESULT_CAP)
+    raw = build_scope.capped(MAX_SEARCH_RESULTS).to_a
+    over_cap = raw.size > MAX_SEARCH_RESULTS
+    count = over_cap ? nil : raw.size
+    results = raw.first(MAX_SEARCH_RESULTS)
     [ over_cap, count, results ]
   end
 
@@ -67,13 +67,10 @@ class DiseaseCaseSearch
   end
 
   def build_fts_query(raw)
-    q = normalize_query(raw)
-    return nil if q.blank?
+    query = normalize_query(raw)
+    return nil if query.blank?
 
-    tokens = q.split(" ")
-               .first(5)
-               .map { |token| token.gsub(KOREAN_PARTICLES, "") }
-               .reject(&:blank?)
+    tokens = query.split(" ").first(5).map { |token| token.gsub(KOREAN_PARTICLES, "") }.reject(&:blank?)
 
     return nil if tokens.empty?
 
@@ -84,9 +81,9 @@ class DiseaseCaseSearch
   end
 
   def substring_fallback(tokens)
-    safe_tokens = tokens.first(2).map { |t| ActiveRecord::Base.sanitize_sql_like(t) }
-    conditions  = safe_tokens.map { "disease_name LIKE ?" }.join(" AND ")
-    binds       = safe_tokens.map { |t| "%#{t}%" }
+    safe_tokens = tokens.first(2).map { |token| ActiveRecord::Base.sanitize_sql_like(token) }
+    conditions = safe_tokens.map { "disease_name LIKE ?" }.join(" AND ")
+    binds = safe_tokens.map { |token| "%#{token}%" }
     DiseaseCase.where(conditions, *binds)
   end
 end
