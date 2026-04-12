@@ -1,0 +1,217 @@
+# evidence_rules.yml
+# last_updated: 2026-04-22
+# 목적: 질병 카테고리별 산재 인정에 필요한 증거 자료 정의
+
+musculoskeletal:
+  description: "근골격계 질환 (손목터널증후군, 디스크 등)"
+
+  required:
+    - type: "객관적 검사 (EMG/NCS, MRI, X-ray)"
+      key: "objective_test"
+      rationale: "객관적 검사에서 이상 소견은 업무상 질병 인정의 핵심 근거"
+      where_to_get: "정형외과 또는 신경과 (산재 지정병원 권장)"
+      notes:
+        - "근전도 검사(EMG/NCS)는 손목터널증후군 필수"
+        - "MRI는 디스크 질환에서 중요"
+
+    - type: "요양급여신청소견서"
+      key: "medical_opinion"
+      rationale: "업무와 질병의 인과관계를 의학적으로 입증하는 필수 문서"
+      where_to_get: "산재 지정병원 주치의 작성"
+
+  optional:
+    - type: "업무 환경 자료 (작업 시간, 반복 동작)"
+      key: "workload_proof"
+      importance: "high"
+      rationale: "반복 작업 및 과부하를 객관적으로 입증"
+      where_to_get: "본인 기록 또는 사업주 자료"
+
+    - type: "동료 진술서"
+      key: "coworker_statement"
+      importance: "medium"
+      rationale: "실제 업무 강도 및 환경 보완 증거"
+      where_to_get: "동료 서면 진술"
+
+    - type: "과거 병력 자료"
+      key: "medical_history"
+      importance: "medium"
+      rationale: "사전 질환 여부 판단 (불인정 방어용)"
+      where_to_get: "국민건강보험공단"
+
+  risk_factors:
+    - "사전 동일 부위 질환"
+    - "업무 외 활동 (게임, 운동 등)"
+    - "객관적 검사 이상 없음"
+
+  strong_approval_signals:
+    - "근전도 검사 양성"
+    - "업무 시작 후 단기간 내 발병"
+    - "반복 작업 6시간 이상/일"
+
+  extraction_rules:
+    emg:
+      keywords: ["근전도", "EMG", "NCS"]
+      positive: ["양성", "이상 소견", "이상 있음", "신경 압박"]
+      negative: ["정상", "이상 없음", "소견 없음", "특이사항 없음"]
+      not_performed: ["시행 안함", "미실시", "검사 안함", "실시하지 않음"]
+    mri:
+      keywords: ["MRI"]
+      positive: ["디스크", "탈출", "협착"]
+      negative: ["정상", "이상 없음"]
+
+cardiovascular:
+  description: "심혈관 질환 (심근경색, 뇌졸중 등)"
+
+  required:
+    - type: "심전도 및 심장초음파 검사"
+      key: "cardio_test"
+      rationale: "심혈관 질환의 객관적 진단 필수"
+      where_to_get: "내과 또는 심장내과"
+
+    - type: "발병 전 업무 기록 (과로, 스트레스)"
+      key: "overwork_proof"
+      rationale: "과로 및 스트레스와 질병 간 인과관계 입증"
+      where_to_get: "근무기록, 초과근무 기록"
+
+  optional:
+    - type: "근무시간 기록 (주 52시간 초과 여부)"
+      key: "work_hours"
+      importance: "high"
+      rationale: "과로 기준 판단 핵심 자료"
+
+    - type: "스트레스 요인 자료"
+      key: "stress_factor"
+      importance: "medium"
+      rationale: "업무상 정신적 부담 입증"
+
+  risk_factors:
+    - "고혈압, 당뇨 등 기저질환"
+    - "흡연, 음주"
+    - "업무 외 스트레스"
+
+  strong_approval_signals:
+    - "발병 직전 과로 (주 60시간 이상)"
+    - "급격한 업무 증가"
+    - "야간/교대 근무 지속"
+
+  extraction_rules:
+    ecg:
+      keywords: ["심전도", "ECG", "EKG"]
+      positive: ["ST", " elevate", "심근경색", "부정맥"]
+      negative: ["정상", "이상 없음"]
+      not_performed: ["미실시", "시행 안함"]
+    echo:
+      keywords: ["심장초음파", "echo"]
+      positive: ["wall motion", "이상"]
+      negative: ["정상", "이상 없음"]
+
+respiratory:
+  description: "호흡기 질환 (천식, 폐질환 등)"
+
+  required:
+    - type: "폐기능 검사"
+      key: "lung_test"
+      rationale: "호흡기 질환 객관적 진단"
+      where_to_get: "내과 또는 호흡기내과"
+
+    - type: "작업장 유핵물질 노출 자료"
+      key: "exposure_proof"
+      rationale: "업무 환경과 질병 인과관계 입증"
+      where_to_get: "사업장 환경측정 자료"
+
+  optional:
+    - type: "보호장비 착용 기록"
+      key: "safety_equipment"
+      importance: "medium"
+      rationale: "노출 방어 여부 판단"
+
+    - type: "동료 유사 질환 사례"
+      key: "cluster_case"
+      importance: "low"
+      rationale: "집단 발병 여부 참고"
+
+  risk_factors:
+    - "흡연"
+    - "기존 호흡기 질환"
+    - "단기 노출"
+
+  strong_approval_signals:
+    - "장기간 유핵물질 노출"
+    - "작업환경 측정치 기준 초과"
+    - "동일 작업자 다수 발병"
+
+  extraction_rules:
+    pft:
+      keywords: ["폐기능", "PFT", "spirometry"]
+      positive: ["감소", "obstructive", "restrictive"]
+      negative: ["정상", "이상 없음"]
+      not_performed: ["미실시", "시행 안함"]
+
+hearing_loss:
+  description: "소음성 난청"
+
+  required:
+    - type: "청력 검사 (audiometry)"
+      key: "hearing_test"
+      rationale: "청력 손실 객관적 입증"
+      where_to_get: "이비인후과"
+
+    - type: "소음 노출 기록"
+      key: "noise_exposure"
+      rationale: "업무 환경 소음 입증"
+      where_to_get: "사업장 측정 자료"
+
+  optional:
+    - type: "근무 기간 기록"
+      key: "work_duration"
+      importance: "high"
+      rationale: "장기 노출 여부 판단"
+
+  risk_factors:
+    - "개인 이어폰 사용"
+    - "노화"
+
+  strong_approval_signals:
+    - "85dB 이상 소음 장기 노출"
+    - "양측성 청력 손실"
+
+  extraction_rules:
+    audiometry:
+      keywords: ["audiometry", "청력검사", "청력"]
+      positive: ["청력 감소", "난청", "hearing loss"]
+      negative: ["정상", "이상 없음"]
+      not_performed: ["미실시", "시행 안함"]
+
+cancer:
+  description: "직업성 암"
+
+  required:
+    - type: "병리학적 진단서"
+      key: "cancer_diagnosis"
+      rationale: "암 확진 필수"
+      where_to_get: "종합병원"
+
+    - type: "발암물질 노출 이력"
+      key: "carcinogen_exposure"
+      rationale: "업무와 암 발생 인과관계 입증"
+
+  optional:
+    - type: "노출 기간 자료"
+      key: "exposure_duration"
+      importance: "high"
+      rationale: "장기 노출 여부 중요"
+
+  risk_factors:
+    - "흡연"
+    - "유전적 요인"
+
+  strong_approval_signals:
+    - "특정 발암물질 장기 노출"
+    - "직업군 관련 암 패턴 일치"
+
+  extraction_rules:
+    pathology:
+      keywords: ["병리", "pathology", "histology"]
+      positive: ["암", "carcinoma", "malignant"]
+      negative: ["정상", "이상 없음", "benign"]
+      not_performed: ["미실시", "시행 안함"]

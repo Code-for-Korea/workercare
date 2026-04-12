@@ -77,4 +77,24 @@ class DiseaseCase < ApplicationRecord
   def to_param
     case_no
   end
+
+  def as_safe_json
+    {
+      case_no: case_no,
+      disease_name: disease_name,
+      result: result,
+      year: year,
+      disease_category: disease_category,
+      body_part: body_part,
+      statement: PIIMasking.mask(statement),
+      claim_purpose: PIIMasking.mask(claim_purpose),
+      application_content: PIIMasking.mask(application_content),
+      applicant_claim: PIIMasking.mask(applicant_claim),
+      medical_records: PIIMasking.mask(medical_records),
+      recognized_facts: PIIMasking.mask(recognized_facts),
+      related_laws: related_laws,
+      committee_decision: PIIMasking.mask(committee_decision),
+      decided_on: decided_on
+    }
+  end
 end
