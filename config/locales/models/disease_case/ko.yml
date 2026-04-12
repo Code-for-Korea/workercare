@@ -1,38 +1,58 @@
+---
 ko:
   activerecord:
     attributes:
+      disease_case:
+        applicant_claim: 신청인 주장
+        application_content: 신청 내용
+        body_part: 신체부위
+        case_no: 연번
+        claim_purpose: 청구 취지
+        committee_decision: 위원회 판단 및 결론
+        decided_on: 판정일
+        disease_category: 질병분류
+        disease_name: 신청질병
+        link: 원문
+        medical_records: 진료기록 및 의학적 소견
+        recognized_facts: 인정 사실
+        related_laws: 관계 법령
+        result: 심의결과
+        statement: 주문
+        year: 심의연도
       disease_case/result_enum:
-        approved:           "인정"
-        rejected:           "불인정"
-        partially_approved: "일부인정"
-        revised_approved:   "변경인정"
+        approved: 인정
+        rejected: 불인정
+        partially_approved: 일부인정
+        revised_approved: 변경인정
       disease_case/disease_category_enum:
-        musculoskeletal: "근골격계질병"
-        other_disease:   "기타질병"
-        hearing_loss:    "소음성난청"
-        cardiovascular:  "뇌심혈관계질병"
-        cancer:          "암"
-        pneumoconiosis:  "진폐"
-        respiratory:     "호흡기질병"
+        undefined: ""
+        musculoskeletal: 근골격계질병
+        other_disease: 기타질병
+        hearing_loss: 소음성난청
+        cardiovascular: 뇌심혈관계질병
+        cancer: 암
+        pneumoconiosis: 진폐
+        respiratory: 호흡기질병
       disease_case/body_part_enum:
-        chest_back:        "흉부/등"
-        ear:               "귀"
-        other:             "기타"
-        eye:               "눈"
-        leg:               "다리"
-        head:              "머리/뇌"
-        neck:              "목"
-        foot:              "발/발가락"
-        abdomen:           "복부"
-        multiple:          "복합부위"
-        urogenital:        "비뇨생식기"
-        digestive:         "소화기"
-        hand:              "손/손가락"
-        circulatory:       "순환기"
-        nervous_system:    "신경계"
-        face:              "안면"
-        hip:               "엉덩이"
-        whole_body:        "전신"
-        arm:               "팔"
-        lower_back:        "허리"
-        respiratory_organ: "호흡기"
+        undefined: ""
+        chest_back: 흉부/등
+        ear: 귀
+        other: 기타
+        eye: 눈
+        leg: 다리
+        head: 머리/뇌
+        neck: 목
+        foot: 발/발가락
+        abdomen: 복부
+        multiple: 복합부위
+        urogenital: 비뇨생식기
+        digestive: 소화기
+        hand: 손/손가락
+        circulatory: 순환기
+        nervous_system: 신경계
+        face: 안면
+        hip: 엉덩이
+        whole_body: 전신
+        arm: 팔
+        lower_back: 허리
+        respiratory_organ: 호흡기

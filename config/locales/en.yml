@@ -1,39 +1,23 @@
+---
 en:
-  disease_case:
-    case_no: "No."
-    disease_name: "Disease"
-    result: "Result"
-    year: "Year"
-    disease_category: "Category"
-    body_part: "Body Part"
-    decided_on: "Decision Date"
-    link: "Source"
-    statement: "Order"
-    claim_purpose: "Claim Purpose"
-    application_content: "Application Content"
-    applicant_claim: "Applicant Claim"
-    medical_records: "Medical Records"
-    recognized_facts: "Recognized Facts"
-    related_laws: "Related Laws"
-    committee_decision: "Committee Decision"
-  search:
-    title: "Occupational Disease Search"
-    placeholder: "Search judgments..."
-    advanced: "Advanced Search"
-    results: "results"
-    over_cap: "Over 500 results — please refine your search."
-    fallback_notice: "No exact results found. Showing similar results."
-    no_results: "No results found."
-    sort_relevance: "Relevance"
-    sort_recent: "Recent"
-    all_results: "All"
-    filter:
-      result: "Result"
-      year: "Year"
-      disease_category: "Category"
-      body_part: "Body Part"
-      decided_on_from: "Decision Date (from)"
-      decided_on_to: "Decision Date (to)"
   helpers:
     submit:
-      search: "Search"
+      search: Search
+  search:
+    advanced: Advanced Search
+    all_results: All
+    fallback_notice: No exact results found. Showing similar results.
+    filter:
+      body_part: Body Part
+      decided_on_from: Decision Date (from)
+      decided_on_to: Decision Date (to)
+      disease_category: Category
+      result: Result
+      year: Year
+    no_results: No results found.
+    over_cap: Over 500 results — please refine your search.
+    placeholder: Search judgments...
+    results: results
+    sort_recent: Recent
+    sort_relevance: Relevance
+    title: Occupational Disease Search

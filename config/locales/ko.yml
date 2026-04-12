@@ -1,39 +1,23 @@
+---
 ko:
-  disease_case:
-    case_no: "연번"
-    disease_name: "신청질병"
-    result: "심의결과"
-    year: "심의연도"
-    disease_category: "질병분류"
-    body_part: "신체부위"
-    decided_on: "판정일"
-    link: "원문"
-    statement: "주문"
-    claim_purpose: "청구 취지"
-    application_content: "신청 내용"
-    applicant_claim: "신청인 주장"
-    medical_records: "진료기록 및 의학적 소견"
-    recognized_facts: "인정 사실"
-    related_laws: "관계 법령"
-    committee_decision: "위원회 판단 및 결론"
-  search:
-    title: "업무상질병 판정서 검색"
-    placeholder: "판정서 검색..."
-    advanced: "상세 검색"
-    results: "건"
-    over_cap: "500건 초과 — 검색어를 구체화하세요."
-    fallback_notice: "정확한 결과가 없어 유사한 결과를 보여드립니다."
-    no_results: "검색 결과가 없습니다."
-    sort_relevance: "관련도순"
-    sort_recent: "최신순"
-    all_results: "전체"
-    filter:
-      result: "심의결과"
-      year: "심의연도"
-      disease_category: "질병분류"
-      body_part: "신체부위"
-      decided_on_from: "판정일 (시작)"
-      decided_on_to: "판정일 (종료)"
   helpers:
     submit:
-      search: "검색"
+      search: 검색
+  search:
+    advanced: 상세 검색
+    all_results: 전체
+    fallback_notice: 정확한 결과가 없어 유사한 결과를 보여드립니다.
+    filter:
+      body_part: 신체부위
+      decided_on_from: 판정일 (시작)
+      decided_on_to: 판정일 (종료)
+      disease_category: 질병분류
+      result: 심의결과
+      year: 심의연도
+    no_results: 검색 결과가 없습니다.
+    over_cap: 500건 초과 — 검색어를 구체화하세요.
+    placeholder: 판정서 검색...
+    results: 건
+    sort_recent: 최신순
+    sort_relevance: 관련도순
+    title: 업무상질병 판정서 검색

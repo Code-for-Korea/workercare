@@ -1,38 +1,58 @@
+---
 en:
   activerecord:
     attributes:
-      disease_case/result_enum:
-        approved:           "Approved"
-        rejected:           "Rejected"
-        partially_approved: "Partially Approved"
-        revised_approved:   "Revised Approved"
-      disease_case/disease_category_enum:
-        musculoskeletal: "Musculoskeletal"
-        other_disease:   "Other Disease"
-        hearing_loss:    "Hearing Loss"
-        cardiovascular:  "Cardiovascular"
-        cancer:          "Cancer"
-        pneumoconiosis:  "Pneumoconiosis"
-        respiratory:     "Respiratory"
-      disease_case/body_part_enum:
-        chest_back:        "Chest / Back"
-        ear:               "Ear"
-        other:             "Other"
-        eye:               "Eye"
-        leg:               "Leg"
-        head:              "Head / Brain"
-        neck:              "Neck"
-        foot:              "Foot / Toes"
-        abdomen:           "Abdomen"
-        multiple:          "Multiple Sites"
-        urogenital:        "Urogenital"
-        digestive:         "Digestive"
-        hand:              "Hand / Fingers"
-        circulatory:       "Circulatory"
-        nervous_system:    "Nervous System"
-        face:              "Face"
-        hip:               "Hip"
-        whole_body:        "Whole Body"
-        arm:               "Arm"
-        lower_back:        "Lower Back"
-        respiratory_organ: "Respiratory Organ"
+      disease_case:
+        applicant_claim: Applicant Claim
+        application_content: Application Content
+        body_part: Body Part
+        case_no: No.
+        claim_purpose: Claim Purpose
+        committee_decision: Committee Decision
+        decided_on: Decision Date
+        disease_category: Category
+        disease_name: Disease
+        link: Source
+        medical_records: Medical Records
+        recognized_facts: Recognized Facts
+        related_laws: Related Laws
+        result: Result
+        statement: Order
+        year: Year
+        disease_case/result_enum:
+          approved:           "Approved"
+          rejected:           "Rejected"
+          partially_approved: "Partially Approved"
+          revised_approved:   "Revised Approved"
+        disease_case/disease_category_enum:
+          undefined: ""
+          musculoskeletal: "Musculoskeletal"
+          other_disease:   "Other Disease"
+          hearing_loss:    "Hearing Loss"
+          cardiovascular:  "Cardiovascular"
+          cancer:          "Cancer"
+          pneumoconiosis:  "Pneumoconiosis"
+          respiratory:     "Respiratory"
+        disease_case/body_part_enum:
+          undefined: ""
+          chest_back:        "Chest / Back"
+          ear:               "Ear"
+          other:             "Other"
+          eye:               "Eye"
+          leg:               "Leg"
+          head:              "Head / Brain"
+          neck:              "Neck"
+          foot:              "Foot / Toes"
+          abdomen:           "Abdomen"
+          multiple:          "Multiple Sites"
+          urogenital:        "Urogenital"
+          digestive:         "Digestive"
+          hand:              "Hand / Fingers"
+          circulatory:       "Circulatory"
+          nervous_system:    "Nervous System"
+          face:              "Face"
+          hip:               "Hip"
+          whole_body:        "Whole Body"
+          arm:               "Arm"
+          lower_back:        "Lower Back"
+          respiratory_organ: "Respiratory Organ"
