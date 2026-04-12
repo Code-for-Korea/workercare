@@ -61,12 +61,16 @@ class DiseaseCase < ApplicationRecord
 
   def self.detail_sections
     %i[statement claim_purpose application_content applicant_claim
-    medical_records recognized_facts related_laws committee_decision].map {
-      [ it,  DiseaseCase.human_attribute_name(it) ]
+      medical_records recognized_facts related_laws committee_decision].map {
+      [ it, DiseaseCase.human_attribute_name(it) ]
     }.to_h
   end
 
   def self.enum_options_for_select_with_blank(enum_name)
+    [ [ "— #{I18n.t("search.all_results")} —", "" ] ] + DiseaseCase.enum_options_for_select(enum_name).to_a
+  end
+
+  def self.enum_options_for_select_multiple(enum_name)
     [ [ "— #{I18n.t("search.all_results")} —", "" ] ] + DiseaseCase.enum_options_for_select(enum_name).to_a
   end
 

@@ -6,7 +6,9 @@ ko:
   search:
     advanced: 상세 검색
     all_results: 전체
+    deselect_all: 전체 해제
     fallback_notice: 정확한 결과가 없어 유사한 결과를 보여드립니다.
+    select_all: 전체 선택
     filter:
       body_part: 신체부위
       decided_on_from: 판정일 (시작)
@@ -18,6 +20,8 @@ ko:
     over_cap: 500건 초과 — 검색어를 구체화하세요.
     placeholder: 판정서 검색...
     results: 건
+    search_in_columns: 검색 대상
+    sort_label: 정렬
     sort_recent: 최신순
     sort_relevance: 관련도순
     title: 업무상질병 판정서 검색

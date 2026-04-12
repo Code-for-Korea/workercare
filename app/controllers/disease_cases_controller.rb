@@ -34,7 +34,7 @@ class DiseaseCasesController < ApplicationController
   end
 
   def search_params
-    params.permit(:q, :result, :year, :disease_category, :body_part, :decided_on_from, :decided_on_to, :sort, :commit)
+    params.permit(:q, :result, :year, :decided_on_from, :decided_on_to, :sort, :commit, :search, search_in: [], disease_category: [], body_part: [])
   end
 
   def log_search_event
