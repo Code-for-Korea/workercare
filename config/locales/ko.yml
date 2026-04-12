@@ -21,6 +21,7 @@ ko:
     placeholder: 판정서 검색...
     results: 건
     search_in_columns: 검색 대상
+    loading: 검색 중입니다...
     sort_label: 정렬
     sort_recent: 최신순
     sort_relevance: 관련도순

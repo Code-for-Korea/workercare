@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Clean up old Docker images after deployment
+# to prevent "conflict: unable to delete image" errors during prune
+
+# KAMAL_HOSTS contains space-separated host list
+for host in $KAMAL_HOSTS; do
+  echo "Pruning Docker images on $host..."
+  ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new $host "docker system prune -f" 2>/dev/null || echo "Warning: Failed to prune on $host"
+done

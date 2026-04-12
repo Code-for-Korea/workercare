@@ -6,7 +6,9 @@ en:
   search:
     advanced: Advanced Search
     all_results: All
+    deselect_all: Deselect All
     fallback_notice: No exact results found. Showing similar results.
+    select_all: Select All
     filter:
       body_part: Body Part
       decided_on_from: Decision Date (from)
@@ -18,6 +20,9 @@ en:
     over_cap: Over 500 results — please refine your search.
     placeholder: Search judgments...
     results: results
+    search_in_columns: Search In
+    loading: Searching...
+    sort_label: Sort
     sort_recent: Recent
     sort_relevance: Relevance
     title: Occupational Disease Search
