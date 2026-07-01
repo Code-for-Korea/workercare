@@ -64,4 +64,4 @@ group :development do
   gem "web-console"
 end
 
-gem "actionmcp", "~> 0.107.1"
+gem "actionmcp", "~> 0.111.1"
