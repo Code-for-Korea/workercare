@@ -63,4 +63,5 @@ builder:
 
 # SSH 접속 설정 (root가 아닌 사용자)
 ssh:
-  user: ubuntu
+#  user: ubuntu
+  user: rocky
