@@ -74,35 +74,37 @@
 | DB 컬럼 (snake_case) | 원본 CSV 컬럼 | 타입 | 인덱스 | 검색/필터 용도 |
 |----------------------|--------------|------|--------|---------------|
 | `job_name` | 직종명 | `string` | ✅ | 직업 필터, FTS5 |
-| `job_description` | 담당_업무 | `text` | — | 하는일 필터, FTS5 |
+| `job_description` | 담당_업무 | `text` | — | 하는일 필터, FTS5. **주의**: 아래 5.3/5.4절 코드 예시에서도 반드시 `job_description`으로 통일해서 참조한다 (`duty_description`이라는 이름은 이 문서 어디에도 쓰지 않는다 — 실제 컬럼이 존재하지 않아 strong params가 값을 버리고 FTS/임포트 코드가 없는 컬럼을 참조해 런타임 에러가 난다) |
 | `employment_type` | 고용_형태 | `string` | ✅ | 고용 형태 필터 (드롭다운) |
 | `work_type` | 근무_형태 | `string` | ✅ | 근무 형태 필터 |
-| `job_tenure` | 현_직종_총_종사기간 | `string` | — | 기간 표시 (원본 단위 보존) |
+| `job_tenure_months` | 현_직종_총_종사기간 | `integer` | — | `wip/cerebras_prompts.rb`의 추출 스키마상 숫자(개월)이므로 `string`이 아닌 `integer`로 저장 |
 | `weekly_work_hours` | 1주_평균_근무시간 | `decimal` | — | 통계/표시 |
 | `daily_work_hours` | 1일_평균_근무시간 | `decimal` | — | 통계/표시 |
-| `burden_body_part` | 부담_신체_부위 | `string` | ✅ | 아픈 신체 부위 필터 |
-| `bad_posture` | 주요_부적절한_자세 | `string` | — | 부적절 자세 표시 |
+| `burden_body_part` | 부담_신체_부위 | `text` | — | **다중값**: 추출 스키마상 배열이며 실제 CSV에도 파이프(`\|`)로 구분되어 저장됨(예: `"목\|상체\|하체"`). 파이프 구분 문자열 그대로 저장하고, 필터는 exact match(`where(burden_body_part: ...)`)도, 단순 `LIKE '%값%'`도 아닌 **파이프 경계를 인식하는 LIKE**로 처리한다 (5.3절 참고) — 단순 substring 매칭은 CSV에 이미 공존하는 "목"/"뒷목"/"손목"/"발목" 때문에 "목" 선택 시 "손목"만 있는 레코드까지 잘못 걸린다. 부분 문자열 매칭이라 인덱스 효과가 없어 인덱스는 만들지 않는다 |
+| `bad_posture` | 주요_부적절한_자세 | `text` | — | 다중값(파이프 구분), 표시용 |
 | `heavy_lifting` | 중량물_취급_여부 | `string` (Y/N) | ✅ | 중량물 취급 필터 |
-| `max_item_weight` | 취급_물품_최대_무게 | `string` | — | 무게 표시 |
-| `daily_total_weight` | 1일_취급_총_누적_중량 | `string` | — | 중량 표시 |
-| `other_harmful_factors` | 기타_유해요인_노출 | `text` | — | 유해요인 표시, FTS5 후보 |
-| `work_relevance_eval` | 업무관련성_평가 | `string` | ✅ | 업무관련성 필터 (낮음/보통/높음/매우_높음) |
-| `aggravating_factors` | 업묵부담_가중요인_노출 | `text` | — | 가중요인 표시, FTS5 후보 |
-| `main_reasoning` | 판단_주요_근거 | `text` | — | 판단 근거 FTS5 |
+| `max_item_weight` | 취급_물품_최대_무게 | `decimal` | — | 추출 스키마상 숫자(kg) |
+| `daily_total_weight` | 1일_취급_총_누적_중량 | `decimal` | — | 추출 스키마상 숫자(kg) |
+| `other_harmful_factors` | 기타_유해요인_노출 | `text` | — | 다중값(파이프 구분), 표시, FTS5 후보 |
+| `work_relevance_eval` | 업무관련성_평가 | `string` | ✅ | 업무관련성 필터. **주의**: 추출 스키마(`wip/cerebras_prompts.rb`)상 허용값은 6개 — `매우_높음/높음/보통/낮음/매우_낮음/미흡`. 4개만 나열하면 `매우_낮음`/`미흡` 데이터가 필터로 찾을 수 없게 된다 |
+| `aggravating_factors` | 업묵부담_가중요인_노출 | `text` | — | 다중값(파이프 구분, 원본 컬럼명의 오타 "업묵부담"은 그대로 둠), FTS5 후보 |
+| `main_reasoning` | 판단_주요_근거 | `text` | — | 다중값(파이프 구분), FTS5 |
 | `death_status` | 사망_여부 | `string` (Y/N) | ✅ | **사망 여부 필터** |
 | `application_type` | 신청서_종류 | `string` | ✅ | **신청서 유형 필터** |
 
 > **참고**: `boolean` 대신 `string`로 Y/N을 저장하면 원본 그대로 유지되며, 나중에 `enum`으로 전환하기도 쉽다. SQLite boolean은 사실상 integer라 차이 미미.
+> **숫자 필드 주의**: `job_tenure_months`/`max_item_weight`/`daily_total_weight`를 문자열로 저장하면 정렬·범위 필터·유효성 검증에서 숫자 semantics를 잃는다. 반드시 `integer`/`decimal`로 저장한다.
 
 ### 3.2 Enum 후보 (데이터 분석 후 결정)
 
 아래 컬럼은 cardinality가 낮으면 enum으로 전환하여 필터 UI 일관성을 높인다.
 
 - `employment_type`: `["상용직", "일용직", ""]` (빈 값은 미상)
-- `work_type`: `["고정 주간근무", "교대근무", "주간고정근무", ...]` (데이터 profiling 후 확정)
-- `work_relevance_eval`: `["낮음", "보통", "높음", "매우_높음"]`
+- `work_type`: `["고정 주간근무", "교대근무", "주간고정근무", ...]` (데이터 profiling 후 확정 — 실제 값은 `"주간고정근무 (일부 야간작업)"`처럼 괄호 부가 설명이 붙어 자유 텍스트에 가까움)
+- `work_relevance_eval`: `["매우_높음", "높음", "보통", "낮음", "매우_낮음", "미흡"]` (`wip/cerebras_prompts.rb`의 추출 스키마 기준 6개 전부 — 4개만 쓰면 `매우_낮음`/`미흡` 데이터를 필터로 찾을 수 없다)
 - `death_status`: `["Y", "N"]` → boolean enum 처리 가능
 - `application_type`: `["요양급여", "유족급여 및 장의비", "요양급여신청서", "유족급여 및 장의비청구서", ...]` (정규화 필요)
+- `burden_body_part`/`bad_posture`: 파이프 구분 다중값이므로 단일 컬럼 enum으로 만들지 않는다. 체크박스 목록은 임포트 후 `distinct` 값을 `"|"`로 split해 profiling한 뒤 확정한다.
 
 ---
 
@@ -115,13 +117,15 @@
 
 ### 4.1 `KscoCode` 모델 (`db/migrate/xxx_create_ksco_codes.rb`)
 
+> **컬럼명 확정**: `code`에 대한 이름 컬럼은 `level4_name`이 아니라 `name`으로, `level1_name`/`level2_name`/`level3_name`은 각각 `major`/`submajor`/`minor`로 만든다 (아래 표·마이그레이션·모델·자동완성 예시 전부 이 이름을 사용).
+
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | `code` | `string` | PK | 4자리 코드 (예: 9414) |
-| `level4_name` | `string` | — | 세분류 (예: 재활용품 및 쓰레기 수거원) |
-| `level3_name` | `string` | — | 소분류 (예: 재활용 처리 및 소각로 조작원) |
-| `level2_name` | `string` | — | 중분류 |
-| `level1_name` | `string` | — | 대분류 (예: 관리자) |
+| `name` | `string` | — | 세분류 (was `level4_name`, 예: 재활용품 및 쓰레기 수거원) |
+| `minor` | `string` | — | 소분류 (was `level3_name`, 예: 재활용 처리 및 소각로 조작원) |
+| `submajor` | `string` | — | 중분류 (was `level2_name`) |
+| `major` | `string` | — | 대분류 (was `level1_name`, 예: 관리자) |
 | `job_examples` | `text` | — | 직업예시 (파이프 구분) |
 | `exclusions` | `text` | — | 직업제외 |
 
@@ -139,10 +143,10 @@ end
 ```ruby
 create_table :ksco_codes, id: false do |t|
   t.string :code, primary_key: true
-  t.string :level4_name
-  t.string :level3_name
-  t.string :level2_name
-  t.string :level1_name
+  t.string :name       # 세분류 (was level4_name)
+  t.string :minor      # 소분류 (was level3_name)
+  t.string :submajor   # 중분류 (was level2_name)
+  t.string :major      # 대분류 (was level1_name)
   t.text   :job_examples
   t.text   :exclusions
 end
@@ -175,8 +179,8 @@ has_many :ksco_codes, through: :disease_case_ksco_codes
 ### 4.3 직업 필터 검색 시나리오
 
 1. **직종명 텍스트 검색**: `job_name` 컬럼 LIKE/FTS5 검색.
-2. **KSCO 코드 필터**: 사용자가 KSCO 분류(대분류→중분류→소분류→세분류)를 선택하면, 해당 코드를 가진 `DiseaseCase`를 `JOIN`으로 검색.
-3. **자동완성**: `KscoCode.level4_name`을 대상으로 prefix 검색하여 드롭다운 제안.
+2. **KSCO 코드 필터**: 사용자가 KSCO 분류(대분류`major`→중분류`submajor`→소분류`minor`→세분류`name`)를 선택하면, 해당 코드를 가진 `DiseaseCase`를 `JOIN`으로 검색.
+3. **자동완성**: `KscoCode.name`을 대상으로 prefix 검색하여 드롭다운 제안.
 
 ---
 
@@ -241,10 +245,10 @@ class DiseaseCasesController < ApplicationController
 
   def main_search_params
     params.permit(
-      :q, :job_name, :duty_description, :burden_body_part,
+      :q, :job_name, :job_description,
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
-      ksco_code: []
+      burden_body_part: [], ksco_code: []
     )
   end
 end
@@ -255,6 +259,7 @@ end
 기존 `DiseaseCases::Searchable`는 `/search` (legacy)용으로 그대로 유지.
 새 concern `DiseaseCases::MainSearchable`를 생성하여 `/` (main)용 로직을 분리.
 > **리팩토링 주의**: `normalize_query`, `build_fts_query`, `sanitize_sql_like` 기반 substring fallback 등은 두 concern에서 **동일한 로직**이다. 구현 시 `DiseaseCases::Searchable`의 private 메서드를 protected로 변경하거나, 별도 `DiseaseCases::QueryBuilder` 모듈로 추출하여 양쪽 concern에서 `include`/`delegate`로 재사용한다. 코드 중복을 피해야 향후 한국어 파티클 처리, SQL Injection 방지 등의 수정이 한 곳에서만 이루어진다.
+> **상수 lookup 주의**: `normalize_query`는 메서드이므로 공유 모듈에 옮기고 `include`해도 ancestry를 통해 정상 호출된다. 하지만 `KOREAN_PARTICLES`는 상수이고, Ruby의 비한정(unqualified) 상수 조회는 호출부의 **lexical scope**를 우선 따른다. 그래서 `KOREAN_PARTICLES`를 `QueryBuilder` 쪽으로 옮기고 `Searchable#build_fts_query`에 남아있는 `token.gsub(KOREAN_PARTICLES, "")` 같은 비한정 참조를 그대로 두면 `include`만으로는 해결되지 않고 `NameError`가 난다. 상수까지 옮기려면 남은 참조를 `DiseaseCases::QueryBuilder::KOREAN_PARTICLES`처럼 완전한 이름으로 바꾸거나, 더 안전하게 이번에는 `KOREAN_PARTICLES` 상수는 그대로 두고 `normalize_query` 메서드만 공유 모듈로 추출한다.
 
 ```ruby
 # app/models/concerns/disease_cases/main_searchable.rb
@@ -264,7 +269,7 @@ module DiseaseCases
 
     MAIN_SEARCHABLE_COLUMNS = %w[
       job_name
-      duty_description
+      job_description
       main_reasoning
       other_harmful_factors
       aggravating_factors
@@ -308,12 +313,31 @@ module DiseaseCases
           scope = scope.where("job_name LIKE ?", "%#{safe}%")
         end
 
-        if params[:duty_description].present?
-          safe = sanitize_sql_like(params[:duty_description])
-          scope = scope.where("duty_description LIKE ?", "%#{safe}%")
+        if params[:job_description].present?
+          safe = sanitize_sql_like(params[:job_description])
+          scope = scope.where("job_description LIKE ?", "%#{safe}%")
         end
 
-        scope = scope.where(burden_body_part: params[:burden_body_part]) if params[:burden_body_part].present?
+        # 부담_신체_부위는 파이프(|)로 구분된 다중값 텍스트다(예: "목|상체|하체").
+        # exact match(where(burden_body_part: ...))는 다른 값과 같이 저장된 케이스를 놓치므로 LIKE로 매칭해야 하지만,
+        # 단순 LIKE '%값%'은 부분 문자열까지 잡아 오검색을 낸다 — 실제 CSV에 "목", "뒷목", "손목", "발목"이 전부
+        # 존재하므로 "목"으로 LIKE '%목%' 검색하면 "손목"/"발목"/"뒷목"만 있는 레코드까지 잘못 걸린다.
+        # 파이프 구분자를 토큰 경계로 취급해 정확히 그 토큰만 매칭한다: 정확히 일치, 맨앞(다음이 |),
+        # 맨뒤(앞이 |), 중간(양쪽이 |) 네 가지 경우를 모두 확인한다.
+        if params[:burden_body_part].present?
+          values = Array(params[:burden_body_part]).reject(&:blank?)
+          if values.any?
+            conditions = values.map {
+              "(burden_body_part = ? OR burden_body_part LIKE ? OR burden_body_part LIKE ? OR burden_body_part LIKE ?)"
+            }.join(" OR ")
+            binds = values.flat_map { |v|
+              safe = sanitize_sql_like(v)
+              [v, "#{safe}|%", "%|#{safe}", "%|#{safe}|%"]
+            }
+            scope = scope.where(conditions, *binds)
+          end
+        end
+
         scope = scope.where(death_status: params[:death_status]) if params[:death_status].present?
         scope = scope.where(application_type: params[:application_type]) if params[:application_type].present?
         scope = scope.where(employment_type: params[:employment_type]) if params[:employment_type].present?
@@ -350,7 +374,7 @@ module DiseaseCases
 
       def substring_job_fallback(tokens)
         safe_tokens = tokens.first(2).map { |token| sanitize_sql_like(token) }
-        conditions = safe_tokens.map { "job_name LIKE ? OR duty_description LIKE ?" }.join(" AND ")
+        conditions = safe_tokens.map { "job_name LIKE ? OR job_description LIKE ?" }.join(" AND ")
         binds = safe_tokens.flat_map { |token| ["%#{token}%", "%#{token}%"] }
         where(conditions, *binds)
       end
@@ -372,7 +396,7 @@ class CreateDiseaseCasesExtractedFts < ActiveRecord::Migration[8.1]
       CREATE VIRTUAL TABLE disease_cases_extracted_fts
       USING fts5(
         job_name,
-        duty_description,
+        job_description,
         main_reasoning,
         other_harmful_factors,
         aggravating_factors,
@@ -387,16 +411,18 @@ class CreateDiseaseCasesExtractedFts < ActiveRecord::Migration[8.1]
       CREATE TRIGGER disease_cases_extracted_fts_insert
       AFTER INSERT ON disease_cases BEGIN
         INSERT INTO disease_cases_extracted_fts(
-          rowid, job_name, duty_description, main_reasoning,
+          rowid, job_name, job_description, main_reasoning,
           other_harmful_factors, aggravating_factors
         ) VALUES (
-          new.id, new.job_name, new.duty_description, new.main_reasoning,
+          new.id, new.job_name, new.job_description, new.main_reasoning,
           new.other_harmful_factors, new.aggravating_factors
         );
       END;
     SQL
 
-    # ... UPDATE/DELETE triggers 동일 패턴
+    # UPDATE/DELETE triggers는 db/migrate/20260326000002_create_disease_cases_fts.rb의
+    # disease_cases_fts_delete/disease_cases_fts_update 트리거와 동일한 패턴(delete pseudo-row 후 재삽입)을
+    # 위 5개 컬럼(job_name, job_description, main_reasoning, other_harmful_factors, aggravating_factors)으로 그대로 적용한다.
   end
 end
 ```
@@ -410,8 +436,8 @@ end
 | 필터 | 입력 방식 | 대상 컬럼/관계 | 비고 |
 |------|----------|---------------|------|
 | **직업 (직종명)** | 텍스트 입력 + KSCO 자동완성 | `job_name` (FTS5) / `ksco_codes` (JOIN) | KSCO 선택 시 해당 코드 연결된 판정서 검색 |
-| **하는일 (담당 업무)** | 텍스트 입력 | `duty_description` (FTS5) | 한국어 조사 제거 적용 |
-| **아픈 신체 부위** | 드롭다운 / 멀티셀렉트 | `burden_body_part` | 데이터 profiling 후 distinct 값으로 enum 또는 string 필터 |
+| **하는일 (담당 업무)** | 텍스트 입력 | `job_description` (FTS5) | 한국어 조사 제거 적용 |
+| **아픈 신체 부위** | 체크박스 멀티셀렉트 | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 체크박스 후보 목록은 임포트 후 distinct 값을 `"\|"` split해 profiling |
 | **신청서 유형** | 드롭다운 | `application_type` | 정규화된 enum 값 |
 | **사망 여부** | 스위치 / 체크박스 | `death_status` | Y/N |
 | **Full-text 검색** | 텍스트 입력 | `disease_cases_extracted_fts` (5개 컬럼) | 기존 FTS5 패턴 재사용 |
@@ -421,7 +447,7 @@ end
 ### 6.2 KSCO 필터 상호작용
 
 1. 사용자가 "버스 운전원" 입력.
-2. 자동완성이 `KscoCode.where("level4_name LIKE ?", "버스 운전원%")`로 제안.
+2. 자동완성이 `KscoCode.where("name LIKE ?", "버스 운전원%")`로 제안.
 3. 사용자가 KSCO 코드 `8722` 선택.
 4. 검색 쿼리: `DiseaseCase.joins(:ksco_codes).where(ksco_codes: { code: "8722" })`.
 5. 선택된 KSCO 코드는 파라미터 `ksco_code[]`로 전달 (멀티 선택 가능).
@@ -446,10 +472,10 @@ namespace :import do
     imported = 0
     CSV.foreach(path, headers: true, encoding: "UTF-8") do |row|
       KscoCode.find_or_initialize_by(code: row["코드"].to_s.strip).update!(
-        level4_name: row["세분류"].to_s.strip,
-        level3_name: row["소분류"].to_s.strip,
-        level2_name: row["중분류"].to_s.strip,
-        level1_name: row["대분류"].to_s.strip,
+        name: row["세분류"].to_s.strip,
+        minor: row["소분류"].to_s.strip,
+        submajor: row["중분류"].to_s.strip,
+        major: row["대분류"].to_s.strip,
         job_examples: row["직업예시"].to_s.strip,
         exclusions: row["직업제외"].to_s.strip
       )
@@ -489,20 +515,21 @@ namespace :import do
         next
       end
 
-      # 1. 기존 DiseaseCase 속성 업데이트
+      # 1. 기존 DiseaseCase 속성 업데이트 (숫자 필드는 반드시 to_i/to_d로 저장 — job_tenure_months/max_item_weight/
+      #    daily_total_weight는 wip/cerebras_prompts.rb 추출 스키마상 숫자이므로 문자열로 남기지 않는다)
       record.update!(
         job_name: row["직종명"].to_s.strip,
-        duty_description: row["담당_업무"].to_s.strip,
+        job_description: row["담당_업무"].to_s.strip,
         employment_type: row["고용_형태"].to_s.strip,
         work_type: row["근무_형태"].to_s.strip,
-        job_tenure: row["현_직종_총_종사기간"].to_s.strip,
+        job_tenure_months: row["현_직종_총_종사기간"].to_s.strip.presence&.to_i,
         weekly_work_hours: row["1주_평균_근무시간"].to_s.strip.presence&.to_d,
         daily_work_hours: row["1일_평균_근무시간"].to_s.strip.presence&.to_d,
         burden_body_part: row["부담_신체_부위"].to_s.strip,
         bad_posture: row["주요_부적절한_자세"].to_s.strip,
         heavy_lifting: row["중량물_취급_여부"].to_s.strip,
-        max_item_weight: row["취급_물품_최대_무게"].to_s.strip,
-        daily_total_weight: row["1일_취급_총_누적_중량"].to_s.strip,
+        max_item_weight: row["취급_물품_최대_무게"].to_s.strip.presence&.to_d,
+        daily_total_weight: row["1일_취급_총_누적_중량"].to_s.strip.presence&.to_d,
         other_harmful_factors: row["기타_유해요인_노출"].to_s.strip,
         work_relevance_eval: row["업무관련성_평가"].to_s.strip,
         aggravating_factors: row["업묵부담_가중요인_노출"].to_s.strip,
@@ -511,24 +538,60 @@ namespace :import do
         application_type: row["신청서_종류"].to_s.strip
       )
 
-      # 2. KSCO 매핑 저장 (JSON 파싱)
+      # 1-1. 최종_산재_인정_여부와 기존 result 비교 — 덮어쓰지 않고 불일치만 로그
+      #      (import_disease_cases.rake의 전역 상수 RESULT_MAP을 그대로 재사용)
+      extracted_result_raw = row["최종_산재_인정_여부"].to_s.strip
+      extracted_result = RESULT_MAP[extracted_result_raw]
+      if extracted_result && record.result.present? && record.result != extracted_result
+        warn "result 불일치 (case_no=#{case_no}): 기존=#{record.result} 추출=#{extracted_result}"
+      end
+
+      # 2. KSCO 매핑 동기화 (JSON 파싱) — 이번 CSV의 ksco_codes_json을 "전체 목표 집합"으로 취급한다.
+      #    이 데이터는 추출 프롬프트/모델이 개선될 때마다 재추출·재임포트되므로, upsert만 하면
+      #    이전에 붙었지만 이번에는 빠진 코드가 그대로 남아 ksco_code 필터가 오래된(false positive)
+      #    매핑까지 매칭하게 된다. 그래서 매번 "현재 JSON에 없는 매핑은 제거"까지 함께 수행한다.
+      # 주의: current_codes는 "이번 JSON에 언급된 코드 전체"여야 한다 — KscoCode 테이블에 아직
+      # 없어서 skip한 코드도 포함해야 한다. 그렇지 않으면(= 실제로 attach에 성공한 코드만 넣으면)
+      # 참조 데이터(KscoCode)가 아직 불완전할 뿐인데 그 코드에 대한 기존 매핑까지 destroy_all로
+      # 지워버려, 복구 가능한 참조 데이터 누락이 데이터 손실(및 ksco_code 필터의 false negative)로 이어진다.
       ksco_json = row["ksco_codes_json"].to_s.strip
       if ksco_json.present?
-        JSON.parse(ksco_json).each_with_index do |item, idx|
-          code = item["ksco_code"].to_s.strip
-          next if code.blank?
-
-          ksco = KscoCode.find_by(code: code)
-          unless ksco
-            warn "KSCO 코드 없음: #{code} (case_no=#{case_no})"
-            next
+        parsed =
+          begin
+            JSON.parse(ksco_json)
+          rescue JSON::ParserError => e
+            warn "ksco_codes_json 파싱 실패, KSCO 매핑 동기화 건너뜀 (case_no=#{case_no}): #{e.message}"
+            nil
           end
 
-          record.disease_case_ksco_codes.find_or_initialize_by(ksco_code_id: code).update!(
-            similarity: item["similarity"].to_f
-          )
+        if parsed
+          current_codes = []
+          parsed.each do |item|
+            code = item["ksco_code"].to_s.strip
+            next if code.blank?
+
+            current_codes << code
+
+            ksco = KscoCode.find_by(code: code)
+            unless ksco
+              warn "KSCO 코드 없음: #{code} (case_no=#{case_no}) — 매핑은 유지, 참조 데이터 보완 후 재실행 필요"
+              next
+            end
+
+            record.disease_case_ksco_codes.find_or_initialize_by(ksco_code_id: code).update!(
+              similarity: item["similarity"].to_f
+            )
+          end
+
+          # JSON 파싱에 성공했을 때만 "이번 JSON에 없는 매핑 제거"를 수행한다.
+          record.disease_case_ksco_codes.where.not(ksco_code_id: current_codes).destroy_all
         end
       end
+      # ksco_codes_json이 비어있거나 파싱 실패한 행은 삭제 동기화를 건너뛴다. 추출이 KSCO 필드를
+      # 누락했는지, 형식이 깨졌는지, 아니면 정말 "매칭 없음"인지 CSV만으로는 구분할 수 없으므로,
+      # "비어있음 = 매핑 없음"으로 단정해 기존 매핑을 지우지 않는다 (안전한 기본값).
+      # 추출기가 "빈 값은 항상 KSCO 매칭 없음을 의미한다"를 보장하게 되면, 이 가드를 없애고
+      # 빈 값에서도 destroy_all이 실행되도록 바꿀 수 있다.
 
       imported += 1
     rescue => e
@@ -547,7 +610,9 @@ namespace :import do
 end
 ```
 
-> **주의**: `ksco_codes_json`에 포함된 코드가 `KscoCode` 테이블에 없는 경우가 있을 수 있다 (CSV가 완전하지 않을 수 있음). `find_or_initialize_by` + `warn`로 처리.
+> **주의**: `ksco_codes_json`에 포함된 코드가 `KscoCode` 테이블에 없는 경우가 있을 수 있다 (CSV가 완전하지 않을 수 있음). 이 경우 `warn`만 남기고 해당 코드의 조인 row는 만들지 않지만, `current_codes`에는 여전히 포함시켜 이후 `destroy_all`이 그 코드에 대한 **기존** 매핑까지 지우지 않도록 한다 — 참조 데이터 누락과 "이번 추출에서 실제로 빠짐"을 구분해야 재발급된 `KscoCode`로 재실행했을 때 데이터가 복구된다.
+> **주의**: 위 코드가 참조하는 `RESULT_MAP`은 `lib/tasks/import_disease_cases.rake` 최상단에 정의된 전역 Ruby 상수를 그대로 재사용한다 (rake 파일이 로드되면 `namespace` 블록 밖의 최상위 상수는 전역으로 접근 가능). 별도로 다시 정의하지 않는다.
+> **해결됨**: 이전 버전은 `ksco_codes_json`이 비어있어도 `destroy_all`을 무조건 실행해 해당 판정서의 모든 기존 KSCO 매핑을 지웠다. 위 코드는 `ksco_json.present?`이고 JSON 파싱이 성공했을 때만 `destroy_all`을 실행하도록 가드를 추가했다 — 빈 값/파싱 실패를 "매칭 없음"으로 단정하지 않고 기존 매핑을 보존한다.
 
 ---
 
@@ -604,7 +669,7 @@ end
 11. [ ] `DiseaseCasesController#main` 액션 추가
 12. [ ] `main_search_params` strong parameters 정의
 13. [ ] 기존 `index.html.erb`의 `form_with url:`을 `search_path`로 수정
-14. [ ] `app/mcp/tools/search_disease_cases_tool.rb` 업데이트: `job_name`, `duty_description`, `ksco_code`, `death_status` 파라미터 노출, ad-hoc 키워드 매칭을 새 구조화 필터로 대체/보완
+14. [ ] `app/mcp/tools/search_disease_cases_tool.rb` 업데이트: `job_name`, `job_description`, `ksco_code`, `death_status` 파라미터 노출, ad-hoc 키워드 매칭을 새 구조화 필터로 대체/보완
 
 ### Phase 4: UI 개발 (2~3일)
 
@@ -632,6 +697,7 @@ end
 | `ksco_codes_json` 내 코드가 `KscoCode` 테이블에 없음 | JOIN 시 누락 | rake task에서 `warn` 출력 후 무시. 추후 KSCO CSV 보완 |
 | FTS5 가상 테이블 2개 동시 유지 | 마이그레이션 복잡도 | 기존/신규 트리거를 별도 마이그레이션 파일로 분리. `db:migrate` 순서 명확히 |
 | 기존 검색 경로 변경 | 외부 링크/북마크 깨짐 | README, MCP 문서, `workercare.plan.md` 경로 동시 업데이트. `/`는 그대로 유효하므로 영향 최소 |
+| `ksco_codes_json`이 비어있을 때 삭제 동기화를 건너뜀 (7.2절) | 추출 결과가 정말로 "매칭 없음"으로 바뀐 케이스에서 오래된 KSCO 매핑이 남아있을 수 있음 (false positive 가능성) | 의도된 안전한 기본값 — "비어있음"과 "필드 누락/파싱 실패"를 구분할 수 없는 한 삭제보다 보존을 택함. 추출기 계약이 "빈 값 = 매칭 없음 확정"을 보장하게 되면 이 가드를 제거하고 빈 값에서도 `destroy_all`을 실행하도록 전환 |
 
 ---
 
@@ -642,6 +708,6 @@ end
 - **검색**: 기존 `/search` (legacy)는 `DiseaseCases::Searchable` + `disease_cases_fts` 그대로 유지. 새 메인 화면은 `DiseaseCases::MainSearchable` + `disease_cases_extracted_fts`로 분리 구현.
 - **데이터**: `import:ksco_codes` → `import:extracted_disease_cases` 순서로 실행.
 - **UI**: 직업/KSCO 중심의 필터 패널 + Full-text Hero 검색창.
-- **MCP**: `app/mcp/tools/search_disease_cases_tool.rb`를 함께 업데이트하여, LLM 클라이언트가 새 `job_name`/`duty_description`/`ksco_codes`/`death_status` 컬럼을 필터로 사용할 수 있도록 한다. 기존의 `work_match?`/`symptom_match?` 같은 ad-hoc 키워드 매칭은 새 구조화 데이터로 대체하거나 보완한다.
+- **MCP**: `app/mcp/tools/search_disease_cases_tool.rb`를 함께 업데이트하여, LLM 클라이언트가 새 `job_name`/`job_description`/`ksco_code[]`/`death_status` 파라미터를 필터로 사용할 수 있도록 한다 (`main_search_params`/`apply_main_filters`가 실제로 읽는 이름은 단수 `ksco_code`이며 배열로 받는다 — MCP 툴도 이 이름을 그대로 써야 하고, `ksco_codes`처럼 다른 이름을 쓰면 `main_search_params`가 값을 버리고 `apply_main_filters`도 읽지 않아 KSCO 필터가 조용히 무시된다). 기존의 `work_match?`/`symptom_match?` 같은 ad-hoc 키워드 매칭은 새 구조화 데이터로 대체하거나 보완한다.
 
 **다음 액션**: Phase 1 마이그레이션 승인 후 `rails db:migrate` 실행.
