@@ -95,13 +95,23 @@ bundle exec falcon serve --bind http://0.0.0.0:3001 --config mcp/config.ru
 
 [Kamal 2.x](https://kamal-deploy.org/)로 배포합니다.
 
-```bash
-# 최초 설치
-kamal setup
+도커 허브 레지스트리 인증 정보(`KAMAL_REGISTRY_USERNAME`, `KAMAL_REGISTRY_PASSWORD`)가 환경변수에 없으면 `docker login`이 실패합니다. `bin/deploy.sh`가 명령행 프롬프트에서 입력받고 export하여 `bin/kamal`을 실행합니다.
 
-# 배포 (웹 + MCP 서버)
-kamal deploy
+```bash
+# Docker Hub 아이디/Access Token을 입력받아 배포 (기본 명령: deploy)
+bin/deploy.sh
+
+# 최초 설치
+bin/deploy.sh setup
+
+# kamal의 다른 하위 명령도 그대로 전달됩니다 (예: 로그 확인)
+bin/deploy.sh logs -r web
 ```
+
+파라미터를 생략하면 `deploy`를 실행하고, 파라미터는 그대로 `bin/kamal`에 전달합니다.
+Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
+
+환경변수를 이미 별도로(쉘 프로필, 시크릿 매니저 등) 설정하였다면 `bin/kamal setup` / `bin/kamal deploy`를 직접 실행하여도 됩니다.
 
 `config/deploy.yml`에 웹 서버(`web`)와 MCP 서버(`mcp`) 두 개의 role이 정의되어 있습니다.
 
