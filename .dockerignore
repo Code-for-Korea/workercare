@@ -46,6 +46,9 @@
 # Ignore development files
 /.devcontainer
 
+# Ignore temporary/working files (not part of the app)
+/wip
+
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
