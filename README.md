@@ -9,7 +9,7 @@
 
 | 항목 | 버전 / 도구 |
 |------|------------|
-| Ruby | 3.4.7 |
+| Ruby | 4.0.6 |
 | Rails | 8.1 |
 | 데이터베이스 | SQLite3 (FTS5 전문 검색) |
 | MCP 서버 | actionmcp + Falcon |
