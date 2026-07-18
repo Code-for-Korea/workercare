@@ -1,0 +1,72 @@
+<% content_for :title, t("search.main_title") %>
+<div class="container">
+  <h3><%= t("search.main_title") %></h3>
+  <%= form_with url: root_path, method: :get, local: true, data: { controller: "search-form" } do |form| %>
+    <div role="search">
+      <%= form.search_field :q, value: params[:q], placeholder: t("search.main_placeholder") %>
+      <%= form.submit t("helpers.submit.search"), name: "search", data: { "search-form-target": "button", "loading-text": t("search.loading") } %>
+    </div>
+    <div class="loading-overlay" data-search-form-target="overlay">
+      <div class="loading-spinner"></div>
+      <p class="loading-text"><%= t("search.loading") %></p>
+    </div>
+
+    <div class="grid">
+      <div>
+        <%= form.label :job_name, DiseaseCase.human_attribute_name(:job_name) %>
+        <%= form.text_field :job_name, value: params[:job_name] %>
+      </div>
+      <div>
+        <%= form.label :job_description, DiseaseCase.human_attribute_name(:job_description) %>
+        <%= form.text_field :job_description, value: params[:job_description] %>
+      </div>
+    </div>
+
+    <fieldset data-controller="checkbox-group">
+      <legend>
+        <%= DiseaseCase.human_attribute_name(:burden_body_part) %>
+        <%= link_to t("search.select_all"), "#", data: { action: "click->checkbox-group#selectAll" } %>
+        <%= link_to t("search.deselect_all"), "#", data: { action: "click->checkbox-group#deselectAll" } %>
+      </legend>
+      <div class="grid grid-cols-2 md:grid-cols-4">
+        <% @burden_body_part_options.each do |value| %>
+          <label class="flex items-center">
+            <%= check_box_tag "burden_body_part[]", value, Array(params[:burden_body_part]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= value %>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+
+    <div class="grid">
+      <div>
+        <%= form.label :application_type, DiseaseCase.human_attribute_name(:application_type) %>
+        <%= form.select :application_type,
+              [ [ "— #{t('search.all_results')} —", "" ] ] + @application_type_options.map { |v| [ v, v ] },
+              selected: params[:application_type] %>
+      </div>
+      <div class="flex items-center">
+        <%= check_box_tag :death_status, "Y", params[:death_status] == "Y" %>
+        <%= label_tag :death_status, t("search.death_only") %>
+      </div>
+    </div>
+
+    <fieldset>
+      <legend><%= t("search.sort_label") %></legend>
+      <div class="sort-options">
+        <label>
+          <%= form.radio_button :sort, "relevance", checked: (params[:sort] || "relevance") == "relevance" %>
+          <%= t("search.sort_relevance") %>
+        </label>
+        <label>
+          <%= form.radio_button :sort, "recent", checked: params[:sort] == "recent" %>
+          <%= t("search.sort_recent") %>
+        </label>
+      </div>
+    </fieldset>
+  <% end %>
+
+  <p><%= link_to t("search.go_to_advanced_search"), search_path %></p>
+
+  <%= render "main_search_results" %>
+</div>

@@ -48,4 +48,38 @@ class SearchDiseaseCasesToolTest < ActiveSupport::TestCase
     assert json[:error].present?
     assert_match(/날짜 형식/, json[:error])
   end
+
+  test "job_name filters results and is reflected in match_reason" do
+    disease_case = DiseaseCase.create!(case_no: "TEST-MCP-JOB", job_name: "버스 운전원",
+      applicant_claim: "손목 통증 발생", year: 2024)
+
+    result = SearchDiseaseCasesTool.call(q: "손목", job_name: "운전원")
+    json = result.structured_content
+
+    assert_nil json[:error]
+    matched = json[:data][:cases].find { |c| c[:case_no] == disease_case.case_no }
+    assert matched, "job_name으로 필터링된 판정서가 결과에 포함되어야 한다"
+    assert_includes matched[:match_reason].map { |r| r[:reason] }, "동일 직종"
+  end
+
+  test "death_status filters out non-matching cases" do
+    disease_case = DiseaseCase.create!(case_no: "TEST-MCP-DEATH", death_status: "Y",
+      applicant_claim: "손목 통증 발생", year: 2024)
+
+    result = SearchDiseaseCasesTool.call(q: "손목", death_status: "N")
+    json = result.structured_content
+
+    refute json[:data][:cases].map { |c| c[:case_no] }.include?(disease_case.case_no)
+  end
+
+  test "ksco_code filters via disease_case_ksco_codes join" do
+    disease_case = DiseaseCase.create!(case_no: "TEST-MCP-KSCO", applicant_claim: "손목 통증 발생", year: 2024)
+    ksco = KscoCode.create!(code: "TEST-MCP-9999", name: "테스트 직업")
+    DiseaseCaseKscoCode.create!(disease_case: disease_case, ksco_code: ksco, similarity: 1.0)
+
+    result = SearchDiseaseCasesTool.call(q: "손목", ksco_code: [ ksco.code ])
+    json = result.structured_content
+
+    assert_includes json[:data][:cases].map { |c| c[:case_no] }, disease_case.case_no
+  end
 end

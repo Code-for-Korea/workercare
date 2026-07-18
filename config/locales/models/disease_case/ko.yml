@@ -19,6 +19,24 @@ ko:
         result: 심의결과
         statement: 주문
         year: 심의연도
+        job_name: 직종명
+        job_description: 담당 업무
+        employment_type: 고용 형태
+        work_type: 근무 형태
+        job_tenure_months: 종사 기간
+        weekly_work_hours: 1주 평균 근무시간
+        daily_work_hours: 1일 평균 근무시간
+        burden_body_part: 부담 신체 부위
+        bad_posture: 부적절한 자세
+        heavy_lifting: 중량물 취급 여부
+        max_item_weight: 취급 물품 최대 무게
+        daily_total_weight: 1일 취급 총 누적 중량
+        other_harmful_factors: 기타 유해요인
+        work_relevance_eval: 업무관련성 평가
+        aggravating_factors: 업무부담 가중요인
+        main_reasoning: 판단 주요 근거
+        death_status: 사망 여부
+        application_type: 신청서 종류
       disease_case/result_enum:
         approved: 인정
         rejected: 불인정

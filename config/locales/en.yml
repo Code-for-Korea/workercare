@@ -26,3 +26,7 @@ en:
     sort_recent: Recent
     sort_relevance: Relevance
     title: Occupational Disease Search
+    main_title: Find Cases by Job & Body Part
+    main_placeholder: Search by job, duties, reasoning...
+    death_only: Fatal cases only
+    go_to_advanced_search: Advanced Search (legacy)

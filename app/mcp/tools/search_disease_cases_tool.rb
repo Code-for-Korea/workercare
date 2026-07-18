@@ -43,9 +43,30 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
            required: false,
            default: 10
 
+  property :job_name,
+           type: "string",
+           description: "Filter by job title/occupation (partial match), e.g. '버스 운전원'",
+           required: false
+
+  property :job_description,
+           type: "string",
+           description: "Filter by job duty description (partial match)",
+           required: false
+
+  property :death_status,
+           type: "string",
+           description: "Filter by whether the case involved a death. Allowed: Y, N",
+           required: false
+
+  collection :ksco_code,
+             type: "string",
+             description: "Filter by KSCO (Korean Standard Classification of Occupations) code(s), e.g. 8722",
+             required: false
+
   def perform
     search_params = build_search_params
     scope, fallback = DiseaseCase.search(search_params)
+    scope = DiseaseCase.apply_main_filters(scope, main_filter_params)
     total_count = scope.count
 
     if total_count.zero?
@@ -109,8 +130,20 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
     raise ArgumentError, "날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력해주세요."
   end
 
+  def main_filter_params
+    params = {}
+    params[:job_name] = job_name if job_name.present?
+    params[:job_description] = job_description if job_description.present?
+    params[:death_status] = death_status if death_status.present?
+    params[:ksco_code] = Array(ksco_code).reject(&:blank?) if ksco_code.present?
+    params
+  end
+
   def build_statistics(scope)
-    counts = scope.group(:result).count
+    # scope에 걸려있는 ORDER BY bm25(...)는 GROUP BY 집계와 함께 쓰면 SQLite가
+    # "unable to use function bm25 in the requested context"를 던진다. 집계 결과는 정렬과
+    # 무관하므로 order를 제거하고 집계한다.
+    counts = scope.reorder(nil).group(:result).count
 
     approved = counts["approved"] || 0
     rejected = counts["rejected"] || 0
@@ -159,6 +192,8 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
         result: c.result,
         result_label: result_label(c.result),
         year: c.year,
+        job_name: c.job_name,
+        death_status: c.death_status,
         summary: truncate(c.applicant_claim, 300),
         key_facts: truncate(c.recognized_facts, 300),
         decision_excerpt: truncate(c.committee_decision, 300),
@@ -176,29 +211,21 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
     }[result] || result
   end
 
+  # job_name/job_description/death_status/ksco_code는 apply_main_filters로 이미 WHERE 조건에
+  # 반영되어 있으므로, 여기서는 "그 필터가 지정되었는가"만 확인하면 된다 (반환된 case는 이미 매칭된
+  # 것이 보장됨). 자유 텍스트 키워드를 work_keywords/symptom_keywords 사전과 비교하던 기존
+  # work_match?/symptom_match? ad-hoc 로직은 구조화 필터로 대체한다.
   def build_match_reason(disease_case)
     reasons = []
     reasons << "동일 신체부위" if body_part_match?(disease_case)
-    reasons << "유사 업무" if work_match?(disease_case)
-    reasons << "유사 증상" if symptom_match?(disease_case)
     reasons << "동일 질병" if disease_match?(disease_case)
+    reasons << "동일 직종" if job_name.present?
+    reasons << "동일 사망 여부" if death_status.present?
     reasons.map { |r| { reason: r } }
   end
 
   def body_part_match?(disease_case)
     Array(body_part).any? { |bp| disease_case.body_part == bp }
-  end
-
-  def work_match?(disease_case)
-    query_tokens = q.to_s.split(" ").map { |t| t.gsub(/은|는|이|가|을|를|의$/, "") }
-    work_keywords = %w[사무실 컴퓨터 공장 건설 운전 반복 야간 교대]
-    query_tokens.any? { |token| work_keywords.any? { |kw| token.include?(kw) } }
-  end
-
-  def symptom_match?(disease_case)
-    query_tokens = q.to_s.split(" ").map { |t| t.gsub(/은|는|이|가|을|를|의$/, "") }
-    symptom_keywords = %w[아픔 통증 저림 불편 마비 어지러움]
-    query_tokens.any? { |token| symptom_keywords.any? { |kw| token.include?(kw) } }
   end
 
   def disease_match?(disease_case)
@@ -211,17 +238,20 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
 
     body_part_matches = cases_data.count { |c| c[:match_reason].any? { |r| r[:reason] == "동일 신체부위" } }
     disease_matches = cases_data.count { |c| c[:match_reason].any? { |r| r[:reason] == "동일 질병" } }
+    job_name_matches = cases_data.count { |c| c[:match_reason].any? { |r| r[:reason] == "동일 직종" } }
 
     score = 0.5
     score += 0.2 if body_part_matches > 0
     score += 0.2 if disease_matches > 0
+    score += 0.1 if job_name_matches > 0
     score -= 0.1 if fallback
-    score = [[score, 0.0].max, 1.0].min
+    score = [ [ score, 0.0 ].max, 1.0 ].min
 
     reason_parts = []
     reason_parts << "유사 사례 #{total}건"
     reason_parts << "동일 신체부위 #{body_part_matches}건" if body_part_matches > 0
     reason_parts << "동일 질병분류 #{disease_matches}건" if disease_matches > 0
+    reason_parts << "동일 직종 #{job_name_matches}건" if job_name_matches > 0
     reason_parts << "(substring fallback 사용)" if fallback
 
     { score: score.round(2), reason: reason_parts.join(", ") }

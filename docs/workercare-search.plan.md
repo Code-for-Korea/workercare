@@ -406,6 +406,17 @@ class CreateDiseaseCasesExtractedFts < ActiveRecord::Migration[8.1]
       );
     SQL
 
+    # 구현 중 실제로 발생한 치명적 버그: disease_cases에 이미 61,815건이 존재하는 상태에서 위
+    # CREATE VIRTUAL TABLE만 실행하면 shadow index가 비어있는 채로 남는다. 그 상태에서 트리거
+    # 없이 바로 아래 update/delete 트리거를 만들고 임포트 rake task로 기존 레코드를 UPDATE하면,
+    # "색인된 적 없는 rowid"에 대해 delete pseudo-row를 시도하게 되어 FTS5 내부 색인이 깨진다
+    # (SQLite3::CorruptException: database disk image is malformed — 전체 disease_cases 테이블
+    # UPDATE가 즉시 이 예외로 실패했다). 트리거를 만들기 전에 반드시 먼저 rebuild로 현재 상태를
+    # 색인해야 한다.
+    execute <<~SQL
+      INSERT INTO disease_cases_extracted_fts(disease_cases_extracted_fts) VALUES('rebuild');
+    SQL
+
     # INSERT/UPDATE/DELETE triggers (기존 패턴과 동일)
     execute <<~SQL
       CREATE TRIGGER disease_cases_extracted_fts_insert
@@ -698,6 +709,8 @@ end
 | FTS5 가상 테이블 2개 동시 유지 | 마이그레이션 복잡도 | 기존/신규 트리거를 별도 마이그레이션 파일로 분리. `db:migrate` 순서 명확히 |
 | 기존 검색 경로 변경 | 외부 링크/북마크 깨짐 | README, MCP 문서, `workercare.plan.md` 경로 동시 업데이트. `/`는 그대로 유효하므로 영향 최소 |
 | `ksco_codes_json`이 비어있을 때 삭제 동기화를 건너뜀 (7.2절) | 추출 결과가 정말로 "매칭 없음"으로 바뀐 케이스에서 오래된 KSCO 매핑이 남아있을 수 있음 (false positive 가능성) | 의도된 안전한 기본값 — "비어있음"과 "필드 누락/파싱 실패"를 구분할 수 없는 한 삭제보다 보존을 택함. 추출기 계약이 "빈 값 = 매칭 없음 확정"을 보장하게 되면 이 가드를 제거하고 빈 값에서도 `destroy_all`을 실행하도록 전환 |
+| 기존 데이터 위에 FTS5 external content 테이블을 새로 추가 | rebuild 없이 트리거만 만들면 기존 레코드 UPDATE 시 FTS5 색인이 깨짐 (`SQLite3::CorruptException`) — 실제 구현 중 발생·확인됨 | 5.4절 마이그레이션에서 `CREATE VIRTUAL TABLE` 직후, 트리거 생성 전에 `INSERT INTO disease_cases_extracted_fts(disease_cases_extracted_fts) VALUES('rebuild')`를 먼저 실행 |
+| `SearchDiseaseCasesTool#build_statistics`가 `bm25` ORDER가 걸린 scope에 `.group(:result).count` 호출 | FTS 매칭 결과가 있을 때마다 `SQLite3::SQLException: unable to use function bm25 in the requested context`로 실패 (기존 MCP 테스트는 테스트 DB에 데이터가 없어 항상 fallback 경로만 타서 발견되지 않았던 기존 버그) — 실제 구현 중 발생·확인됨 | `scope.reorder(nil).group(:result).count`로 집계 전 order를 제거 |
 
 ---
 

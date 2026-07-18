@@ -1,0 +1,17 @@
+<table class="overflow-auto">
+  <thead>
+    <tr>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:job_name) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:job_description) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:application_type) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:death_status) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:disease_name) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:result) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:year) %></th>
+      <th scope="col">KSCO</th>
+    </tr>
+  </thead>
+  <tbody>
+    <%= render partial: "disease_cases/main/disease_case", collection: cases %>
+  </tbody>
+</table>
