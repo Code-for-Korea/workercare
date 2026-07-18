@@ -341,10 +341,9 @@ GEM
       zeitwerk (~> 2.6)
     rainbow (3.1.1)
     rake (13.4.2)
-    rake-compiler-dock (1.11.0)
-    rb_sys (0.9.126)
-      json (>= 2)
-      rake-compiler-dock (= 1.11.0)
+    rake-compiler-dock (1.12.0)
+    rb_sys (0.9.130)
+      rake-compiler-dock (= 1.12.0)
     rbs (4.2.0)
       logger
       prism (>= 1.6.0)
@@ -400,21 +399,6 @@ GEM
       concurrent-ruby (~> 1.0)
       railties (>= 8.0)
       rb_sys (~> 0.9)
-    solid_mcp (0.5.0-arm64-darwin)
-      activejob (>= 8.0)
-      activerecord (>= 8.0)
-      concurrent-ruby (~> 1.0)
-      railties (>= 8.0)
-    solid_mcp (0.5.0-x86_64-linux)
-      activejob (>= 8.0)
-      activerecord (>= 8.0)
-      concurrent-ruby (~> 1.0)
-      railties (>= 8.0)
-    solid_mcp (0.5.0-x86_64-linux-musl)
-      activejob (>= 8.0)
-      activerecord (>= 8.0)
-      concurrent-ruby (~> 1.0)
-      railties (>= 8.0)
     solid_queue (1.4.0)
       activejob (>= 7.1)
       activerecord (>= 7.1)
@@ -483,6 +467,7 @@ PLATFORMS
   aarch64-linux-musl
   arm-linux-gnu
   arm-linux-musl
+  arm64-darwin
   arm64-darwin-24
   x86_64-linux
   x86_64-linux-gnu
@@ -635,8 +620,8 @@ CHECKSUMS
   railties (8.1.3.1) sha256=2388a232579a00cefea4487de66c8553c3408c1300abdc6cf1799d86ffb04487
   rainbow (3.1.1) sha256=039491aa3a89f42efa1d6dec2fc4e62ede96eb6acd95e52f1ad581182b79bc6a
   rake (13.4.2) sha256=cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa89283701
-  rake-compiler-dock (1.11.0) sha256=eab51f2cd533eb35cea6b624a75281f047123e70a64c58b607471bb49428f8c2
-  rb_sys (0.9.126) sha256=ba958e0b8b4b89eeae0b3d24b64c809eb2c37e0ab0773a49e9b1c2e22c95aef8
+  rake-compiler-dock (1.12.0) sha256=f13205c2738f3d2053afcd03491a9e4541b22a59a0bfc53fc8bc883bd8188023
+  rb_sys (0.9.130) sha256=7d486d99c1da02635515deaf9860fc5aea90bb4ab2589b2deec7fdc7d3548615
   rbs (4.2.0) sha256=51f7b886dcc05bc09e10b901daa6a81829f6adc03101d6ca9ea4aac6103e0674
   rdoc (8.0.0) sha256=03bf8c08a9639658855a0cfd77c0abca8325c227693f7f33f82957811348c469
   regexp_parser (2.11.3) sha256=ca13f381a173b7a93450e53459075c9b76a10433caadcb2f1180f2c741fc55a4
@@ -651,9 +636,6 @@ CHECKSUMS
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   solid_cache (1.0.10) sha256=bc05a2fb3ac78a6f43cbb5946679cf9db67dd30d22939ededc385cb93e120d41
   solid_mcp (0.5.0) sha256=6ccc57e9a12f8c2f5d6c62e7d29252cae1b63f326a128a97e47a48c420df3467
-  solid_mcp (0.5.0-arm64-darwin) sha256=f4000b98b5d08ec7674c5b9fa6167269ebf7477d02fc095dcf11890d166649dc
-  solid_mcp (0.5.0-x86_64-linux) sha256=b305c44a9bf3c1074e17b090919d2635752692501ef5200966e5c2be90cf03eb
-  solid_mcp (0.5.0-x86_64-linux-musl) sha256=65f54897047abd261e7126c390e0af0240972287b84c39e14afe058b88760a53
   solid_queue (1.4.0) sha256=e6a18d196f0b27cb6e3c77c5b31258b05fb634f8ed64fb1866ed164047216c2a
   sqlite3 (2.9.2-aarch64-linux-gnu) sha256=eeb86db55645b85327ba75129e3614658d974bf4da8fdc87018a0d42c59f6e42
   sqlite3 (2.9.2-aarch64-linux-musl) sha256=4feff91fb8c2b13688da34b5627c9d1ed9cedb3ee87a7114ec82209147f07a6d
