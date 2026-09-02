@@ -50,12 +50,25 @@ FTS5 인덱스를 수동으로 재구성하려면:
 rails fts:rebuild
 ```
 
+### 직업·신체부위 기반 검색용 데이터 로드
+
+메인 화면(`/`)의 직업·근무조건·신체부위·사망여부·신청서유형 필터와 KSCO 직업분류 연동을 위해, 위 임포트 이후 아래 두 rake task를 **순서대로** 실행합니다 (마이그레이션만으로는 데이터가 채워지지 않습니다).
+
+```bash
+rails "import:ksco_codes[wip/ksco-level-4-details.csv]"
+rails "import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras-ksco.csv]"
+```
+
+- `import:ksco_codes`: 한국표준직업분류(KSCO) 4단계 코드 체계를 `KscoCode`로 임포트합니다.
+- `import:extracted_disease_cases`: LLM으로 추출한 직업·근무조건·신체부위·사망여부·신청서유형과 KSCO 매핑(`DiseaseCaseKscoCode`, 유사도 포함)을 기존 `DiseaseCase`에 채우고, `disease_cases_extracted_fts` 인덱스를 rebuild합니다.
+- 자세한 설계와 데이터 모델은 [docs/workercare-search.plan.md](docs/workercare-search.plan.md)를 참고합니다.
+
 ## 주요 화면
 
 | 경로 | 설명 |
 |------|------|
-| `GET /` | 메인 검색 (전문 검색) |
-| `GET /search` | 상세 검색 (전문 검색 + 필터) |
+| `GET /` | 메인 검색 (직업·근무조건·신체부위·사망여부·신청서유형 필터 + 전문 검색) |
+| `GET /search` | 상세 검색 (심의결과·질병분류·신체부위·판정일 필터 + 전문 검색) |
 | `GET /disease_cases/:id` | 판정서 상세 |
 
 ## MCP 서버
@@ -71,7 +84,7 @@ https://..../mcp
 
 | Tool | 설명 |
 |------|------|
-| `search_disease_cases` | 판정서 전문 검색 + 통계 집계 |
+| `search_disease_cases` | 판정서 전문 검색 + 직업/사망여부/KSCO 코드 구조화 필터 + 통계 집계 |
 | `compare_approval_factors` | 인정/불인정 사례 패턴 비교 |
 | `suggest_evidence` | 필요 증거 자료 제안 (룰 기반) |
 | `get_procedure_guide` | 산재 신청 절차 안내 |
@@ -119,6 +132,7 @@ Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
 
 - [docs/workercare.plan.md](docs/workercare.plan.md) — 검색 서비스, FTS5, enum, 데이터 설계
 - [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — MCP 컴포넌트 설계, Tool/Prompt 명세
+- [docs/workercare-search.plan.md](docs/workercare-search.plan.md) — 직업·신체부위·사망여부 기반 메인 검색 화면, KSCO 직업분류 연동 설계
 
 ## 라이선스
 
