@@ -266,6 +266,10 @@ GEM
       racc (~> 1.4)
     openssl (4.0.1)
     ostruct (0.6.3)
+    overmind (2.5.1)
+    overmind (2.5.1-aarch64-linux)
+    overmind (2.5.1-arm-linux)
+    overmind (2.5.1-arm64-darwin)
     pagy (43.5.0)
       json
       uri
@@ -399,6 +403,21 @@ GEM
       concurrent-ruby (~> 1.0)
       railties (>= 8.0)
       rb_sys (~> 0.9)
+    solid_mcp (0.5.0-arm64-darwin)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
+    solid_mcp (0.5.0-x86_64-linux)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
+    solid_mcp (0.5.0-x86_64-linux-musl)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
     solid_queue (1.4.0)
       activejob (>= 7.1)
       activerecord (>= 7.1)
@@ -485,6 +504,7 @@ DEPENDENCIES
   importmap-rails
   jbuilder
   kamal
+  overmind
   pagy (~> 43.5)
   propshaft
   puma (>= 5.0)
@@ -593,6 +613,10 @@ CHECKSUMS
   nokogiri (1.19.4-x86_64-linux-musl) sha256=17dfb7c1fa194ae02fbf7c51a7afc8d278045ab3fdacfd86f91d02d7b274470b
   openssl (4.0.1) sha256=e27974136b7b02894a1bce46c5397ee889afafe704a839446b54dc81cb9c5f7d
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
+  overmind (2.5.1) sha256=df4676e787845173c3929029d2b2952055ffaf02fde0106054f98f4c2611ec9a
+  overmind (2.5.1-aarch64-linux) sha256=13a979e61278fb5a214600e844268460a86787a8f1a8ed962dcf6aa018f3f50e
+  overmind (2.5.1-arm-linux) sha256=5e12b5fb973dce118769648cf6549a48a0d424f947b40fbb30012f53308d23e1
+  overmind (2.5.1-arm64-darwin) sha256=8b1c9ea304ef524eaf335b4524d5dbd58e02ed9492397243f61cc49a8bd4eca7
   pagy (43.5.0) sha256=58885d5f659e8db5b92cf35eeba674113e4e7bda12649b603c2d6908402570a4
   parallel (1.27.0) sha256=4ac151e1806b755fb4e2dc2332cbf0e54f2e24ba821ff2d3dcf86bf6dc4ae130
   parser (3.3.10.2) sha256=6f60c84aa4bdcedb6d1a2434b738fe8a8136807b6adc8f7f53b97da9bc4e9357
@@ -636,6 +660,9 @@ CHECKSUMS
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   solid_cache (1.0.10) sha256=bc05a2fb3ac78a6f43cbb5946679cf9db67dd30d22939ededc385cb93e120d41
   solid_mcp (0.5.0) sha256=6ccc57e9a12f8c2f5d6c62e7d29252cae1b63f326a128a97e47a48c420df3467
+  solid_mcp (0.5.0-arm64-darwin) sha256=f4000b98b5d08ec7674c5b9fa6167269ebf7477d02fc095dcf11890d166649dc
+  solid_mcp (0.5.0-x86_64-linux) sha256=b305c44a9bf3c1074e17b090919d2635752692501ef5200966e5c2be90cf03eb
+  solid_mcp (0.5.0-x86_64-linux-musl) sha256=65f54897047abd261e7126c390e0af0240972287b84c39e14afe058b88760a53
   solid_queue (1.4.0) sha256=e6a18d196f0b27cb6e3c77c5b31258b05fb634f8ed64fb1866ed164047216c2a
   sqlite3 (2.9.2-aarch64-linux-gnu) sha256=eeb86db55645b85327ba75129e3614658d974bf4da8fdc87018a0d42c59f6e42
   sqlite3 (2.9.2-aarch64-linux-musl) sha256=4feff91fb8c2b13688da34b5627c9d1ed9cedb3ee87a7114ec82209147f07a6d

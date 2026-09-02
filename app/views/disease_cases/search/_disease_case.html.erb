@@ -17,9 +17,11 @@
       <span><%= t("search.death_badge") %></span>
     <% end %>
   </td>
+  <td class="whitespace-nowrap"><%= disease_case.human_attribute_enum(:result) %></td>
+  <td class="whitespace-nowrap"><%= disease_case.human_attribute_enum(:body_part) %></td>
+  <td class="whitespace-nowrap"><%= disease_case.human_attribute_enum(:disease_category) %></td>
   <th class="min-w-40 max-w-48">
     <%= link_to disease_case.disease_name, disease_case_path(disease_case) %>
   </th>
-  <td class="whitespace-nowrap"><%= disease_case.human_attribute_enum(:result) %></td>
   <td class="whitespace-nowrap"><%= disease_case.year %>년</td>
 </tr>

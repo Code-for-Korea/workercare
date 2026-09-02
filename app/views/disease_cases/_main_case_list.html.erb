@@ -8,14 +8,12 @@
       <th scope="col"><%= DiseaseCase.human_attribute_name(:work_type) %></th>
       <th scope="col"><%= DiseaseCase.human_attribute_name(:work_relevance_eval) %></th>
       <th scope="col"><%= DiseaseCase.human_attribute_name(:death_status) %></th>
-      <th scope="col"><%= DiseaseCase.human_attribute_name(:result) %></th>
-      <th scope="col"><%= DiseaseCase.human_attribute_name(:body_part) %></th>
-      <th scope="col"><%= DiseaseCase.human_attribute_name(:disease_category) %></th>
       <th scope="col"><%= DiseaseCase.human_attribute_name(:disease_name) %></th>
+      <th scope="col"><%= DiseaseCase.human_attribute_name(:result) %></th>
       <th scope="col"><%= DiseaseCase.human_attribute_name(:year) %></th>
     </tr>
   </thead>
   <tbody>
-    <%= render partial: "disease_cases/search/disease_case", collection: cases %>
+    <%= render partial: "disease_cases/index/disease_case", collection: cases %>
   </tbody>
 </table>

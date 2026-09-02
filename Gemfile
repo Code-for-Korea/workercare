@@ -62,6 +62,9 @@ group :development do
   # Use console on exceptions pages [ht
   # tps://github.com/rails/web-console]
   gem "web-console"
+
+  # Process manager for bin/dev (Procfile.dev) [https://github.com/DarthSim/overmind]
+  gem "overmind"
 end
 
 gem "actionmcp", "~> 0.107.1"
