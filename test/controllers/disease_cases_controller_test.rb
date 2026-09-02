@@ -69,20 +69,27 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_select "datalist#burden_body_part_datalist"
   end
 
-  test "GET / and GET /search render employment_type/work_type/work_relevance_eval/ksco_code inputs" do
-    [ root_path, search_path ].each do |path|
-      get path
-      assert_response :success
-      assert_select "input[name='employment_type']"
-      assert_select "datalist#employment_type_datalist"
-      assert_select "input[name='work_type']"
-      assert_select "select[name='work_relevance_eval']"
-      assert_select "input[name='ksco_code[]']"
-      assert_select "datalist#ksco_code_datalist"
-    end
+  test "GET /search renders employment_type/work_type/work_relevance_eval/ksco_code inputs" do
+    get search_path
+    assert_response :success
+    assert_select "input[name='employment_type']"
+    assert_select "datalist#employment_type_datalist"
+    assert_select "input[name='work_type']"
+    assert_select "select[name='work_relevance_eval']"
+    assert_select "input[name='ksco_code[]']"
+    assert_select "datalist#ksco_code_datalist"
   end
 
-  test "GET / filters by employment_type, work_type, work_relevance_eval, and ksco_code" do
+  test "GET / (simple search) does not render employment_type/work_type/work_relevance_eval/ksco_code inputs" do
+    get root_path
+    assert_response :success
+    assert_select "input[name='employment_type']", count: 0
+    assert_select "input[name='work_type']", count: 0
+    assert_select "select[name='work_relevance_eval']", count: 0
+    assert_select "input[name='ksco_code[]']", count: 0
+  end
+
+  test "GET /search filters by employment_type, work_type, work_relevance_eval, and ksco_code" do
     matched = DiseaseCase.create!(case_no: "TEST-STRUCT-MATCH", disease_name: "구조화필터매칭",
       employment_type: "상용직", work_type: "02:30~11:30 (평일 및 토요일)",
       work_relevance_eval: "높음", year: 2024)
@@ -91,7 +98,7 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     ksco = KscoCode.create!(code: "TEST-CTRL-8722", name: "버스 운전원")
     DiseaseCaseKscoCode.create!(disease_case: matched, ksco_code: ksco, similarity: 0.9)
 
-    get root_path, params: {
+    get search_path, params: {
       employment_type: "상용직", work_type: "토요일",
       work_relevance_eval: "높음", ksco_code: [ ksco.code ]
     }

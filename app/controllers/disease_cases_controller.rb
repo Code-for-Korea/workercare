@@ -5,17 +5,19 @@ class DiseaseCasesController < ApplicationController
   # DB에도 이 6개만 존재하는 진짜 enum이라 distinct pluck 대신 고정 목록을 순서대로 노출한다.
   WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
-  # / (메인 화면, 직업·부담 신체 부위·사망 여부·신청서 유형 기반 검색)
+  # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
+  # 고용형태/근무형태/업무관련성/KSCO 코드는 /search(상세 검색)에서만 노출한다.
   def index
     perform_search(legacy: false)
-    set_main_filter_options
+    set_common_filter_options
   end
 
   # /search (상세 검색, 이전에는 root였다). 메인 화면 필터도 함께 쓸 수 있도록
   # apply_main_filters를 추가로 적용한다.
   def search
     perform_search(legacy: true)
-    set_main_filter_options
+    set_common_filter_options
+    set_advanced_filter_options
   end
 
   def show
@@ -37,11 +39,14 @@ class DiseaseCasesController < ApplicationController
     log_search_event
   end
 
-  def set_main_filter_options
+  def set_common_filter_options
     counts = burden_body_part_token_counts
     @burden_body_part_options = burden_body_part_options(counts)
     @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
+  end
+
+  def set_advanced_filter_options
     @employment_type_options = employment_type_options
     @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
     @ksco_code_options = ksco_code_options
