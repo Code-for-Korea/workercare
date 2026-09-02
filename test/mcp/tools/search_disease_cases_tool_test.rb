@@ -41,6 +41,18 @@ class SearchDiseaseCasesToolTest < ActiveSupport::TestCase
     assert stats.key?(:rejection_rate)
   end
 
+  test "q is optional — structured filters alone can be used" do
+    disease_case = DiseaseCase.create!(case_no: "TEST-MCP-NO-Q", death_status: "Y",
+      job_name: "테스트-MCP-NO-Q-전용직업", year: 2024)
+
+    result = SearchDiseaseCasesTool.call(death_status: "Y", job_name: "테스트-MCP-NO-Q-전용직업")
+    json = result.structured_content
+
+    assert_nil json[:error]
+    assert_equal 1, json[:data][:total_count]
+    assert_includes json[:data][:cases].map { |c| c[:case_no] }, disease_case.case_no
+  end
+
   test "date validation returns error for invalid format" do
     result = SearchDiseaseCasesTool.call(q: "손목", decided_on_from: "invalid")
     json = result.structured_content

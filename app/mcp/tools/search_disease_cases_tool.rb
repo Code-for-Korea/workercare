@@ -9,8 +9,9 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
 
   property :q,
            type: "string",
-           description: "Natural language search query extracted from user question",
-           required: true
+           description: "Natural language search query extracted from user question. Optional — " \
+             "omit it to search using only the structured filters below (e.g. death_status, ksco_code, job_name).",
+           required: false
 
   collection :search_in,
              type: "string",
