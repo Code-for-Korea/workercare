@@ -13,6 +13,18 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "GET / and GET /search show 원문 as the first result column" do
+    DiseaseCase.create!(case_no: "TEST-LINK-COL", link: "https://example.com/case/1", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_response :success
+      headers = css_select("th[scope='col']").map(&:text)
+      assert_equal DiseaseCase.human_attribute_name(:link), headers.first
+      assert_select "a[href='https://example.com/case/1']"
+    end
+  end
+
   test "GET / caps burden_body_part checkboxes and exposes the rest via a datalist" do
     15.times { |i| DiseaseCase.create!(case_no: "TEST-BBP-#{i}", burden_body_part: "부위#{i}", year: 2024) }
 
