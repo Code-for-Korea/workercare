@@ -12,9 +12,4 @@
   </th>
   <td class="whitespace-nowrap"><%= disease_case.human_attribute_enum(:result) %></td>
   <td class="whitespace-nowrap"><%= disease_case.year %>년</td>
-  <td class="whitespace-nowrap">
-    <% disease_case.ksco_codes.each do |ksco| %>
-      <span class="tag"><%= ksco.name %></span>
-    <% end %>
-  </td>
 </tr>

@@ -24,7 +24,6 @@ class DiseaseCasesController < ApplicationController
   def perform_search(legacy:)
     @scope, @fallback = legacy ? DiseaseCase.search(search_params) : DiseaseCase.main_search(main_search_params)
     @pagy, @cases = paginate(@scope)
-    @cases = @cases.includes(:ksco_codes) unless legacy
     @metadata = build_metadata
 
     log_search_event
