@@ -124,21 +124,9 @@
     </div>
     <div class="grid">
       <div>
-        <%= form.label :employment_type, DiseaseCase.human_attribute_name(:employment_type) %>
-        <%= form.text_field :employment_type, value: params[:employment_type],
-              list: "employment_type_datalist", placeholder: t("search.select_from_list_placeholder") %>
-        <datalist id="employment_type_datalist">
-          <% @employment_type_options.each do |value| %>
-            <option value="<%= value %>">
-          <% end %>
-        </datalist>
-      </div>
-      <div>
         <%= form.label :work_type, DiseaseCase.human_attribute_name(:work_type) %>
         <%= form.text_field :work_type, value: params[:work_type] %>
       </div>
-    </div>
-    <div class="grid">
       <div>
         <%= form.label :work_relevance_eval, DiseaseCase.human_attribute_name(:work_relevance_eval) %>
         <%= form.select :work_relevance_eval,

@@ -6,9 +6,10 @@ class DiseaseCasesController < ApplicationController
   WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
   # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
-  # 고용형태/근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. KSCO 코드는 사용자가 외워서
-  # 검색할 이유가 없는 숫자 코드라 웹 UI에는 아예 없고, apply_main_filters/main_search_params는
-  # MCP 클라이언트(직업 설명 → KSCO 코드 매핑)를 위해 그대로 유지한다.
+  # 근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. 고용형태·KSCO 코드는 사용자가
+  # 직접 골라 검색할 이유가 없어(고용형태는 값이 너무 잘게 쪼개져 있고, KSCO 코드는 숫자다)
+  # 웹 UI에는 아예 없다. apply_main_filters/main_search_params는 두 값 모두 그대로 받아서
+  # MCP 클라이언트(직업 설명 → 고용형태/KSCO 코드 매핑)는 계속 쓸 수 있다.
   def index
     perform_search(legacy: false)
     set_common_filter_options
@@ -49,7 +50,6 @@ class DiseaseCasesController < ApplicationController
   end
 
   def set_advanced_filter_options
-    @employment_type_options = employment_type_options
     @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
   end
 
@@ -75,13 +75,6 @@ class DiseaseCasesController < ApplicationController
 
   def application_type_options
     DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
-  end
-
-  # employment_type도 distinct 값이 1,583개로 많지만(예: "1년 계약직"/"1년 계약직(비정규직)"),
-  # burden_body_part_text와 같은 <datalist> 자동완성으로 노출한다 — 사용자가 목록에서 골라 제출하므로
-  # apply_main_filters의 exact match(where(employment_type: ...))가 항상 그대로 맞는다.
-  def employment_type_options
-    DiseaseCase.where.not(employment_type: [ nil, "" ]).distinct.order(:employment_type).pluck(:employment_type)
   end
 
   def paginate(scope)
