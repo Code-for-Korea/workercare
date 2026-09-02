@@ -104,7 +104,8 @@
 - `work_relevance_eval`: `["매우_높음", "높음", "보통", "낮음", "매우_낮음", "미흡"]` (`wip/cerebras_prompts.rb`의 추출 스키마 기준 6개 전부 — 4개만 쓰면 `매우_낮음`/`미흡` 데이터를 필터로 찾을 수 없다)
 - `death_status`: `["Y", "N"]` → boolean enum 처리 가능
 - `application_type`: `["요양급여", "유족급여 및 장의비", "요양급여신청서", "유족급여 및 장의비청구서", ...]` (정규화 필요)
-- `burden_body_part`/`bad_posture`: 파이프 구분 다중값이므로 단일 컬럼 enum으로 만들지 않는다. 체크박스 목록은 임포트 후 `distinct` 값을 `"|"`로 split해 profiling한 뒤 확정한다.
+- `burden_body_part`/`bad_posture`: 파이프 구분 다중값이므로 단일 컬럼 enum으로 만들지 않는다.
+  > **해결됨 (실 데이터 profiling 결과)**: `burden_body_part`를 실제 CSV(`wip/extract_disease_cases_details_cerebras-ksco.csv`)에서 파이프로 split해 집계한 결과, distinct 원자값이 **1,174개**였다(원본 combined 문자열 기준 7,334개). 빈도 상위 10개가 전체 (행,토큰) 발생의 67.6%, 상위 20개 83.0%, 상위 30개 88.5%를 차지하는 롱테일 분포(우측/좌측/양측 접두어, "어깨"/"견관절" 같은 동의어가 원인)라 전부 체크박스로 노출할 수 없었다. 최종적으로 **상위 12개만 체크박스**(빈도순으로 골라 표시는 가나다순)로 노출하고, 나머지는 새 텍스트 입력 `burden_body_part_text`에 네이티브 HTML `<datalist>`(전체 distinct 토큰을 `<option>`으로 나열)로 자동완성해 찾도록 했다. 자유 텍스트 값도 체크박스와 동일한 파이프 경계 인식 LIKE 매칭을 그대로 탄다(5.3절 `apply_main_filters` 참고). KSCO 계층형 자동완성처럼 별도 Stimulus 컴포넌트나 서버 엔드포인트를 새로 만들지 않고 브라우저 네이티브 기능만으로 구현 범위를 좁혔다.
 
 ---
 
@@ -172,9 +173,11 @@ end
 
 `DiseaseCase`에 추가:
 ```ruby
-has_many :disease_case_ksco_codes
+has_many :disease_case_ksco_codes, dependent: :delete_all
 has_many :ksco_codes, through: :disease_case_ksco_codes
 ```
+
+> **해결됨 (코드 리뷰에서 발견된 버그)**: 처음에는 `dependent` 옵션 없이 구현했는데, `disease_case_ksco_codes.disease_case_id`에 DB 레벨 FK가 걸려있어(위 마이그레이션의 `foreign_key: true`) KSCO 매핑이 붙은 판정서를 `destroy`하면 `ActiveRecord::InvalidForeignKey`가 발생했다(재현·확인됨). `DiseaseCaseKscoCode`에는 콜백이 없으므로 개별 row를 인스턴스화하지 않는 `dependent: :delete_all`을 선택했다.
 
 ### 4.3 직업 필터 검색 시나리오
 
@@ -190,11 +193,11 @@ has_many :ksco_codes, through: :disease_case_ksco_codes
 
 ```ruby
 Rails.application.routes.draw do
-  # NEW: 메인 화면 (직업·신체·사망 기반 검색)
-  root "disease_cases#main"
+  # 메인 화면 (직업·신체·사망 기반 검색)
+  root "disease_cases#index"
 
-  # OLD: 기존 전문 검색 화면을 /search 로 이동
-  get "/search", to: "disease_cases#index", as: :search
+  # 기존 전문 검색 화면을 /search 로 이동
+  get "/search", to: "disease_cases#search", as: :search
 
   # 판정서 상세는 그대로 유지
   resources :disease_cases, param: :case_no, only: [:show]
@@ -204,24 +207,28 @@ Rails.application.routes.draw do
 end
 ```
 
-> `disease_cases#index`를 그대로 두되 경로만 `/search`로 바꾼다. 기존 검색 form의 `url:`도 `root_path` → `search_path`로 수정 필요.
+> **해결됨 (구현 후 액션 이름 재정리)**: 초안 단계에서는 액션 이름을 그대로 두고(`index`) 경로만 `/search`로 옮기려 했으나, RESTful 관례상 `index`는 컬렉션의 기본(루트) 목록 액션이어야 한다는 점이 계속 마음에 걸려 최종적으로 액션 이름 자체를 라우트에 맞게 바꿨다: 메인 화면(`/`)이 `index`, 상세 검색(`/search`)이 `search`. 아래 5.2절 코드와 뷰 파일명(`app/views/disease_cases/index.html.erb`/`search.html.erb`)은 이 최종 이름을 반영한다. `root_path`/`search_path` 라우트 헬퍼 이름과 동작 자체는 바뀌지 않았다.
 
 ### 5.2 컨트롤러 구조
 
-**`DiseaseCasesController`**에 `main` 액션 추가:
+**`DiseaseCasesController`**의 액션 구성 (최종: `index` = 메인 화면, `search` = 상세 검색):
 
 ```ruby
 class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
+  BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
 
-  # 기존 /search (이전에는 root)
+  # / (메인 화면, 직업·부담 신체 부위·사망 여부·신청서 유형 기반 검색)
   def index
-    perform_search(legacy: true)
+    perform_search(legacy: false)
+    set_main_filter_options
   end
 
-  # NEW: / (메인 화면)
-  def main
-    perform_search(legacy: false)
+  # /search (상세 검색, 이전에는 root였다). 메인 화면 필터도 함께 쓸 수 있도록
+  # apply_main_filters를 추가로 적용한다.
+  def search
+    perform_search(legacy: true)
+    set_main_filter_options
   end
 
   def show
@@ -231,10 +238,25 @@ class DiseaseCasesController < ApplicationController
   private
 
   def perform_search(legacy:)
-    @scope, @fallback = legacy ? DiseaseCase.search(search_params) : DiseaseCase.main_search(main_search_params)
+    if legacy
+      @scope, @fallback = DiseaseCase.search(search_params)
+      @scope = DiseaseCase.apply_main_filters(@scope, main_search_params)
+    else
+      @scope, @fallback = DiseaseCase.main_search(main_search_params)
+    end
     @pagy, @cases = paginate(@scope)
     @metadata = build_metadata
-    log_search_event(legacy: legacy)
+    log_search_event
+  end
+
+  # 체크박스(상위 N개)와 <datalist> 자동완성(전체) 옵션은 같은 집계를 재사용해야 한다 — 각자
+  # 따로 DiseaseCase를 pluck하면 GET /·GET /search 접속마다 풀스캔이 두 번씩 돈다(코드 리뷰에서
+  # 발견·확인된 회귀).
+  def set_main_filter_options
+    counts = burden_body_part_token_counts
+    @burden_body_part_options = burden_body_part_options(counts)
+    @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
+    @application_type_options = application_type_options
   end
 
   def paginate(scope)
@@ -248,11 +270,14 @@ class DiseaseCasesController < ApplicationController
       :q, :job_name, :job_description,
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
+      :burden_body_part_text,
       burden_body_part: [], ksco_code: []
     )
   end
 end
 ```
+
+> **`/search`에도 재사용**: `apply_main_filters`는 원래 MCP `search_disease_cases` 툴이 legacy `DiseaseCase.search` 결과에 새 구조화 필터를 추가로 적용하려고 public으로 열어둔 메서드였는데(11절 참고), 같은 패턴을 `search` 액션에도 적용해 `/search`(상세 검색)에서도 `/`(메인 화면)와 동일한 직업·부담 신체 부위·사망 여부·신청서 유형 필터를 함께 쓸 수 있게 했다. `main_search_params`가 permit하는 `:q`/`:sort` 등은 `apply_main_filters`가 읽지 않으므로 그대로 재사용해도 무해하다.
 
 ### 5.3 검색 Concern 분리
 
@@ -262,7 +287,7 @@ end
 > **상수 lookup 주의**: `normalize_query`는 메서드이므로 공유 모듈에 옮기고 `include`해도 ancestry를 통해 정상 호출된다. 하지만 `KOREAN_PARTICLES`는 상수이고, Ruby의 비한정(unqualified) 상수 조회는 호출부의 **lexical scope**를 우선 따른다. 그래서 `KOREAN_PARTICLES`를 `QueryBuilder` 쪽으로 옮기고 `Searchable#build_fts_query`에 남아있는 `token.gsub(KOREAN_PARTICLES, "")` 같은 비한정 참조를 그대로 두면 `include`만으로는 해결되지 않고 `NameError`가 난다. 상수까지 옮기려면 남은 참조를 `DiseaseCases::QueryBuilder::KOREAN_PARTICLES`처럼 완전한 이름으로 바꾸거나, 더 안전하게 이번에는 `KOREAN_PARTICLES` 상수는 그대로 두고 `normalize_query` 메서드만 공유 모듈로 추출한다.
 
 ```ruby
-# app/models/concerns/disease_cases/main_searchable.rb
+# app/models/concerns/disease_cases/main_searchable.rb (실제 구현, 초기 설계안에서 세부 수정됨)
 module DiseaseCases
   module MainSearchable
     extend ActiveSupport::Concern
@@ -278,16 +303,16 @@ module DiseaseCases
     class_methods do
       def main_search(params = {})
         raw_query = params[:q].to_s.strip
+        fts_q = build_main_fts_query(raw_query)
         tokens = normalize_query(raw_query).split(" ").first(5)
 
         # 1. Full-text scope (새 FTS5 가상 테이블 사용)
-        if raw_query.present?
-          fts_scope = main_fulltext(build_main_fts_query(raw_query))
-          if fts_scope.empty?
+        if fts_q.present?
+          scope = main_fulltext(fts_q)
+          if scope.empty?
             scope = substring_job_fallback(tokens)
             fallback = true
           else
-            scope = fts_scope
             fallback = false
           end
         else
@@ -299,13 +324,14 @@ module DiseaseCases
         scope = apply_main_filters(scope, params)
 
         # 3. Sort
-        scope = apply_main_sort(scope, raw_query, fallback, params[:sort])
+        scope = apply_main_sort(scope, fts_q, fallback, params[:sort])
 
-        [scope, fallback]
+        [ scope, fallback ]
       end
 
-      private
-
+      # MCP search_disease_cases_tool처럼 legacy DiseaseCase.search 결과에 새 구조화 필터를
+      # 추가로 적용하고 싶은 호출부를 위해 public으로 유지한다 (main_search 내부에서도 재사용).
+      # 실제로 DiseaseCasesController#index(/search)도 이 메서드를 재사용한다 (5.2절 참고).
       def apply_main_filters(scope, params)
         # 직업/하는일: 부분 일치 (LIKE) — exact match는 표현 통일성이 없는 추출 데이터에서 0건 위험
         if params[:job_name].present?
@@ -319,20 +345,20 @@ module DiseaseCases
         end
 
         # 부담_신체_부위는 파이프(|)로 구분된 다중값 텍스트다(예: "목|상체|하체").
-        # exact match(where(burden_body_part: ...))는 다른 값과 같이 저장된 케이스를 놓치므로 LIKE로 매칭해야 하지만,
-        # 단순 LIKE '%값%'은 부분 문자열까지 잡아 오검색을 낸다 — 실제 CSV에 "목", "뒷목", "손목", "발목"이 전부
-        # 존재하므로 "목"으로 LIKE '%목%' 검색하면 "손목"/"발목"/"뒷목"만 있는 레코드까지 잘못 걸린다.
-        # 파이프 구분자를 토큰 경계로 취급해 정확히 그 토큰만 매칭한다: 정확히 일치, 맨앞(다음이 |),
-        # 맨뒤(앞이 |), 중간(양쪽이 |) 네 가지 경우를 모두 확인한다.
-        if params[:burden_body_part].present?
+        # exact match나 단순 LIKE '%값%'은 "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭하므로,
+        # 파이프 경계를 인식하는 매칭(정확히 일치/맨앞/맨뒤/중간)으로 처리한다.
+        # burden_body_part_text(체크박스 상위 12개 밖의 값을 <datalist> 자동완성으로 찾는 자유
+        # 입력, 3.2절 참고)도 같은 values 배열에 합쳐서 동일한 매칭 규칙을 그대로 적용한다.
+        if params[:burden_body_part].present? || params[:burden_body_part_text].present?
           values = Array(params[:burden_body_part]).reject(&:blank?)
+          values << params[:burden_body_part_text].to_s.strip if params[:burden_body_part_text].present?
           if values.any?
             conditions = values.map {
               "(burden_body_part = ? OR burden_body_part LIKE ? OR burden_body_part LIKE ? OR burden_body_part LIKE ?)"
             }.join(" OR ")
             binds = values.flat_map { |v|
               safe = sanitize_sql_like(v)
-              [v, "#{safe}|%", "%|#{safe}", "%|#{safe}|%"]
+              [ v, "#{safe}|%", "%|#{safe}", "%|#{safe}|%" ]
             }
             scope = scope.where(conditions, *binds)
           end
@@ -354,6 +380,8 @@ module DiseaseCases
         scope
       end
 
+      private
+
       def apply_main_sort(scope, fts_q, fallback, sort_param)
         if fts_q.present? && !fallback && sort_param != "recent"
           scope.order(Arel.sql("bm25(disease_cases_extracted_fts, 1.0, 1.0, 2.0, 0.5, 0.5)"))
@@ -367,15 +395,22 @@ module DiseaseCases
           .where("disease_cases_extracted_fts MATCH ?", query)
       end
 
-      def build_main_fts_query(raw, columns = MAIN_SEARCHABLE_COLUMNS)
-        # 기존 normalize + 토큰화 로직 재사용
-        # ... (DiseaseCases::Searchable 패턴 유지)
+      def build_main_fts_query(raw)
+        query = normalize_query(raw)
+        return nil if query.blank?
+
+        tokens = query.split(" ").first(5)
+          .map { |token| token.gsub(DiseaseCases::Searchable::KOREAN_PARTICLES, "") }
+          .reject(&:blank?)
+        return nil if tokens.empty?
+
+        tokens.map { |token| "\"#{token.gsub('"', '""')}\"" }.join(" AND ")
       end
 
       def substring_job_fallback(tokens)
         safe_tokens = tokens.first(2).map { |token| sanitize_sql_like(token) }
         conditions = safe_tokens.map { "job_name LIKE ? OR job_description LIKE ?" }.join(" AND ")
-        binds = safe_tokens.flat_map { |token| ["%#{token}%", "%#{token}%"] }
+        binds = safe_tokens.flat_map { |token| [ "%#{token}%", "%#{token}%" ] }
         where(conditions, *binds)
       end
     end
@@ -448,12 +483,14 @@ end
 |------|----------|---------------|------|
 | **직업 (직종명)** | 텍스트 입력 + KSCO 자동완성 | `job_name` (FTS5) / `ksco_codes` (JOIN) | KSCO 선택 시 해당 코드 연결된 판정서 검색 |
 | **하는일 (담당 업무)** | 텍스트 입력 | `job_description` (FTS5) | 한국어 조사 제거 적용 |
-| **아픈 신체 부위** | 체크박스 멀티셀렉트 | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 체크박스 후보 목록은 임포트 후 distinct 값을 `"\|"` split해 profiling |
+| **아픈 신체 부위** | 체크박스(빈도 상위 12개) + `<datalist>` 자동완성 텍스트 입력(`burden_body_part_text`) | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 실 데이터 distinct 토큰이 1,174개라 전부 체크박스로 못 내서, 상위 12개만 체크박스로 두고 나머지는 네이티브 `<datalist>`로 자동완성 (3.2절 참고) |
 | **신청서 유형** | 드롭다운 | `application_type` | 정규화된 enum 값 |
 | **사망 여부** | 스위치 / 체크박스 | `death_status` | Y/N |
 | **Full-text 검색** | 텍스트 입력 | `disease_cases_extracted_fts` (5개 컬럼) | 기존 FTS5 패턴 재사용 |
 | **심의결과** | 드롭다운 (기존 유지) | `result` | 메인 화면에서도 노출 가능 (선택 사항) |
 | **정렬** | 라디오 버튼 | relevance / recent | BM25 (FTS5) 또는 `year DESC` |
+
+> **해결됨**: 이 표의 6개 필터(직업 텍스트 필터 2개, 아픈 신체 부위, 신청서 유형, 사망 여부)는 `apply_main_filters` 재사용을 통해 `/search`(상세 검색) 화면에도 그대로 추가되어, 기존 심의결과·질병분류·신체부위·판정일 필터와 조합해 쓸 수 있다 (5.2절 참고). KSCO 코드 필터(`ksco_code[]`)는 아직 `/search` 화면에는 UI가 없다(계층형 자동완성 UI 자체가 8.1절처럼 2차 구현 대기 중).
 
 ### 6.2 KSCO 필터 상호작용
 
@@ -629,7 +666,7 @@ end
 
 ## 8. UI/UX 개요
 
-### 8.1 메인 화면 (`app/views/disease_cases/main.html.erb`)
+### 8.1 메인 화면 (`app/views/disease_cases/index.html.erb`, 초안에서는 `main.html.erb`)
 
 - **Hero 검색창**: 큰 텍스트 입력 (Full-text) + 검색 버튼.
 - **필터 패널** (화면 좌측 또는 상단 아코디언):
@@ -639,17 +676,23 @@ end
   - 신청서 유형: 셀렉트 박스.
   - 사망 여부: 토글 스위치 (Y/N).
   - KSCO 계층: 대분류 → 중분류 → 소분류 → 세분류 연동 셀렉트 (선택 사항, 2차 구현).
-- **결과 목록**: 카드 또는 테이블 형태. 각 항목에 직종명, 담당업무 요약, 신청서 유형, 사망 여부 배지, KSCO 코드 태그 표시.
+- **결과 목록**: 카드 또는 테이블 형태. 각 항목에 직종명, 담당업무 요약, 신청서 유형, 사망 여부 배지 표시.
 - **페이지네이션**: `pagy` 재사용.
 
-### 8.2 기존 검색 화면 이동 (`app/views/disease_cases/index.html.erb`)
+> **해결됨 (구현 중 변경)**: 초안에는 결과 목록에 KSCO 코드 태그도 넣기로 했으나, 판정서 하나가 여러 KSCO 코드에 매핑될 수 있어 태그가 한 줄을 과도하게 길게 만들어 가독성을 해쳤다. 목록에서는 빼고(판정서 상세 화면에는 그대로 남아있음), 더 이상 렌더링하지 않으므로 컨트롤러의 관련 eager load(`includes(:ksco_codes)`)도 함께 제거했다.
+> **해결됨 (구현 중 변경)**: 사망 여부 배지는 처음에 체크박스 라벨("사망 사례만 보기")을 그대로 재사용해 목록 각 행마다 반복 노출되고 `<mark>` 기본 음영까지 붙는 버그가 있었다. 배지 전용 로케일 키(`death_badge`, "사망")로 분리하고 `<span>`으로 고쳤다.
+
+### 8.2 기존 검색 화면 이동 (`app/views/disease_cases/search.html.erb`, 초안/구현 초기에는 `index.html.erb`)
 
 - `form_with url: search_path`로 변경.
-- 그 외 UI는 기존과 동일하게 유지.
+- 기존 UI(검색 대상 컬럼, 심의결과, 질병분류, 신체부위, 판정일, 정렬)는 그대로 유지.
+
+> **해결됨 (구현 중 추가)**: 초안에는 없었지만, `/search`에 `/`(메인 화면)의 필터를 함께 노출해달라는 후속 요청으로 `job_name`/`job_description` 텍스트 필드, `burden_body_part` 체크박스(상위 12개)+`<datalist>` 자동완성, `application_type` 드롭다운, `death_status` 토글을 메인 화면 뷰와 동일한 마크업으로 상세 검색 뷰에 추가했다(5.2절의 컨트롤러 재사용과 짝을 이룬다). 기존 필터와 시각적으로 구분하기 위해 새 필드들은 각각 관련 있는 기존 필드 근처(신체부위 체크박스 다음에 부담 신체 부위, 판정일 다음에 신청서 유형/사망 여부)에 배치했다.
+> **참고 (액션 이름 재정리)**: 5.1절에서 설명한 것처럼 컨트롤러 액션 이름을 나중에 재정리하면서 뷰 파일명도 함께 바뀌었다 — 메인 화면 뷰는 `main.html.erb` → `index.html.erb`로, 상세 검색 뷰는 `index.html.erb` → `search.html.erb`로 옮겨졌다(이름이 서로 맞바뀐 것이라 혼동하기 쉽다).
 
 ### 8.3 레이아웃 네비게이션 수정 (`app/views/layouts/application.html.erb`)
 
-`root_path`가 새 메인 화면(`disease_cases#main`)을 가리키게 되므로, 상단 내비게이션의 "검색" 링크는 `search_path`로 명시적으로 변경해야 한다. "업무상 질병 판정서" 브랜드 링크와 "검색" 링크가 동일한 URL을 가리키는 상황을 방지하고, 사용자가 기존 전문 검색(`/search`)에 접근할 수 있도록 유지한다.
+`root_path`가 새 메인 화면(`disease_cases#index`)을 가리키게 되므로, 상단 내비게이션의 "검색" 링크는 `search_path`로 명시적으로 변경해야 한다. "업무상 질병 판정서" 브랜드 링크와 "검색" 링크가 동일한 URL을 가리키는 상황을 방지하고, 사용자가 기존 전문 검색(`/search`)에 접근할 수 있도록 유지한다.
 
 ```erb
 <%= link_to t("nav.search"), search_path %>
@@ -661,42 +704,52 @@ end
 
 ### Phase 1: 모델 및 마이그레이션 (1~2일)
 
-1. [ ] `KscoCode` 모델 + 마이그레이션 생성
-2. [ ] `DiseaseCaseKscoCode` 조인 모델 + 마이그레이션 생성
-3. [ ] `DiseaseCase` 확장 마이그레이션 (18개 신규 컬럼 + 인덱스)
-4. [ ] `disease_cases_extracted_fts` FTS5 가상 테이블 + 트리거 마이그레이션
-5. [ ] `DiseaseCase` 모델에 `has_many :disease_case_ksco_codes` 등 관계 추가
-6. [ ] `DiseaseCases::MainSearchable` concern 신규 생성 (기존 `Searchable`는 그대로 유지)
+1. [x] `KscoCode` 모델 + 마이그레이션 생성
+2. [x] `DiseaseCaseKscoCode` 조인 모델 + 마이그레이션 생성
+3. [x] `DiseaseCase` 확장 마이그레이션 (18개 신규 컬럼 + 인덱스)
+4. [x] `disease_cases_extracted_fts` FTS5 가상 테이블 + 트리거 마이그레이션
+5. [x] `DiseaseCase` 모델에 `has_many :disease_case_ksco_codes` 등 관계 추가 (`dependent: :delete_all` — 4.2절 참고)
+6. [x] `DiseaseCases::MainSearchable` concern 신규 생성 (기존 `Searchable`는 그대로 유지)
 
 ### Phase 2: 데이터 임포트 (1일)
 
-7. [ ] `import:ksco_codes` rake task 작성 및 실행
-8. [ ] `import:extracted_disease_cases` rake task 작성 및 실행
-9. [ ] 데이터 검증: `DiseaseCase.where(job_name: nil).count` 등으로 누락 확인
+7. [x] `import:ksco_codes` rake task 작성 및 실행
+8. [x] `import:extracted_disease_cases` rake task 작성 및 실행
+9. [x] 데이터 검증: `DiseaseCase.where(job_name: nil).count` 등으로 누락 확인
 
 ### Phase 3: 라우팅, 컨트롤러 및 MCP Tool (0.5~1일)
 
-10. [ ] `routes.rb` 변경: `root` → `disease_cases#main`, `/search` → `disease_cases#index`
-11. [ ] `DiseaseCasesController#main` 액션 추가
-12. [ ] `main_search_params` strong parameters 정의
-13. [ ] 기존 `index.html.erb`의 `form_with url:`을 `search_path`로 수정
-14. [ ] `app/mcp/tools/search_disease_cases_tool.rb` 업데이트: `job_name`, `job_description`, `ksco_code`, `death_status` 파라미터 노출, ad-hoc 키워드 매칭을 새 구조화 필터로 대체/보완
+10. [x] `routes.rb` 변경: `root` → `disease_cases#main`, `/search` → `disease_cases#index` — **이후 액션 이름을 라우트 관례에 맞게 재정리**: `root` → `disease_cases#index`, `/search` → `disease_cases#search` (5.1절 참고)
+11. [x] `DiseaseCasesController#main` 액션 추가 — 이후 `#index`로 이름 변경 (5.1절)
+12. [x] `main_search_params` strong parameters 정의
+13. [x] 기존 `index.html.erb`의 `form_with url:`을 `search_path`로 수정 — 이후 이 파일은 `search.html.erb`로 이름이 바뀜 (8.2절)
+14. [x] `app/mcp/tools/search_disease_cases_tool.rb` 업데이트: `job_name`, `job_description`, `ksco_code`, `death_status` 파라미터 노출, ad-hoc 키워드 매칭을 새 구조화 필터로 대체/보완
 
 ### Phase 4: UI 개발 (2~3일)
 
-15. [ ] `main.html.erb` 신규 작성 (필터 패널 + 결과 목록)
-16. [ ] KSCO 자동완성 Stimulus 컨트롤러 (`ksco_autocomplete_controller.js`)
-17. [ ] 필터별 UI 컴포넌트 (체크박스, 셀렉트, 토글)
-18. [ ] 결과 카드/테이블 행 디자인 (직종명, KSCO 태그, 사망 배지)
-19. [ ] Oat CSS 클래스 적용 및 반응형 처리
+15. [x] `main.html.erb` 신규 작성 (필터 패널 + 결과 목록)
+16. [ ] KSCO 자동완성 Stimulus 컨트롤러 (`ksco_autocomplete_controller.js`) — 2차 구현으로 미룸 (1.3절 열린 질문 참고)
+17. [x] 필터별 UI 컴포넌트 (체크박스, 셀렉트, 토글, `<datalist>` 자동완성)
+18. [x] 결과 카드/테이블 행 디자인 (직종명, 사망 배지) — KSCO 태그는 가독성 문제로 목록에서 제외 (8.1절)
+19. [x] Oat CSS 클래스 적용 및 반응형 처리
 
 ### Phase 5: 테스트 및 검증 (1일)
 
-20. [ ] `main_search` concern 유닛 테스트 (필터 조합, FTS5 fallback)
-21. [ ] 통합 테스트: `/` 접속 → 필터 적용 → 결과 확인
-22. [ ] 기존 `/search` 경로 회귀 테스트 (기능 퇴행 확인)
-23. [ ] MCP Tool 테스트: LLM 클라이언트 시나리오로 `job_name`/`death_status` 필터 정상 동작 확인
-24. [ ] LSP diagnostics / `rubocop` 통과
+20. [x] `main_search` concern 유닛 테스트 (필터 조합, FTS5 fallback)
+21. [x] 통합 테스트: `/` 접속 → 필터 적용 → 결과 확인
+22. [x] 기존 `/search` 경로 회귀 테스트 (기능 퇴행 확인)
+23. [x] MCP Tool 테스트: LLM 클라이언트 시나리오로 `job_name`/`death_status` 필터 정상 동작 확인
+24. [x] LSP diagnostics / `rubocop` 통과
+
+### Phase 6: QA·코드 리뷰 후속 수정 (구현 중 추가)
+
+25. [x] `burden_body_part` 체크박스를 빈도 상위 12개로 제한하고 나머지는 `<datalist>` 자동완성으로 전환 (3.2절, 6.1절)
+26. [x] 목록의 사망 배지 라벨/음영 버그 수정 (8.1절)
+27. [x] 검색 결과 목록에서 KSCO 코드 컬럼 제거 + 관련 eager load 제거 (8.1절)
+28. [x] `DiseaseCase#has_many :disease_case_ksco_codes`에 `dependent: :delete_all` 추가 — KSCO 매핑이 있는 판정서 `destroy` 시 FK 오류 나던 버그 수정 (4.2절, 코드 리뷰에서 발견)
+29. [x] `/`(메인 화면) 접속 시 `burden_body_part` 토큰 집계를 한 번만 계산하도록 수정 — 체크박스/자동완성 옵션이 각자 풀스캔을 돌리던 회귀 (5.2절, 코드 리뷰에서 발견)
+30. [x] `/search`(상세 검색)에 `/`(메인 화면)의 직업·부담 신체 부위·사망 여부·신청서 유형 필터 통합 (5.2절, 8.2절)
+31. [x] `DiseaseCasesController` 액션 이름을 라우트 관례에 맞게 재정리: `main` → `index`, `index` → `search` (뷰 파일명도 함께 이동, 5.1절·5.2절·8.1절·8.2절)
 
 ---
 
@@ -705,22 +758,25 @@ end
 | 리스크 | 영향 | 대응 |
 |--------|------|------|
 | `burden_body_part` 데이터 누락 다수 | 필터 UI가 비어 보임 | 데이터 profiling 먼저 실행. 누락 시 기존 `body_part`를 fallback 표시하거나, enum 대신 자유 텍스트 필터 + autocomplete로 전환 |
+| **해결됨** — `burden_body_part` 실 데이터 distinct 토큰이 1,174개(파이프 split 기준)라 체크박스가 감당 불가능한 수준이었음 | 체크박스 1,000개 이상 렌더링, 화면 사용 불가 | 위 리스크와 별개로 실제 발생한 문제. profiling 결과를 바탕으로 빈도 상위 12개만 체크박스, 나머지는 `<datalist>` 자동완성(`burden_body_part_text`)으로 전환 (3.2절, 6.1절) |
 | `ksco_codes_json` 내 코드가 `KscoCode` 테이블에 없음 | JOIN 시 누락 | rake task에서 `warn` 출력 후 무시. 추후 KSCO CSV 보완 |
 | FTS5 가상 테이블 2개 동시 유지 | 마이그레이션 복잡도 | 기존/신규 트리거를 별도 마이그레이션 파일로 분리. `db:migrate` 순서 명확히 |
 | 기존 검색 경로 변경 | 외부 링크/북마크 깨짐 | README, MCP 문서, `workercare.plan.md` 경로 동시 업데이트. `/`는 그대로 유효하므로 영향 최소 |
 | `ksco_codes_json`이 비어있을 때 삭제 동기화를 건너뜀 (7.2절) | 추출 결과가 정말로 "매칭 없음"으로 바뀐 케이스에서 오래된 KSCO 매핑이 남아있을 수 있음 (false positive 가능성) | 의도된 안전한 기본값 — "비어있음"과 "필드 누락/파싱 실패"를 구분할 수 없는 한 삭제보다 보존을 택함. 추출기 계약이 "빈 값 = 매칭 없음 확정"을 보장하게 되면 이 가드를 제거하고 빈 값에서도 `destroy_all`을 실행하도록 전환 |
 | 기존 데이터 위에 FTS5 external content 테이블을 새로 추가 | rebuild 없이 트리거만 만들면 기존 레코드 UPDATE 시 FTS5 색인이 깨짐 (`SQLite3::CorruptException`) — 실제 구현 중 발생·확인됨 | 5.4절 마이그레이션에서 `CREATE VIRTUAL TABLE` 직후, 트리거 생성 전에 `INSERT INTO disease_cases_extracted_fts(disease_cases_extracted_fts) VALUES('rebuild')`를 먼저 실행 |
 | `SearchDiseaseCasesTool#build_statistics`가 `bm25` ORDER가 걸린 scope에 `.group(:result).count` 호출 | FTS 매칭 결과가 있을 때마다 `SQLite3::SQLException: unable to use function bm25 in the requested context`로 실패 (기존 MCP 테스트는 테스트 DB에 데이터가 없어 항상 fallback 경로만 타서 발견되지 않았던 기존 버그) — 실제 구현 중 발생·확인됨 | `scope.reorder(nil).group(:result).count`로 집계 전 order를 제거 |
+| `DiseaseCase#has_many :disease_case_ksco_codes`에 `dependent` 옵션 누락 | KSCO 매핑이 붙은 판정서를 `destroy`하면 DB FK 제약 위반(`ActiveRecord::InvalidForeignKey`)으로 삭제 실패 — 코드 리뷰에서 발견·재현 확인됨 | `dependent: :delete_all` 추가, 재현 테스트(`test/models/disease_case_test.rb`) 추가 (4.2절) |
+| `burden_body_part_options`/`burden_body_part_datalist_options`가 각자 같은 토큰 집계 쿼리를 호출 | `/`·`/search` 접속마다 `burden_body_part` 전체 pluck + 파이프 split 풀스캔이 두 번씩 실행 — 코드 리뷰에서 발견·확인됨 | 컨트롤러 액션에서 한 번만 계산해 두 메서드에 전달·재사용하도록 수정, SQL 쿼리 횟수를 검증하는 테스트 추가 (5.2절) |
 
 ---
 
 ## 11. 결론
 
-- **모델**: 기존 `DiseaseCase`를 확장한다. 1:1 분리는 불필요한 복잡도만 추가한다.
+- **모델**: 기존 `DiseaseCase`를 확장한다. 1:1 분리는 불필요한 복잡도만 추가한다. `has_many :disease_case_ksco_codes`는 `dependent: :delete_all`로 KSCO 매핑을 캐스케이드 삭제한다(4.2절 — 원래 없었으나 코드 리뷰로 FK 오류가 발견되어 추가).
 - **KSCO**: 별도 `KscoCode` + `DiseaseCaseKscoCode` 조인 테이블로 관리.
-- **검색**: 기존 `/search` (legacy)는 `DiseaseCases::Searchable` + `disease_cases_fts` 그대로 유지. 새 메인 화면은 `DiseaseCases::MainSearchable` + `disease_cases_extracted_fts`로 분리 구현.
+- **검색**: 기존 `/search` (legacy)는 `DiseaseCases::Searchable` + `disease_cases_fts` 그대로 유지. 새 메인 화면은 `DiseaseCases::MainSearchable` + `disease_cases_extracted_fts`로 분리 구현. `MainSearchable.apply_main_filters`는 `/search`에도 재사용되어(5.2절), 최종적으로 두 화면 모두 직업·부담 신체 부위·사망 여부·신청서 유형 필터를 공유한다.
 - **데이터**: `import:ksco_codes` → `import:extracted_disease_cases` 순서로 실행.
-- **UI**: 직업/KSCO 중심의 필터 패널 + Full-text Hero 검색창.
+- **UI**: 직업/KSCO 중심의 필터 패널 + Full-text Hero 검색창. `burden_body_part`는 실 데이터 distinct 토큰이 1,174개라 상위 12개 체크박스 + `<datalist>` 자동완성으로 최종 확정(3.2절). 검색 결과 목록에서는 KSCO 코드 태그를 뺐다(가독성, 8.1절).
 - **MCP**: `app/mcp/tools/search_disease_cases_tool.rb`를 함께 업데이트하여, LLM 클라이언트가 새 `job_name`/`job_description`/`ksco_code[]`/`death_status` 파라미터를 필터로 사용할 수 있도록 한다 (`main_search_params`/`apply_main_filters`가 실제로 읽는 이름은 단수 `ksco_code`이며 배열로 받는다 — MCP 툴도 이 이름을 그대로 써야 하고, `ksco_codes`처럼 다른 이름을 쓰면 `main_search_params`가 값을 버리고 `apply_main_filters`도 읽지 않아 KSCO 필터가 조용히 무시된다). 기존의 `work_match?`/`symptom_match?` 같은 ad-hoc 키워드 매칭은 새 구조화 데이터로 대체하거나 보완한다.
 
-**다음 액션**: Phase 1 마이그레이션 승인 후 `rails db:migrate` 실행.
+**현재 상태**: 위 Phase 1~6 구현 완료, `feat/search_ksco` 브랜치에서 PR #13으로 리뷰 중. 남은 것은 1절 "열린 질문" 3가지(enum 전환 여부, KSCO 계층형 자동완성 2차 구현, `ksco_codes_json` 빈 값 처리 재검토)와 병합 후 데이터 임포트 실행뿐이다.
