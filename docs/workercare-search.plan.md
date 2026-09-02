@@ -217,18 +217,26 @@ end
 class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
   BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
+  # wip/cerebras_prompts.rb 추출 스키마상 허용값 6개 전부 — DB에도 이 6개만 존재하는 진짜
+  # enum이라 distinct pluck 대신 고정 목록을 순서대로 노출한다 (3.2절).
+  WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
-  # / (메인 화면, 직업·부담 신체 부위·사망 여부·신청서 유형 기반 검색)
+  # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
+  # 근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. 고용형태·KSCO 코드는 사용자가
+  # 직접 골라 검색할 이유가 없어(고용형태는 값이 너무 잘게 쪼개져 있고, KSCO 코드는 숫자다)
+  # 웹 UI에는 아예 없다. apply_main_filters/main_search_params는 두 값 모두 그대로 받아서
+  # MCP 클라이언트(직업 설명 → 고용형태/KSCO 코드 매핑)는 계속 쓸 수 있다.
   def index
     perform_search(legacy: false)
-    set_main_filter_options
+    set_common_filter_options
   end
 
   # /search (상세 검색, 이전에는 root였다). 메인 화면 필터도 함께 쓸 수 있도록
-  # apply_main_filters를 추가로 적용한다.
+  # apply_main_filters를 추가로 적용하고, 근무형태·업무관련성 옵션도 추가로 노출한다.
   def search
     perform_search(legacy: true)
-    set_main_filter_options
+    set_common_filter_options
+    set_advanced_filter_options
   end
 
   def show
@@ -251,12 +259,19 @@ class DiseaseCasesController < ApplicationController
 
   # 체크박스(상위 N개)와 <datalist> 자동완성(전체) 옵션은 같은 집계를 재사용해야 한다 — 각자
   # 따로 DiseaseCase를 pluck하면 GET /·GET /search 접속마다 풀스캔이 두 번씩 돈다(코드 리뷰에서
-  # 발견·확인된 회귀).
-  def set_main_filter_options
+  # 발견·확인된 회귀). index/search 둘 다 쓰는 옵션만 여기 담는다.
+  def set_common_filter_options
     counts = burden_body_part_token_counts
     @burden_body_part_options = burden_body_part_options(counts)
     @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
+  end
+
+  # search(상세 검색)에서만 쓰는 옵션 — employment_type_options/ksco_code_options는 만들었다가
+  # UI 자체를 없애면서 함께 지웠다(6.1절, 8.1절/8.2절 "해결됨" 참고). index(메인 화면)는 이
+  # 메서드를 호출하지 않아 불필요한 쿼리가 안 돈다.
+  def set_advanced_filter_options
+    @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
   end
 
   def paginate(scope)
@@ -278,6 +293,7 @@ end
 ```
 
 > **`/search`에도 재사용**: `apply_main_filters`는 원래 MCP `search_disease_cases` 툴이 legacy `DiseaseCase.search` 결과에 새 구조화 필터를 추가로 적용하려고 public으로 열어둔 메서드였는데(11절 참고), 같은 패턴을 `search` 액션에도 적용해 `/search`(상세 검색)에서도 `/`(메인 화면)와 동일한 직업·부담 신체 부위·사망 여부·신청서 유형 필터를 함께 쓸 수 있게 했다. `main_search_params`가 permit하는 `:q`/`:sort` 등은 `apply_main_filters`가 읽지 않으므로 그대로 재사용해도 무해하다.
+> **해결됨 (UI 노출 범위 재검토)**: 처음에는 `employment_type`/`work_type`/`work_relevance_eval`/`ksco_code`도 전부 `/`·`/search`에 `<datalist>`/드롭다운으로 노출했었다(코드 리뷰에서 "웹 UI가 새 구조화 필터를 하나도 못 쓴다"는 지적을 받고 추가). 이후 후속 요청으로 범위를 다시 좁혔다: `employment_type`(distinct 1,583개)과 `ksco_code`(숫자 코드)는 사용자가 직접 값을 몰라 고를 이유가 없어 두 화면 어디에도 입력 필드를 두지 않기로 했고, `work_type`/`work_relevance_eval`은 `/search`에만 남기고 `/`(메인 화면)에서는 뺐다. `main_search_params`/`apply_main_filters`는 네 값 모두 여전히 받으므로, 쿼리스트링이나 MCP로는 계속 필터링할 수 있다(6.1절 표 참고).
 
 ### 5.3 검색 Concern 분리
 
@@ -479,18 +495,22 @@ end
 
 ### 6.1 필터 UI 구성
 
-| 필터 | 입력 방식 | 대상 컬럼/관계 | 비고 |
-|------|----------|---------------|------|
-| **직업 (직종명)** | 텍스트 입력 + KSCO 자동완성 | `job_name` (FTS5) / `ksco_codes` (JOIN) | KSCO 선택 시 해당 코드 연결된 판정서 검색 |
-| **하는일 (담당 업무)** | 텍스트 입력 | `job_description` (FTS5) | 한국어 조사 제거 적용 |
-| **아픈 신체 부위** | 체크박스(빈도 상위 12개) + `<datalist>` 자동완성 텍스트 입력(`burden_body_part_text`) | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 실 데이터 distinct 토큰이 1,174개라 전부 체크박스로 못 내서, 상위 12개만 체크박스로 두고 나머지는 네이티브 `<datalist>`로 자동완성 (3.2절 참고) |
-| **신청서 유형** | 드롭다운 | `application_type` | 정규화된 enum 값 |
-| **사망 여부** | 스위치 / 체크박스 | `death_status` | Y/N |
-| **Full-text 검색** | 텍스트 입력 | `disease_cases_extracted_fts` (5개 컬럼) | 기존 FTS5 패턴 재사용 |
-| **심의결과** | 드롭다운 (기존 유지) | `result` | 메인 화면에서도 노출 가능 (선택 사항) |
-| **정렬** | 라디오 버튼 | relevance / recent | BM25 (FTS5) 또는 `year DESC` |
+| 필터 | 노출 화면 | 입력 방식 | 대상 컬럼/관계 | 비고 |
+|------|----------|----------|---------------|------|
+| **직업 (직종명)** | `/`, `/search` | 텍스트 입력 | `job_name` (LIKE) | KSCO 자동완성 드롭다운은 2차 구현으로 미룸(아래 참고) |
+| **하는일 (담당 업무)** | `/`, `/search` | 텍스트 입력 | `job_description` (LIKE) | 한국어 조사 제거는 FTS5 쪽에만 적용(구조화 필터는 단순 LIKE) |
+| **아픈 신체 부위** | `/`, `/search` | 체크박스(빈도 상위 12개) + `<datalist>` 자동완성 텍스트 입력(`burden_body_part_text`) | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 실 데이터 distinct 토큰이 1,174개라 전부 체크박스로 못 내서, 상위 12개만 체크박스로 두고 나머지는 네이티브 `<datalist>`로 자동완성 (3.2절 참고) |
+| **신청서 유형** | `/`, `/search` | 드롭다운 | `application_type` | distinct 값 그대로 노출(정규화는 후속 작업 — 아래 3.2절 참고) |
+| **사망 여부** | `/`, `/search` | 스위치 / 체크박스 | `death_status` | Y/N |
+| **근무 형태** | `/search`만 | 텍스트 입력(자동완성 없음) | `work_type` (LIKE) | distinct 값이 14,582개로 사실상 자유 텍스트라(예: `"02:30~11:30 (평일 및 토요일)"`) `<datalist>`에 담을 수 없다. 처음엔 exact match였는데, 사용자가 직접 입력한 값이 저장된 문자열과 한 글자만 달라도 0건이 되는 문제가 있어 LIKE 부분 일치로 바꿨다 |
+| **업무관련성 평가** | `/search`만 | 드롭다운 | `work_relevance_eval` | 추출 스키마상 6개뿐인 진짜 enum(`매우_높음`~`미흡`)이라 exact match 그대로 유지 |
+| **고용 형태** | UI 없음(쿼리스트링/MCP만) | — | `employment_type` (exact match) | distinct 값이 1,583개로 잘게 쪼개져 있어(예: `"1년 계약직"`/`"1년 계약직(비정규직)"`) 사용자가 직접 골라 검색할 이유가 없다고 판단해 웹 UI에서 뺐다 |
+| **KSCO 코드** | UI 없음(쿼리스트링/MCP만) | — | `ksco_codes` (JOIN) | 숫자 코드라 사용자가 외워서 검색할 이유가 없다고 판단해 웹 UI에서 뺐다. MCP 클라이언트가 직업 설명 → KSCO 코드로 매핑해 구조화 필터로 넘길 때 쓴다 |
+| **Full-text 검색** | `/`, `/search` | 텍스트 입력 | `disease_cases_extracted_fts` (5개 컬럼) | 기존 FTS5 패턴 재사용 |
+| **심의결과** | `/search`만 (기존 유지) | 드롭다운 | `result` | — |
+| **정렬** | `/`, `/search` | 라디오 버튼 | relevance / recent | BM25 (FTS5) 또는 `year DESC` |
 
-> **해결됨**: 이 표의 6개 필터(직업 텍스트 필터 2개, 아픈 신체 부위, 신청서 유형, 사망 여부)는 `apply_main_filters` 재사용을 통해 `/search`(상세 검색) 화면에도 그대로 추가되어, 기존 심의결과·질병분류·신체부위·판정일 필터와 조합해 쓸 수 있다 (5.2절 참고). KSCO 코드 필터(`ksco_code[]`)는 아직 `/search` 화면에는 UI가 없다(계층형 자동완성 UI 자체가 8.1절처럼 2차 구현 대기 중).
+> **해결됨 (최종 UI 노출 범위)**: 위 표의 노출 범위는 두 차례 조정을 거쳤다. ① 코드 리뷰에서 "웹 UI가 employment_type/work_type/work_relevance_eval/ksco_code 구조화 필터를 하나도 못 쓴다"는 지적을 받고 네 필터 모두 `/`·`/search`에 노출했다. ② 이후 후속 요청으로 다시 좁혔다 — employment_type/ksco_code는 사용자가 값을 몰라 직접 고를 이유가 없어 완전히 뺐고(쿼리스트링/MCP 전용으로 남김), work_type/work_relevance_eval은 `/search`(상세 검색)에만 남기고 `/`(메인 화면, 간단한 검색)에서는 뺐다. `apply_main_filters`/`main_search_params`는 네 값 모두 그대로 받으므로 백엔드 동작은 바뀌지 않았다(5.2절 참고).
 
 ### 6.2 KSCO 필터 상호작용
 
@@ -499,6 +519,8 @@ end
 3. 사용자가 KSCO 코드 `8722` 선택.
 4. 검색 쿼리: `DiseaseCase.joins(:ksco_codes).where(ksco_codes: { code: "8722" })`.
 5. 선택된 KSCO 코드는 파라미터 `ksco_code[]`로 전달 (멀티 선택 가능).
+
+> **미구현 (2차 구현으로 남음)**: 위 시나리오의 자동완성 UI는 이 PR에 없다. 6.1절 "해결됨" 노트대로 `ksco_code`는 최종적으로 웹 UI 자체가 없고, `apply_main_filters`의 JOIN 로직(4번)만 실제로 존재한다 — 지금은 MCP 클라이언트나 쿼리스트링으로만 `ksco_code[]`를 채울 수 있다.
 
 ---
 
@@ -676,18 +698,21 @@ end
   - 신청서 유형: 셀렉트 박스.
   - 사망 여부: 토글 스위치 (Y/N).
   - KSCO 계층: 대분류 → 중분류 → 소분류 → 세분류 연동 셀렉트 (선택 사항, 2차 구현).
-- **결과 목록**: 카드 또는 테이블 형태. 각 항목에 직종명, 담당업무 요약, 신청서 유형, 사망 여부 배지 표시.
+- **결과 목록**: 카드 또는 테이블 형태. 각 항목에 원문 링크, 직종명, 담당업무 요약, 신청서 유형, 근무 형태, 업무관련성 평가, 사망 여부 배지, 심의결과, 심의연도 표시.
 - **페이지네이션**: `pagy` 재사용.
 
 > **해결됨 (구현 중 변경)**: 초안에는 결과 목록에 KSCO 코드 태그도 넣기로 했으나, 판정서 하나가 여러 KSCO 코드에 매핑될 수 있어 태그가 한 줄을 과도하게 길게 만들어 가독성을 해쳤다. 목록에서는 빼고(판정서 상세 화면에는 그대로 남아있음), 더 이상 렌더링하지 않으므로 컨트롤러의 관련 eager load(`includes(:ksco_codes)`)도 함께 제거했다.
 > **해결됨 (구현 중 변경)**: 사망 여부 배지는 처음에 체크박스 라벨("사망 사례만 보기")을 그대로 재사용해 목록 각 행마다 반복 노출되고 `<mark>` 기본 음영까지 붙는 버그가 있었다. 배지 전용 로케일 키(`death_badge`, "사망")로 분리하고 `<span>`으로 고쳤다.
+> **해결됨 (구현 중 추가)**: 상단 내비게이션에 이미 `/search`로 가는 "검색" 링크가 있어 중복이라, 메인 화면 안의 "상세 검색 (기존 화면)" 링크는 뺐다.
+> **해결됨 (구현 중 추가)**: 결과 목록에 원문(`link`) 링크가 아예 없었는데, 판정서 원문에 바로 접근하고 싶다는 요청으로 컬럼을 추가했다 — `/search` 결과 목록과 마찬가지로 **첫 번째 컬럼**에 배치한다(아래 8.2절 참고). 근무 형태(`work_type`)·업무관련성 평가(`work_relevance_eval`) 컬럼도 신청서 유형 다음에 추가했다 — 필터로는 `/`(메인 화면)에서 못 걸어도(6.1절) 결과 목록에서는 두 값을 볼 수 있다.
 
 ### 8.2 기존 검색 화면 이동 (`app/views/disease_cases/search.html.erb`, 초안/구현 초기에는 `index.html.erb`)
 
 - `form_with url: search_path`로 변경.
 - 기존 UI(검색 대상 컬럼, 심의결과, 질병분류, 신체부위, 판정일, 정렬)는 그대로 유지.
+- 결과 목록: 기존 심의결과·신체부위·질병분류·신청질병·심의연도·원문 컬럼에 더해, `/`(메인 화면)과 동일한 원문(맨 앞)·직종명·담당업무·신청서 종류·근무 형태·업무관련성 평가·사망 여부 컬럼을 추가했다.
 
-> **해결됨 (구현 중 추가)**: 초안에는 없었지만, `/search`에 `/`(메인 화면)의 필터를 함께 노출해달라는 후속 요청으로 `job_name`/`job_description` 텍스트 필드, `burden_body_part` 체크박스(상위 12개)+`<datalist>` 자동완성, `application_type` 드롭다운, `death_status` 토글을 메인 화면 뷰와 동일한 마크업으로 상세 검색 뷰에 추가했다(5.2절의 컨트롤러 재사용과 짝을 이룬다). 기존 필터와 시각적으로 구분하기 위해 새 필드들은 각각 관련 있는 기존 필드 근처(신체부위 체크박스 다음에 부담 신체 부위, 판정일 다음에 신청서 유형/사망 여부)에 배치했다.
+> **해결됨 (구현 중 추가, 이후 범위 재조정)**: 초안에는 없었지만, `/search`에 `/`(메인 화면)의 필터를 함께 노출해달라는 후속 요청으로 `job_name`/`job_description` 텍스트 필드, `burden_body_part` 체크박스(상위 12개)+`<datalist>` 자동완성, `application_type` 드롭다운, `death_status` 토글, `work_type`/`work_relevance_eval`을 메인 화면 뷰와 동일한 마크업으로 상세 검색 뷰에 추가했다(5.2절의 컨트롤러 재사용과 짝을 이룬다). 한때 `employment_type`/`ksco_code`도 같은 방식(각각 `<datalist>` 텍스트 입력)으로 추가했었으나, 6.1절 "해결됨" 노트대로 이후 다시 뺐다 — 사용자가 직접 값을 몰라 고를 이유가 없다고 판단했다.
 > **참고 (액션 이름 재정리)**: 5.1절에서 설명한 것처럼 컨트롤러 액션 이름을 나중에 재정리하면서 뷰 파일명도 함께 바뀌었다 — 메인 화면 뷰는 `main.html.erb` → `index.html.erb`로, 상세 검색 뷰는 `index.html.erb` → `search.html.erb`로 옮겨졌다(이름이 서로 맞바뀐 것이라 혼동하기 쉽다).
 
 ### 8.3 레이아웃 네비게이션 수정 (`app/views/layouts/application.html.erb`)
@@ -750,6 +775,11 @@ end
 29. [x] `/`(메인 화면) 접속 시 `burden_body_part` 토큰 집계를 한 번만 계산하도록 수정 — 체크박스/자동완성 옵션이 각자 풀스캔을 돌리던 회귀 (5.2절, 코드 리뷰에서 발견)
 30. [x] `/search`(상세 검색)에 `/`(메인 화면)의 직업·부담 신체 부위·사망 여부·신청서 유형 필터 통합 (5.2절, 8.2절)
 31. [x] `DiseaseCasesController` 액션 이름을 라우트 관례에 맞게 재정리: `main` → `index`, `index` → `search` (뷰 파일명도 함께 이동, 5.1절·5.2절·8.1절·8.2절)
+32. [x] MCP `search_disease_cases`의 `q`를 optional로 바꿈 — 구조화 필터만으로도 검색 가능 (코드 리뷰에서 발견: `q`가 `required: true`라 순수 구조화 필터 검색이 프레임워크 단에서 막혔었음)
+33. [x] MCP `search_disease_cases`에 `q`도 구조화 필터도 전부 빈 호출을 거부하는 가드 추가 — 32번 변경 직후 발견된 회귀: 빈 호출이 전체 코퍼스(6만여 건)를 정상 검색 결과처럼 반환했었음(코드 리뷰에서 발견·재현: 61,821건 반환)
+34. [x] 웹 UI 필터 노출 범위 조정: `employment_type`/`work_type`/`work_relevance_eval`/`ksco_code`를 한 번 전부 노출했다가(코드 리뷰 대응), 후속 요청으로 `employment_type`/`ksco_code`는 완전히 빼고 `work_type`/`work_relevance_eval`은 `/search`에만 남김 (6.1절, 8.2절)
+35. [x] 검색 결과 목록에 원문(`link`) 컬럼 추가(맨 앞 배치, `/`·`/search` 둘 다) + `work_type`/`work_relevance_eval` 컬럼 추가 (8.1절, 8.2절)
+36. [x] 로컬 개발환경 루비 버전을 4.0.6 → 3.4.9로 다운그레이드 — `solid_mcp` 사전 컴파일 바이너리가 `ruby < 3.5.dev`로 제한돼 있어 매번 소스(Rust) 빌드가 필요했던 문제 해결. `Dockerfile`의 Rust 툴체인 설치 단계도 함께 제거(README 참고, 이 PR 범위 밖 인프라 변경이라 이 문서에는 상세 기록하지 않음)
 
 ---
 
@@ -767,6 +797,8 @@ end
 | `SearchDiseaseCasesTool#build_statistics`가 `bm25` ORDER가 걸린 scope에 `.group(:result).count` 호출 | FTS 매칭 결과가 있을 때마다 `SQLite3::SQLException: unable to use function bm25 in the requested context`로 실패 (기존 MCP 테스트는 테스트 DB에 데이터가 없어 항상 fallback 경로만 타서 발견되지 않았던 기존 버그) — 실제 구현 중 발생·확인됨 | `scope.reorder(nil).group(:result).count`로 집계 전 order를 제거 |
 | `DiseaseCase#has_many :disease_case_ksco_codes`에 `dependent` 옵션 누락 | KSCO 매핑이 붙은 판정서를 `destroy`하면 DB FK 제약 위반(`ActiveRecord::InvalidForeignKey`)으로 삭제 실패 — 코드 리뷰에서 발견·재현 확인됨 | `dependent: :delete_all` 추가, 재현 테스트(`test/models/disease_case_test.rb`) 추가 (4.2절) |
 | `burden_body_part_options`/`burden_body_part_datalist_options`가 각자 같은 토큰 집계 쿼리를 호출 | `/`·`/search` 접속마다 `burden_body_part` 전체 pluck + 파이프 split 풀스캔이 두 번씩 실행 — 코드 리뷰에서 발견·확인됨 | 컨트롤러 액션에서 한 번만 계산해 두 메서드에 전달·재사용하도록 수정, SQL 쿼리 횟수를 검증하는 테스트 추가 (5.2절) |
+| MCP `search_disease_cases`의 `q`가 `required: true` | "사망한 버스운전원 사례 전부"처럼 구조화 필터만으로 검색하려 해도 actionmcp 프레임워크 단에서 "내용을 입력해 주세요"로 막혀 툴 로직에 도달하지도 못함 — 코드 리뷰에서 발견·재현 확인됨 | `q`를 `required: false`로 변경 (Phase 6, 32번) |
+| 위 변경 직후: `q`도 구조화 필터도 전부 없는 완전히 빈 MCP 호출 | `DiseaseCase.search(q: nil)`이 스코프 없이 전체 코퍼스를 반환 — LLM이 사용자 발화에서 필터를 하나도 못 뽑아냈을 때 6만여 건(61,821건 재현 확인)을 `confidence_score: 0.5`로 정상 검색 결과처럼 반환하는 회귀 — 코드 리뷰에서 발견·재현 확인됨 | `perform` 시작에서 `q`와 모든 구조화 필터가 다 비어있으면 에러를 반환하도록 가드 추가 (Phase 6, 33번) |
 
 ---
 
@@ -774,9 +806,9 @@ end
 
 - **모델**: 기존 `DiseaseCase`를 확장한다. 1:1 분리는 불필요한 복잡도만 추가한다. `has_many :disease_case_ksco_codes`는 `dependent: :delete_all`로 KSCO 매핑을 캐스케이드 삭제한다(4.2절 — 원래 없었으나 코드 리뷰로 FK 오류가 발견되어 추가).
 - **KSCO**: 별도 `KscoCode` + `DiseaseCaseKscoCode` 조인 테이블로 관리.
-- **검색**: 기존 `/search` (legacy)는 `DiseaseCases::Searchable` + `disease_cases_fts` 그대로 유지. 새 메인 화면은 `DiseaseCases::MainSearchable` + `disease_cases_extracted_fts`로 분리 구현. `MainSearchable.apply_main_filters`는 `/search`에도 재사용되어(5.2절), 최종적으로 두 화면 모두 직업·부담 신체 부위·사망 여부·신청서 유형 필터를 공유한다.
+- **검색**: 기존 `/search` (legacy)는 `DiseaseCases::Searchable` + `disease_cases_fts` 그대로 유지. 새 메인 화면은 `DiseaseCases::MainSearchable` + `disease_cases_extracted_fts`로 분리 구현. `MainSearchable.apply_main_filters`는 `/search`에도 재사용되어(5.2절), 최종적으로 두 화면 모두 직업·부담 신체 부위·사망 여부·신청서 유형 필터를 공유한다. `work_type`/`work_relevance_eval`은 `/search`에만, `employment_type`/`ksco_code`는 어느 화면에도 UI 없이 백엔드(쿼리스트링/MCP)로만 필터링한다(6.1절 최종 표 참고).
 - **데이터**: `import:ksco_codes` → `import:extracted_disease_cases` 순서로 실행.
-- **UI**: 직업/KSCO 중심의 필터 패널 + Full-text Hero 검색창. `burden_body_part`는 실 데이터 distinct 토큰이 1,174개라 상위 12개 체크박스 + `<datalist>` 자동완성으로 최종 확정(3.2절). 검색 결과 목록에서는 KSCO 코드 태그를 뺐다(가독성, 8.1절).
-- **MCP**: `app/mcp/tools/search_disease_cases_tool.rb`를 함께 업데이트하여, LLM 클라이언트가 새 `job_name`/`job_description`/`ksco_code[]`/`death_status` 파라미터를 필터로 사용할 수 있도록 한다 (`main_search_params`/`apply_main_filters`가 실제로 읽는 이름은 단수 `ksco_code`이며 배열로 받는다 — MCP 툴도 이 이름을 그대로 써야 하고, `ksco_codes`처럼 다른 이름을 쓰면 `main_search_params`가 값을 버리고 `apply_main_filters`도 읽지 않아 KSCO 필터가 조용히 무시된다). 기존의 `work_match?`/`symptom_match?` 같은 ad-hoc 키워드 매칭은 새 구조화 데이터로 대체하거나 보완한다.
+- **UI**: 직업/KSCO 중심의 필터 패널 + Full-text Hero 검색창. `burden_body_part`는 실 데이터 distinct 토큰이 1,174개라 상위 12개 체크박스 + `<datalist>` 자동완성으로 최종 확정(3.2절). 검색 결과 목록에서는 KSCO 코드 태그를 뺐고(가독성, 8.1절), 대신 원문 링크(맨 앞)·근무 형태·업무관련성 평가 컬럼을 추가했다(8.1절, 8.2절).
+- **MCP**: `app/mcp/tools/search_disease_cases_tool.rb`를 함께 업데이트하여, LLM 클라이언트가 새 `job_name`/`job_description`/`ksco_code[]`/`death_status` 파라미터를 필터로 사용할 수 있도록 한다 (`main_search_params`/`apply_main_filters`가 실제로 읽는 이름은 단수 `ksco_code`이며 배열로 받는다 — MCP 툴도 이 이름을 그대로 써야 하고, `ksco_codes`처럼 다른 이름을 쓰면 `main_search_params`가 값을 버리고 `apply_main_filters`도 읽지 않아 KSCO 필터가 조용히 무시된다). 기존의 `work_match?`/`symptom_match?` 같은 ad-hoc 키워드 매칭은 새 구조화 데이터로 대체하거나 보완한다. `q`는 최종적으로 optional이며, `q`와 구조화 필터가 전부 빈 호출은 명시적으로 거부한다(Phase 6, 32-33번 — 두 번의 코드 리뷰 라운드에서 순서대로 발견된 문제).
 
-**현재 상태**: 위 Phase 1~6 구현 완료, `feat/search_ksco` 브랜치에서 PR #13으로 리뷰 중. 남은 것은 1절 "열린 질문" 3가지(enum 전환 여부, KSCO 계층형 자동완성 2차 구현, `ksco_codes_json` 빈 값 처리 재검토)와 병합 후 데이터 임포트 실행뿐이다.
+**현재 상태**: 위 Phase 1~6 구현 완료, `feat/search_ksco` 브랜치에서 PR #13으로 리뷰 중. 로컬 개발환경 루비 버전은 3.4.9(README 참고). 남은 것은 1절 "열린 질문" 3가지(enum 전환 여부, KSCO 계층형 자동완성 2차 구현, `ksco_codes_json` 빈 값 처리 재검토)와 병합 후 데이터 임포트 실행뿐이다.
