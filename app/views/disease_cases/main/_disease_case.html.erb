@@ -4,7 +4,7 @@
   <td class="whitespace-nowrap"><%= disease_case.application_type.presence || "-" %></td>
   <td class="whitespace-nowrap">
     <% if disease_case.death_status == "Y" %>
-      <mark><%= t("search.death_only") %></mark>
+      <span><%= t("search.death_badge") %></span>
     <% end %>
   </td>
   <th class="min-w-40 max-w-48">

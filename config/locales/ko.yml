@@ -31,4 +31,5 @@ ko:
     burden_body_part_text_label: 직접 검색
     burden_body_part_text_placeholder: "예: 견관절, 요추"
     death_only: 사망 사례만 보기
+    death_badge: 사망
     go_to_advanced_search: 상세 검색 (기존 화면)

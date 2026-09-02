@@ -31,4 +31,5 @@ en:
     burden_body_part_text_label: Search directly
     burden_body_part_text_placeholder: "e.g. shoulder joint, lumbar spine"
     death_only: Fatal cases only
+    death_badge: Fatal
     go_to_advanced_search: Advanced Search (legacy)
