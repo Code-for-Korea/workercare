@@ -53,6 +53,14 @@ class SearchDiseaseCasesToolTest < ActiveSupport::TestCase
     assert_includes json[:data][:cases].map { |c| c[:case_no] }, disease_case.case_no
   end
 
+  test "rejects a call with no q and no structured filters instead of returning the whole corpus" do
+    result = SearchDiseaseCasesTool.call
+    json = result.structured_content
+
+    assert json[:error].present?
+    assert_nil json[:data]
+  end
+
   test "date validation returns error for invalid format" do
     result = SearchDiseaseCasesTool.call(q: "손목", decided_on_from: "invalid")
     json = result.structured_content
