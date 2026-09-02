@@ -6,7 +6,9 @@ class DiseaseCasesController < ApplicationController
   WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
   # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
-  # 고용형태/근무형태/업무관련성/KSCO 코드는 /search(상세 검색)에서만 노출한다.
+  # 고용형태/근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. KSCO 코드는 사용자가 외워서
+  # 검색할 이유가 없는 숫자 코드라 웹 UI에는 아예 없고, apply_main_filters/main_search_params는
+  # MCP 클라이언트(직업 설명 → KSCO 코드 매핑)를 위해 그대로 유지한다.
   def index
     perform_search(legacy: false)
     set_common_filter_options
@@ -49,7 +51,6 @@ class DiseaseCasesController < ApplicationController
   def set_advanced_filter_options
     @employment_type_options = employment_type_options
     @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
-    @ksco_code_options = ksco_code_options
   end
 
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
@@ -81,13 +82,6 @@ class DiseaseCasesController < ApplicationController
   # apply_main_filters의 exact match(where(employment_type: ...))가 항상 그대로 맞는다.
   def employment_type_options
     DiseaseCase.where.not(employment_type: [ nil, "" ]).distinct.order(:employment_type).pluck(:employment_type)
-  end
-
-  # KscoCode는 CSV 기준 500여 개뿐이라(wip/ksco-level-4-details.csv) <datalist> 전체 노출이 가능하다.
-  # 계층형(대분류→세분류) 자동완성 UI는 1.3절 열린 질문대로 2차 구현으로 남겨두고, 우선 코드 하나를
-  # 직접 검색해 고르는 최소 UI만 제공한다.
-  def ksco_code_options
-    KscoCode.order(:code).pluck(:code, :name)
   end
 
   def paginate(scope)

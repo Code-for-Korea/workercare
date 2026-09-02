@@ -145,16 +145,6 @@
               [ [ "— #{t('search.all_results')} —", "" ] ] + @work_relevance_eval_options.map { |v| [ v.tr("_", " "), v ] },
               selected: params[:work_relevance_eval] %>
       </div>
-      <div>
-        <%= form.label :ksco_code, t("search.ksco_code_label") %>
-        <%= form.text_field "ksco_code[]", value: Array(params[:ksco_code]).first,
-              list: "ksco_code_datalist", placeholder: t("search.ksco_code_placeholder") %>
-        <datalist id="ksco_code_datalist">
-          <% @ksco_code_options.each do |code, name| %>
-            <option value="<%= code %>"><%= code %> — <%= name %></option>
-          <% end %>
-        </datalist>
-      </div>
     </div>
     <fieldset>
       <legend><%= t("search.sort_label") %></legend>

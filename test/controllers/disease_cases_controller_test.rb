@@ -69,38 +69,53 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_select "datalist#burden_body_part_datalist"
   end
 
-  test "GET /search renders employment_type/work_type/work_relevance_eval/ksco_code inputs" do
+  test "GET /search renders employment_type/work_type/work_relevance_eval inputs" do
     get search_path
     assert_response :success
     assert_select "input[name='employment_type']"
     assert_select "datalist#employment_type_datalist"
     assert_select "input[name='work_type']"
     assert_select "select[name='work_relevance_eval']"
-    assert_select "input[name='ksco_code[]']"
-    assert_select "datalist#ksco_code_datalist"
   end
 
-  test "GET / (simple search) does not render employment_type/work_type/work_relevance_eval/ksco_code inputs" do
+  test "GET / and GET /search never render a ksco_code input — no reason to search by a numeric code" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_response :success
+      assert_select "input[name='ksco_code[]']", count: 0
+    end
+  end
+
+  test "GET / (simple search) does not render employment_type/work_type/work_relevance_eval inputs" do
     get root_path
     assert_response :success
     assert_select "input[name='employment_type']", count: 0
     assert_select "input[name='work_type']", count: 0
     assert_select "select[name='work_relevance_eval']", count: 0
-    assert_select "input[name='ksco_code[]']", count: 0
   end
 
-  test "GET /search filters by employment_type, work_type, work_relevance_eval, and ksco_code" do
-    matched = DiseaseCase.create!(case_no: "TEST-STRUCT-MATCH", disease_name: "구조화필터매칭",
-      employment_type: "상용직", work_type: "02:30~11:30 (평일 및 토요일)",
-      work_relevance_eval: "높음", year: 2024)
-    other = DiseaseCase.create!(case_no: "TEST-STRUCT-OTHER", disease_name: "구조화필터제외",
-      employment_type: "일용직", work_type: "야간전담", work_relevance_eval: "낮음", year: 2024)
-    ksco = KscoCode.create!(code: "TEST-CTRL-8722", name: "버스 운전원")
+  test "GET /search still filters by ksco_code via query params (MCP/API-only capability)" do
+    matched = DiseaseCase.create!(case_no: "TEST-KSCO-QS-MATCH", disease_name: "코드필터매칭", year: 2024)
+    other = DiseaseCase.create!(case_no: "TEST-KSCO-QS-OTHER", disease_name: "코드필터제외", year: 2024)
+    ksco = KscoCode.create!(code: "TEST-CTRL-8723", name: "택배 기사")
     DiseaseCaseKscoCode.create!(disease_case: matched, ksco_code: ksco, similarity: 0.9)
 
+    get search_path, params: { ksco_code: [ ksco.code ] }
+
+    assert_response :success
+    assert_match "코드필터매칭", response.body
+    assert_no_match(/코드필터제외/, response.body)
+  end
+
+  test "GET /search filters by employment_type, work_type, and work_relevance_eval" do
+    DiseaseCase.create!(case_no: "TEST-STRUCT-MATCH", disease_name: "구조화필터매칭",
+      employment_type: "상용직", work_type: "02:30~11:30 (평일 및 토요일)",
+      work_relevance_eval: "높음", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-STRUCT-OTHER", disease_name: "구조화필터제외",
+      employment_type: "일용직", work_type: "야간전담", work_relevance_eval: "낮음", year: 2024)
+
     get search_path, params: {
-      employment_type: "상용직", work_type: "토요일",
-      work_relevance_eval: "높음", ksco_code: [ ksco.code ]
+      employment_type: "상용직", work_type: "토요일", work_relevance_eval: "높음"
     }
 
     assert_response :success
