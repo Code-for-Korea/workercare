@@ -403,6 +403,21 @@ GEM
       concurrent-ruby (~> 1.0)
       railties (>= 8.0)
       rb_sys (~> 0.9)
+    solid_mcp (0.5.0-arm64-darwin)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
+    solid_mcp (0.5.0-x86_64-linux)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
+    solid_mcp (0.5.0-x86_64-linux-musl)
+      activejob (>= 8.0)
+      activerecord (>= 8.0)
+      concurrent-ruby (~> 1.0)
+      railties (>= 8.0)
     solid_queue (1.4.0)
       activejob (>= 7.1)
       activerecord (>= 7.1)
@@ -645,6 +660,9 @@ CHECKSUMS
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   solid_cache (1.0.10) sha256=bc05a2fb3ac78a6f43cbb5946679cf9db67dd30d22939ededc385cb93e120d41
   solid_mcp (0.5.0) sha256=6ccc57e9a12f8c2f5d6c62e7d29252cae1b63f326a128a97e47a48c420df3467
+  solid_mcp (0.5.0-arm64-darwin) sha256=f4000b98b5d08ec7674c5b9fa6167269ebf7477d02fc095dcf11890d166649dc
+  solid_mcp (0.5.0-x86_64-linux) sha256=b305c44a9bf3c1074e17b090919d2635752692501ef5200966e5c2be90cf03eb
+  solid_mcp (0.5.0-x86_64-linux-musl) sha256=65f54897047abd261e7126c390e0af0240972287b84c39e14afe058b88760a53
   solid_queue (1.4.0) sha256=e6a18d196f0b27cb6e3c77c5b31258b05fb634f8ed64fb1866ed164047216c2a
   sqlite3 (2.9.2-aarch64-linux-gnu) sha256=eeb86db55645b85327ba75129e3614658d974bf4da8fdc87018a0d42c59f6e42
   sqlite3 (2.9.2-aarch64-linux-musl) sha256=4feff91fb8c2b13688da34b5627c9d1ed9cedb3ee87a7114ec82209147f07a6d
