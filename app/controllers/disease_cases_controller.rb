@@ -2,16 +2,16 @@ class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
   BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
 
-  # 기존 /search (이전에는 root). 메인 화면(직업·부담 신체 부위·사망 여부·신청서 유형) 필터도
-  # 함께 쓸 수 있도록 apply_main_filters를 추가로 적용한다.
+  # / (메인 화면, 직업·부담 신체 부위·사망 여부·신청서 유형 기반 검색)
   def index
-    perform_search(legacy: true)
+    perform_search(legacy: false)
     set_main_filter_options
   end
 
-  # 신규 / (메인 화면)
-  def main
-    perform_search(legacy: false)
+  # /search (상세 검색, 이전에는 root였다). 메인 화면 필터도 함께 쓸 수 있도록
+  # apply_main_filters를 추가로 적용한다.
+  def search
+    perform_search(legacy: true)
     set_main_filter_options
   end
 
