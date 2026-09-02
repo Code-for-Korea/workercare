@@ -73,8 +73,18 @@ module DiseaseCases
 
         scope = scope.where(death_status: params[:death_status]) if params[:death_status].present?
         scope = scope.where(application_type: params[:application_type]) if params[:application_type].present?
+        # employment_type은 distinct 값이 1,583개로 많지만(예: "1년 계약직"/"1년 계약직(비정규직)"),
+        # UI에서 <datalist>로 실제 저장된 값을 그대로 골라 제출하므로 exact match로도 항상 맞는다.
         scope = scope.where(employment_type: params[:employment_type]) if params[:employment_type].present?
-        scope = scope.where(work_type: params[:work_type]) if params[:work_type].present?
+
+        # work_type은 distinct 값이 14,582개로(예: "02:30~11:30 (평일 및 토요일)") 사실상 자유 텍스트라
+        # <datalist>로 목록화할 수 없다(3.2절). exact match를 쓰면 사용자가 직접 입력한 값이 저장된
+        # 문자열과 한 글자라도 다르면 0건이 되므로, job_name/job_description과 같은 LIKE 부분 일치로 처리한다.
+        if params[:work_type].present?
+          safe = sanitize_sql_like(params[:work_type])
+          scope = scope.where("work_type LIKE ?", "%#{safe}%")
+        end
+
         scope = scope.where(work_relevance_eval: params[:work_relevance_eval]) if params[:work_relevance_eval].present?
 
         # KSCO 코드 필터 (JOIN) — `.distinct` 필수: 하나의 판정서가 여러 KSCO 코드와 매핑될 수 있으므로

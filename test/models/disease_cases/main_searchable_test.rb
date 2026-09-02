@@ -6,10 +6,12 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
   setup do
     @neck = DiseaseCase.create!(case_no: "TEST-MAIN-NECK", job_name: "버스 운전원",
       job_description: "시내버스 운행", burden_body_part: "목", death_status: "N",
-      application_type: "요양급여", year: 2024)
+      application_type: "요양급여", employment_type: "상용직",
+      work_type: "02:30~11:30 (평일 및 토요일)", work_relevance_eval: "높음", year: 2024)
     @wrist = DiseaseCase.create!(case_no: "TEST-MAIN-WRIST", job_name: "조립공",
       job_description: "부품 조립", burden_body_part: "손목", death_status: "N",
-      application_type: "요양급여", year: 2023)
+      application_type: "요양급여", employment_type: "일용직",
+      work_type: "주간고정근무", work_relevance_eval: "낮음", year: 2023)
     @death = DiseaseCase.create!(case_no: "TEST-MAIN-DEATH", job_name: "택배기사",
       job_description: "배송 업무", burden_body_part: "허리|목", death_status: "Y",
       application_type: "유족급여", year: 2022)
@@ -54,6 +56,24 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
   test "death_status filter" do
     scope, = DiseaseCase.main_search(death_status: "Y")
     assert_includes scope, @death
+    refute_includes scope, @neck
+  end
+
+  test "employment_type filter matches exactly" do
+    scope, = DiseaseCase.main_search(employment_type: "상용직")
+    assert_includes scope, @neck
+    refute_includes scope, @wrist
+  end
+
+  test "work_type filter does partial (LIKE) match, not exact" do
+    scope, = DiseaseCase.main_search(work_type: "평일 및 토요일")
+    assert_includes scope, @neck
+    refute_includes scope, @wrist
+  end
+
+  test "work_relevance_eval filter matches exactly" do
+    scope, = DiseaseCase.main_search(work_relevance_eval: "낮음")
+    assert_includes scope, @wrist
     refute_includes scope, @neck
   end
 

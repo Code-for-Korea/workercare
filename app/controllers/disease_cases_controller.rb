@@ -1,6 +1,9 @@
 class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
   BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
+  # wip/cerebras_prompts.rb 추출 스키마상 허용값 6개 전부 (docs/workercare-search.plan.md 3.2절) —
+  # DB에도 이 6개만 존재하는 진짜 enum이라 distinct pluck 대신 고정 목록을 순서대로 노출한다.
+  WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
   # / (메인 화면, 직업·부담 신체 부위·사망 여부·신청서 유형 기반 검색)
   def index
@@ -39,6 +42,9 @@ class DiseaseCasesController < ApplicationController
     @burden_body_part_options = burden_body_part_options(counts)
     @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
+    @employment_type_options = employment_type_options
+    @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
+    @ksco_code_options = ksco_code_options
   end
 
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
@@ -63,6 +69,20 @@ class DiseaseCasesController < ApplicationController
 
   def application_type_options
     DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
+  end
+
+  # employment_type도 distinct 값이 1,583개로 많지만(예: "1년 계약직"/"1년 계약직(비정규직)"),
+  # burden_body_part_text와 같은 <datalist> 자동완성으로 노출한다 — 사용자가 목록에서 골라 제출하므로
+  # apply_main_filters의 exact match(where(employment_type: ...))가 항상 그대로 맞는다.
+  def employment_type_options
+    DiseaseCase.where.not(employment_type: [ nil, "" ]).distinct.order(:employment_type).pluck(:employment_type)
+  end
+
+  # KscoCode는 CSV 기준 500여 개뿐이라(wip/ksco-level-4-details.csv) <datalist> 전체 노출이 가능하다.
+  # 계층형(대분류→세분류) 자동완성 UI는 1.3절 열린 질문대로 2차 구현으로 남겨두고, 우선 코드 하나를
+  # 직접 검색해 고르는 최소 UI만 제공한다.
+  def ksco_code_options
+    KscoCode.order(:code).pluck(:code, :name)
   end
 
   def paginate(scope)
