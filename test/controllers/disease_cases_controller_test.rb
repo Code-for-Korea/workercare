@@ -13,6 +13,15 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "GET / caps burden_body_part checkboxes and exposes the rest via a datalist" do
+    15.times { |i| DiseaseCase.create!(case_no: "TEST-BBP-#{i}", burden_body_part: "부위#{i}", year: 2024) }
+
+    get root_path
+    assert_response :success
+    assert_select "input[name='burden_body_part[]']", count: DiseaseCasesController::BURDEN_BODY_PART_CHECKBOX_LIMIT
+    assert_select "datalist#burden_body_part_datalist option", count: 15
+  end
+
   test "GET /search still renders the legacy advanced search screen" do
     get search_path
     assert_response :success

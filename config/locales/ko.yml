@@ -28,5 +28,7 @@ ko:
     title: 업무상질병 판정서 검색
     main_title: 직업·신체 부위로 판정서 찾기
     main_placeholder: 직업, 업무, 판단 근거로 검색...
+    burden_body_part_text_label: 직접 검색
+    burden_body_part_text_placeholder: "예: 견관절, 요추"
     death_only: 사망 사례만 보기
     go_to_advanced_search: 상세 검색 (기존 화면)

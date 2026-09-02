@@ -1,5 +1,6 @@
 class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
+  BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
 
   # 기존 /search (이전에는 root)
   def index
@@ -10,6 +11,7 @@ class DiseaseCasesController < ApplicationController
   def main
     perform_search(legacy: false)
     @burden_body_part_options = burden_body_part_options
+    @burden_body_part_datalist_options = burden_body_part_datalist_options
     @application_type_options = application_type_options
   end
 
@@ -28,13 +30,24 @@ class DiseaseCasesController < ApplicationController
     log_search_event
   end
 
-  # burden_body_part는 파이프(|) 구분 다중값 텍스트이므로, 체크박스 후보 목록은 저장된 값을
-  # split해서 만든다 (사전 정의된 enum이 아님 — 3.2절 참고).
+  # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
+  # 1,000개를 넘는 자유 텍스트라(사전 정의된 enum이 아님 — 3.2절 참고), 체크박스로는
+  # 자주 쓰는 상위 N개만 노출하고 나머지는 <datalist> 자동완성 텍스트 입력으로 찾는다.
+  def burden_body_part_token_counts
+    counts = Hash.new(0)
+    DiseaseCase.where.not(burden_body_part: [ nil, "" ]).pluck(:burden_body_part).each do |raw|
+      raw.split("|").each { |token| counts[token.strip] += 1 unless token.strip.blank? }
+    end
+    counts
+  end
+
   def burden_body_part_options
-    DiseaseCase.where.not(burden_body_part: [ nil, "" ])
-      .distinct.pluck(:burden_body_part)
-      .flat_map { |v| v.split("|") }
-      .map(&:strip).reject(&:blank?).uniq.sort
+    burden_body_part_token_counts.sort_by { |_, count| -count }
+      .first(BURDEN_BODY_PART_CHECKBOX_LIMIT).map(&:first).sort
+  end
+
+  def burden_body_part_datalist_options
+    burden_body_part_token_counts.keys.sort
   end
 
   def application_type_options
@@ -64,6 +77,7 @@ class DiseaseCasesController < ApplicationController
       :q, :job_name, :job_description,
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
+      :burden_body_part_text,
       burden_body_part: [], ksco_code: []
     )
   end

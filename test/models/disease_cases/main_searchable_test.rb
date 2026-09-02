@@ -27,6 +27,24 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     refute_includes results, @wrist
   end
 
+  test "burden_body_part_text filter matches token exactly, not as a substring" do
+    scope, = DiseaseCase.main_search(burden_body_part_text: "목")
+    results = scope.where(case_no: [ @neck.case_no, @wrist.case_no, @death.case_no ])
+
+    assert_includes results, @neck
+    assert_includes results, @death
+    refute_includes results, @wrist
+  end
+
+  test "burden_body_part and burden_body_part_text combine as OR" do
+    scope, = DiseaseCase.main_search(burden_body_part: [ "손목" ], burden_body_part_text: "허리")
+    results = scope.where(case_no: [ @neck.case_no, @wrist.case_no, @death.case_no ])
+
+    assert_includes results, @wrist
+    assert_includes results, @death
+    refute_includes results, @neck
+  end
+
   test "job_name filter does partial match" do
     scope, = DiseaseCase.main_search(job_name: "운전")
     assert_includes scope, @neck

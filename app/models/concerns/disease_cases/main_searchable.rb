@@ -56,8 +56,9 @@ module DiseaseCases
         # 부담_신체_부위는 파이프(|)로 구분된 다중값 텍스트다(예: "목|상체|하체").
         # exact match나 단순 LIKE '%값%'은 "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭하므로,
         # 파이프 경계를 인식하는 매칭(정확히 일치/맨앞/맨뒤/중간)으로 처리한다.
-        if params[:burden_body_part].present?
+        if params[:burden_body_part].present? || params[:burden_body_part_text].present?
           values = Array(params[:burden_body_part]).reject(&:blank?)
+          values << params[:burden_body_part_text].to_s.strip if params[:burden_body_part_text].present?
           if values.any?
             conditions = values.map {
               "(burden_body_part = ? OR burden_body_part LIKE ? OR burden_body_part LIKE ? OR burden_body_part LIKE ?)"

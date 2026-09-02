@@ -36,6 +36,16 @@
           </label>
         <% end %>
       </div>
+      <div>
+        <%= form.label :burden_body_part_text, t("search.burden_body_part_text_label") %>
+        <%= form.text_field :burden_body_part_text, value: params[:burden_body_part_text],
+              list: "burden_body_part_datalist", placeholder: t("search.burden_body_part_text_placeholder") %>
+        <datalist id="burden_body_part_datalist">
+          <% @burden_body_part_datalist_options.each do |value| %>
+            <option value="<%= value %>">
+          <% end %>
+        </datalist>
+      </div>
     </fieldset>
 
     <div class="grid">
