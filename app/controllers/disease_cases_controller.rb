@@ -2,18 +2,17 @@ class DiseaseCasesController < ApplicationController
   MAX_SEARCH_RESULTS = 500
   BURDEN_BODY_PART_CHECKBOX_LIMIT = 12
 
-  # 기존 /search (이전에는 root)
+  # 기존 /search (이전에는 root). 메인 화면(직업·부담 신체 부위·사망 여부·신청서 유형) 필터도
+  # 함께 쓸 수 있도록 apply_main_filters를 추가로 적용한다.
   def index
     perform_search(legacy: true)
+    set_main_filter_options
   end
 
   # 신규 / (메인 화면)
   def main
     perform_search(legacy: false)
-    counts = burden_body_part_token_counts
-    @burden_body_part_options = burden_body_part_options(counts)
-    @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
-    @application_type_options = application_type_options
+    set_main_filter_options
   end
 
   def show
@@ -23,11 +22,23 @@ class DiseaseCasesController < ApplicationController
   private
 
   def perform_search(legacy:)
-    @scope, @fallback = legacy ? DiseaseCase.search(search_params) : DiseaseCase.main_search(main_search_params)
+    if legacy
+      @scope, @fallback = DiseaseCase.search(search_params)
+      @scope = DiseaseCase.apply_main_filters(@scope, main_search_params)
+    else
+      @scope, @fallback = DiseaseCase.main_search(main_search_params)
+    end
     @pagy, @cases = paginate(@scope)
     @metadata = build_metadata
 
     log_search_event
+  end
+
+  def set_main_filter_options
+    counts = burden_body_part_token_counts
+    @burden_body_part_options = burden_body_part_options(counts)
+    @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
+    @application_type_options = application_type_options
   end
 
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이

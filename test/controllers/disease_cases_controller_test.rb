@@ -49,4 +49,23 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     get search_path, params: { q: "손목" }
     assert_response :success
   end
+
+  test "GET /search also applies the main-screen job_name/death_status filters" do
+    DiseaseCase.create!(case_no: "TEST-SEARCH-MAIN-1", disease_name: "매칭케이스",
+      job_name: "버스 운전원", death_status: "Y", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-SEARCH-MAIN-2", disease_name: "제외케이스",
+      job_name: "조립공", death_status: "N", year: 2024)
+
+    get search_path, params: { job_name: "운전", death_status: "Y" }
+
+    assert_response :success
+    assert_match "매칭케이스", response.body
+    assert_no_match(/제외케이스/, response.body)
+  end
+
+  test "GET /search exposes burden_body_part checkbox/datalist options like the main screen" do
+    get search_path
+    assert_response :success
+    assert_select "datalist#burden_body_part_datalist"
+  end
 end
