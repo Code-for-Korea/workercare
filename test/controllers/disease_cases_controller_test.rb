@@ -22,6 +22,24 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_select "datalist#burden_body_part_datalist option", count: 15
   end
 
+  test "GET / computes burden_body_part token counts only once" do
+    3.times { |i| DiseaseCase.create!(case_no: "TEST-BBP-QUERY-#{i}", burden_body_part: "부위#{i}", year: 2024) }
+
+    pluck_count = 0
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+      pluck_count += 1 if payload[:name] == "DiseaseCase Pluck" && payload[:sql].include?("burden_body_part")
+    end
+
+    begin
+      get root_path
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber)
+    end
+
+    assert_response :success
+    assert_equal 1, pluck_count
+  end
+
   test "GET /search still renders the legacy advanced search screen" do
     get search_path
     assert_response :success

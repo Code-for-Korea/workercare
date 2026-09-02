@@ -10,8 +10,9 @@ class DiseaseCasesController < ApplicationController
   # 신규 / (메인 화면)
   def main
     perform_search(legacy: false)
-    @burden_body_part_options = burden_body_part_options
-    @burden_body_part_datalist_options = burden_body_part_datalist_options
+    counts = burden_body_part_token_counts
+    @burden_body_part_options = burden_body_part_options(counts)
+    @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
   end
 
@@ -40,13 +41,13 @@ class DiseaseCasesController < ApplicationController
     counts
   end
 
-  def burden_body_part_options
-    burden_body_part_token_counts.sort_by { |_, count| -count }
+  def burden_body_part_options(counts)
+    counts.sort_by { |_, count| -count }
       .first(BURDEN_BODY_PART_CHECKBOX_LIMIT).map(&:first).sort
   end
 
-  def burden_body_part_datalist_options
-    burden_body_part_token_counts.keys.sort
+  def burden_body_part_datalist_options(counts)
+    counts.keys.sort
   end
 
   def application_type_options
