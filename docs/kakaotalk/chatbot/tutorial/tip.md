@@ -1,0 +1,81 @@
+> For the complete documentation index, see [llms.txt](https://kakaobusiness.gitbook.io/main/llms.txt). Markdown versions of documentation pages are available by appending `.md` to page URLs; this page is available as [Markdown](https://kakaobusiness.gitbook.io/main/tool/chatbot/tutorial/tip.md).
+
+# 챗봇 제작 팁
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FJpFtwIOORawgoNyJri7g%2Ftips-intro.png?alt=media&amp;token=30e68f67-63d9-442a-ae8b-cb446a0dda75" alt=""><figcaption></figcaption></figure>
+
+챗봇은 아직 가능성이 많고 발전해야 할 부분도 많은 서비스입니다. 그리고 대부분의 서비스가 그렇듯, 몇가지 사례로 좋다 나쁘다를 규정하는 건 위험할 수도 있습니다. 그래도 시작 단계에서 신경을 쓰면 기초를 탄탄하게 만들 수 있는 방법은 있습니다. 챗봇을 먼저 제작해보며 알게된 내용들을 정리해봤습니다. 만드시기 전 보시고 도움이 되면 좋겠다는 바람입니다.
+
+더 좋은 방법이 있다면 언제든 시도해 주세요. 저희도 배울 수 있도록 하겠습니다.
+
+## 챗봇 설계를 시작할 때 <a href="#design_chatbot" id="design_chatbot"></a>
+
+### 봇에 대한 정의가 첫 시작 <a href="#define_bot" id="define_bot"></a>
+
+각각의 챗봇은 하나의 독립된 서비스입니다. 사용자의 어떤 요청을 **봇**으로 처리하면 좋을지, 이것이 기존 플랫폼보다 더 편리할 수 있을지에 대한 답을 내는 것이 가장 중요합니다. 대부분 웹의 데이터를 **재활용**하면서 시작하기 때문에 이러한 고민 없이 **챗봇**만 연결하면 큰 특징이 없는 자동응답 서비스가 되기 쉽습니다. 웹에서는 작고 깊숙한 곳에 있는 기능이지만 챗봇으로 연결하면 좋은 경우도 많습니다. 봇에 대한 정의가 끝난 후 챗으로 연결하는 흐름으로 시작하는 것을 추천해 드립니다.
+
+### 동작 뎁스는 가능한 최소화 <a href="#minimization_depth" id="minimization_depth"></a>
+
+웹/앱은 화면 크기에 맞게 정보를 배치해야 하므로 뎁스가 깊은 경우가 많습니다. 하지만 챗봇은 특별한 상황이 아니라면 사용자가 원하는 정보를 한 번에 받을 수 있습니다. 만약 웹/앱의 구조를 그대로 챗봇에 연결한다면 사용이 불편해지거나 어색한 경우가 생깁니다. 그렇기 때문에 웹/앱의 구조를 챗봇 탐색 패턴에 맞게 다시금 구조화한 후 시작하는 것을 권장합니다. 특히 컨텍스트 동작이 많은 경우, 중간에 폴백이 발생하거나 이탈할 때를 고려해 설계해야 합니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FA5pkQnKNTuZbXbw5VLFu%2Ftips-minimize-depth.png?alt=media&amp;token=d5148754-155c-4566-b87d-cd550746a37f" alt=""><figcaption><p>예시) 웹/앱 vs 챗봇 정보 구조화</p></figcaption></figure>
+
+### 챗봇의 장점을 최대한 활용 <a href="#use_chatbot_merit" id="use_chatbot_merit"></a>
+
+챗봇은 사용자 요청을 정확하게 파악하면 빠르게 결과를 출력할 수 있다는 장점이 있습니다. 계속되는 화면 전환이나 긴 로딩이 필요하지도 않고, 사용자의 히스토리를 쌓을 수 있는 것도 큰 장점입니다. 반대로 요청을 정확하게 파악하지 못하면 챗봇의 동작이 힘들어지고, 한 번에 줄 수 있는 결과 양이 비교적 적다는 것이 단점입니다. 때문에 장점을 극대화 할 수 있는 기능이 많은 챗봇을 구상하는 것이 좋습니다.
+
+### 타이핑 중심의 챗봇이라면 <a href="#typing_chatbot" id="typing_chatbot"></a>
+
+오타와 동의어 처리는 매우 중요합니다. 만일 이 처리가 제대로 되지 않는다면, 웹에서 5\~6회 이상 클릭 했는데도 정상적인 결과를 받을 수 없는 상황과 비슷합니다. 주요 기능에서 자주 발생할만한 오타는 꼼꼼히 처리하는 것이 좋습니다. 그리고 문어체부터 구어체까지 감안해 동의어를 대응해두면 더욱 똑똑한 챗봇이 됩니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FHZp9rmc9TRG7W0op67lZ%2Ftips-typo.png?alt=media&amp;token=d6796071-6c64-4d20-9587-a73572c2dd78" alt=""><figcaption></figcaption></figure>
+
+### 홈/새로고침/뒤로 같은 개념은 챗봇에서도 유효 <a href="#use_home_refresh_back" id="use_home_refresh_back"></a>
+
+웹/앱에서 익숙하게 쓰이는 이 개념들은 방식은 다르지만 챗봇에서도 유효한 동작입니다. 대체로 웰컴 메시지 이후 첫 동작은 **홈**에 가깝습니다. 언제든 호출해도 어색하지 않은 상황을 하나쯤은 설계해두어야 합니다. 뎁스를 좁혀나가는 기능을 만들 때는 전으로 돌아가거나 이탈할 수 있는 방법을 제공하는 것이 좋습니다. 같은 결과를 지속적으로 호출하는 경우 역시 사용자가 인지할 수 있도록 시각적인 표기를 하는 것이 더욱 효과적입니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FZ79j880NgpvFqtF1JtfQ%2Ftips-navigation.png?alt=media&amp;token=65fcc6d4-7944-47af-a43e-0f013779a6d6" alt=""><figcaption></figcaption></figure>
+
+## 바로 연결과 리스트 메뉴 <a href="#quickreply_generic" id="quickreply_generic"></a>
+
+### 바로연결만 잘 설계해도 절반의 성공 <a href="#design_quickreply" id="design_quickreply"></a>
+
+100% 타이핑으로만 동작하는 챗봇이 아닌 경우, 봇 작업자는 바로연결 기능을 사용하게 됩니다. 바로연결은 사용자에게 내비게이션 역할을 하기도 합니다. 그래서 가능한 도움말 없이 바로연결을 통해 쉽게 챗봇을 사용할 수 있도록 구조를 잡는 것이 좋습니다. 한 번 바로연결을 쓰기 시작했다면, 임의의 동작 후에 바로연결이 끊어지지 않도록 설계하는 것을 추천합니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2F2WC6rJCQWTTaXvF57xxb%2Ftips-quickreply.png?alt=media&amp;token=88dc00a2-5b6e-4369-84bd-d35c7366486b" alt=""><figcaption></figcaption></figure>
+
+### 가변적인 기능이 아니라면 리스트 메뉴 활용 <a href="#use_generic_in_unchanging_function" id="use_generic_in_unchanging_function"></a>
+
+리스트 메뉴는 채팅창에 항상 떠있다는 점이 장점이지만 상황에 따라 단점이 될 수도 있으므로 신중히 선택해야 합니다. ‘어떤 상황에서든 호출할만한 기능을 가졌는지’, ‘그 기능이 항상 노출되어 있어도 괜찮은지’에 대한 질문에 모두 그렇다고 여겨지는 챗봇이라면 리스트 메뉴를 활용하는 것을 추천합니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2F6ht9tLRyT4crxup9RsJt%2Ftips-generic.webp?alt=media&amp;token=cd37f827-b34c-458f-96d5-d9faf6e86971" alt=""><figcaption><p>봇에 진입 했을 때 고정적으로 노출할 수 있는 리스트 메뉴</p></figcaption></figure>
+
+## 정보와 말풍선의 조합 <a href="#combination_bubble_and_information" id="combination_bubble_and_information"></a>
+
+### 정보에 어울리는 말풍선을 선택 <a href="#choose_appropriate_bubble" id="choose_appropriate_bubble"></a>
+
+같은 정보도 어떤 말풍선을 쓰느냐에 따라 결과가 크게 달라질 수 있습니다. 텍스트 중심의 정보라면 텍스트나 리스트 말풍선을, 이미지 중심의 정보라면 케로셀 말풍선을 쓰는 것이 좋습니다. 한 눈에 보는 게 좋은 정보인지, 천천히 살펴본 후 선택할 필요가 있는 정보인지에 대한 기준으로 말풍선을 선택할 수도 있습니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FLDGcyFxDUej7biAzhgba%2Ftips-bubble.png?alt=media&amp;token=4934eb91-e116-4c2f-85e4-f2d4f2af9e20" alt=""><figcaption></figcaption></figure>
+
+### 이모지(Emoji)의 활용 범위는 다양
+
+이모지는 감정표현부터 정보 제공까지 다양한 목적으로 활용 될 수 있습니다. 특히 텍스트 말풍선을 사용할 때는 가독성을 높이는 중요한 역할을 하기도 합니다. 반복되는 정보에 꾸준히 등장하는 이모지는 해당 봇의 상징이 되기도 하니 적절하게 사용해 보시길 바랍니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2FuyjO5LYzCFnl8lgIiuE1%2Ftips-emoji.png?alt=media&amp;token=0ec31383-e5e3-41ab-b210-3d75f22bca1e" alt=""><figcaption></figcaption></figure>
+
+## 폴백 응답과 도움말의 관계 <a href="#relation_help_and_fallback" id="relation_help_and_fallback"></a>
+
+### 폴백 응답과 도움말 기능은 다양하게 응용 가능 <a href="#apply_help_fallback" id="apply_help_fallback"></a>
+
+정의되지 않은 기능에 대한 발화는 굉장히 다양합니다. 그래서 특정 답변 몇 개로 모든 의도에 대응한다는 것은 힘든 일입니다. 이때 폴백 응답과 도움말이 해결책이 될 수 있습니다. 어떤 경우에는 사용자가 채팅방 재진입 후 챗봇의 반응을 끌어내기 위해 일부러 폴백 발화를 하기도 합니다. 때문에 특별한 목적이 있는 폴백 응답이 아니라면, 도움말을 연결하는 것이 더 나은 사용자 경험을 제공할 수 있습니다. 이 방법이 무조건적인 정답은 아니지만, 도움말이 마치 웹의 ‘홈’ 과 같이 동작하며 사용자가 효과적으로 챗봇을 이용할 수 있도록 도와줍니다.
+
+<figure><img src="https://234308570-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2F-MVZVmVOd-5LtENUPqdq%2Fuploads%2F6CPunBDUNjlzq0EGicgv%2Ftips-fallback.png?alt=media&amp;token=7059571a-02d0-4d27-96e7-d9c77bc79a59" alt=""><figcaption></figcaption></figure>
+
+
+---
+
+
+---
+
+> 출처: https://kakaobusiness.gitbook.io/main/tool/chatbot/tutorial/tip.md
