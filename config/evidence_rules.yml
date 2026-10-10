@@ -8,6 +8,7 @@ musculoskeletal:
   required:
     - type: "객관적 검사 (EMG/NCS, MRI, X-ray)"
       key: "objective_test"
+      keywords: ["검사", "emg", "ncs", "mri", "x-ray", "엑스레이", "진단서"]
       rationale: "객관적 검사에서 이상 소견은 업무상 질병 인정의 핵심 근거"
       where_to_get: "정형외과 또는 신경과 (산재 지정병원 권장)"
       notes:
@@ -16,24 +17,28 @@ musculoskeletal:
 
     - type: "요양급여신청소견서"
       key: "medical_opinion"
+      keywords: ["소견서", "요양급여신청"]
       rationale: "업무와 질병의 인과관계를 의학적으로 입증하는 필수 문서"
       where_to_get: "산재 지정병원 주치의 작성"
 
   optional:
     - type: "업무 환경 자료 (작업 시간, 반복 동작)"
       key: "workload_proof"
+      keywords: ["작업시간", "작업 시간", "반복", "업무환경", "업무 환경"]
       importance: "high"
       rationale: "반복 작업 및 과부하를 객관적으로 입증"
       where_to_get: "본인 기록 또는 사업주 자료"
 
     - type: "동료 진술서"
       key: "coworker_statement"
+      keywords: ["진술서", "동료"]
       importance: "medium"
       rationale: "실제 업무 강도 및 환경 보완 증거"
       where_to_get: "동료 서면 진술"
 
     - type: "과거 병력 자료"
       key: "medical_history"
+      keywords: ["병력", "과거 병력"]
       importance: "medium"
       rationale: "사전 질환 여부 판단 (불인정 방어용)"
       where_to_get: "국민건강보험공단"
@@ -65,22 +70,26 @@ cardiovascular:
   required:
     - type: "심전도 및 심장초음파 검사"
       key: "cardio_test"
+      keywords: ["심전도", "심장초음파", "ecg"]
       rationale: "심혈관 질환의 객관적 진단 필수"
       where_to_get: "내과 또는 심장내과"
 
     - type: "발병 전 업무 기록 (과로, 스트레스)"
       key: "overwork_proof"
+      keywords: ["업무기록", "업무 기록", "과로"]
       rationale: "과로 및 스트레스와 질병 간 인과관계 입증"
       where_to_get: "근무기록, 초과근무 기록"
 
   optional:
     - type: "근무시간 기록 (주 52시간 초과 여부)"
       key: "work_hours"
+      keywords: ["근무시간", "근무 시간", "출퇴근"]
       importance: "high"
       rationale: "과로 기준 판단 핵심 자료"
 
     - type: "스트레스 요인 자료"
       key: "stress_factor"
+      keywords: ["스트레스"]
       importance: "medium"
       rationale: "업무상 정신적 부담 입증"
 
@@ -111,22 +120,26 @@ respiratory:
   required:
     - type: "폐기능 검사"
       key: "lung_test"
+      keywords: ["폐기능", "폐 기능"]
       rationale: "호흡기 질환 객관적 진단"
       where_to_get: "내과 또는 호흡기내과"
 
     - type: "작업장 유핵물질 노출 자료"
       key: "exposure_proof"
+      keywords: ["노출 자료", "노출자료", "물질안전보건자료", "msds"]
       rationale: "업무 환경과 질병 인과관계 입증"
       where_to_get: "사업장 환경측정 자료"
 
   optional:
     - type: "보호장비 착용 기록"
       key: "safety_equipment"
+      keywords: ["보호장비", "마스크", "보호구"]
       importance: "medium"
       rationale: "노출 방어 여부 판단"
 
     - type: "동료 유사 질환 사례"
       key: "cluster_case"
+      keywords: ["유사 질환", "동료 사례"]
       importance: "low"
       rationale: "집단 발병 여부 참고"
 
@@ -153,17 +166,20 @@ hearing_loss:
   required:
     - type: "청력 검사 (audiometry)"
       key: "hearing_test"
+      keywords: ["청력", "audiometry"]
       rationale: "청력 손실 객관적 입증"
       where_to_get: "이비인후과"
 
     - type: "소음 노출 기록"
       key: "noise_exposure"
+      keywords: ["소음 노출", "소음노출", "소음 측정"]
       rationale: "업무 환경 소음 입증"
       where_to_get: "사업장 측정 자료"
 
   optional:
     - type: "근무 기간 기록"
       key: "work_duration"
+      keywords: ["근무 기간", "근무기간", "재직"]
       importance: "high"
       rationale: "장기 노출 여부 판단"
 
@@ -188,16 +204,19 @@ cancer:
   required:
     - type: "병리학적 진단서"
       key: "cancer_diagnosis"
+      keywords: ["병리", "조직검사", "암 진단"]
       rationale: "암 확진 필수"
       where_to_get: "종합병원"
 
     - type: "발암물질 노출 이력"
       key: "carcinogen_exposure"
+      keywords: ["발암물질", "노출 이력"]
       rationale: "업무와 암 발생 인과관계 입증"
 
   optional:
     - type: "노출 기간 자료"
       key: "exposure_duration"
+      keywords: ["노출 기간", "노출기간"]
       importance: "high"
       rationale: "장기 노출 여부 중요"
 

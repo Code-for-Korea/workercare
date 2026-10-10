@@ -79,6 +79,6 @@ class SuggestEvidenceToolTest < ActiveSupport::TestCase
     json = result.structured_content
 
     legal = json[:data][:legal_basis]
-    assert legal.any? { |b| b.include?("산업재필보상보험법") }
+    assert legal.any? { |b| b.include?("산업재해보상보험법") }
   end
 end
