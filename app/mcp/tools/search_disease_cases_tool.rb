@@ -126,10 +126,10 @@ class SearchDiseaseCasesTool < ApplicationMCPTool
   # q도 없고 구조화 필터도 하나도 없으면 DiseaseCase.search(q: nil)가 스코프 필터 없이 전체
   # 코퍼스(6만여 건)를 반환한다 — LLM이 사용자 발화에서 필터를 하나도 못 뽑아낸 경우 이걸
   # 유효한 검색 결과인 것처럼 confidence_score까지 붙여 내보내는 회귀가 있었다(코드 리뷰에서
-  # 발견·재현 확인). limit은 필터가 아니라 페이지네이션 옵션이라 여기서 세지 않는다.
+  # 발견·재현 확인). limit은 페이지네이션 옵션, search_in은 FTS 컬럼 선택일 뿐 행을 제한하지
+  # 않으므로 둘 다 여기서 세지 않는다.
   def no_structured_filters?
-    Array(search_in).reject(&:blank?).empty? &&
-      Array(disease_category).reject(&:blank?).empty? &&
+    Array(disease_category).reject(&:blank?).empty? &&
       Array(body_part).reject(&:blank?).empty? &&
       decided_on_from.blank? && decided_on_to.blank? &&
       job_name.blank? && job_description.blank? &&
