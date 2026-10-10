@@ -63,7 +63,7 @@ class CompareApprovalFactorsToolTest < ActiveSupport::TestCase
     text = "0123456789" * 10
     context = tool.send(:extract_context, text, /567/, window: 5)
 
-    assert_equal "2345678901", context
+    assert_equal "0123456789012", context
   end
 
   test "load_extraction_rules loads from evidence_rules.yml" do
