@@ -79,7 +79,7 @@ class SuggestEvidenceTool < ApplicationMCPTool
     missing = []
 
     Array(rules["required"]).each do |item|
-      next if current.any? { |c| c.include?(normalize_evidence_name(item["key"])) }
+      next if already_has?(current, item)
 
       missing << {
         type: item["type"],
@@ -92,7 +92,7 @@ class SuggestEvidenceTool < ApplicationMCPTool
     end
 
     Array(rules["optional"]).each do |item|
-      next if current.any? { |c| c.include?(normalize_evidence_name(item["key"])) }
+      next if already_has?(current, item)
       next unless item["importance"] == "high"
 
       missing << {
@@ -106,6 +106,11 @@ class SuggestEvidenceTool < ApplicationMCPTool
     end
 
     missing
+  end
+
+  def already_has?(current, item)
+    terms = [item["key"], *Array(item["keywords"])].map { |t| normalize_evidence_name(t) }
+    current.any? { |c| terms.any? { |t| c.include?(t) } }
   end
 
   def normalize_evidence_name(name)
