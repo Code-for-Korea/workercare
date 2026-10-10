@@ -61,6 +61,14 @@ class SearchDiseaseCasesToolTest < ActiveSupport::TestCase
     assert_nil json[:data]
   end
 
+  test "rejects a call with only search_in since it does not restrict rows" do
+    result = SearchDiseaseCasesTool.call(search_in: [ "disease_name" ])
+    json = result.structured_content
+
+    assert json[:error].present?
+    assert_nil json[:data]
+  end
+
   test "date validation returns error for invalid format" do
     result = SearchDiseaseCasesTool.call(q: "손목", decided_on_from: "invalid")
     json = result.structured_content
