@@ -67,4 +67,4 @@ group :development do
   gem "overmind"
 end
 
-gem "actionmcp", "~> 0.107.1"
+gem "actionmcp", "~> 0.111.1"
