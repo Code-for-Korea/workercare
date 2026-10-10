@@ -9,7 +9,7 @@
 
 | 항목 | 버전 / 도구 |
 |------|------------|
-| Ruby | 4.0.6 |
+| Ruby | 3.4.9 |
 | Rails | 8.1 |
 | 데이터베이스 | SQLite3 (FTS5 전문 검색) |
 | MCP 서버 | actionmcp + Falcon |
@@ -50,13 +50,28 @@ FTS5 인덱스를 수동으로 재구성하려면:
 rails fts:rebuild
 ```
 
+### 직업·신체부위 기반 검색용 데이터 로드
+
+메인 화면(`/`)의 직업·근무조건·신체부위·사망여부·신청서유형 필터와 KSCO 직업분류 연동을 위해, 위 임포트 이후 아래 두 rake task를 **순서대로** 실행합니다 (마이그레이션만으로는 데이터가 채워지지 않습니다).
+
+```bash
+rails "import:ksco_codes[wip/ksco-level-4-details.csv]"
+rails "import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras-ksco.csv]"
+```
+
+- `import:ksco_codes`: 한국표준직업분류(KSCO) 4단계 코드 체계를 `KscoCode`로 임포트합니다.
+- `import:extracted_disease_cases`: LLM으로 추출한 직업·근무조건·신체부위·사망여부·신청서유형과 KSCO 매핑(`DiseaseCaseKscoCode`, 유사도 포함)을 기존 `DiseaseCase`에 채우고, `disease_cases_extracted_fts` 인덱스를 rebuild합니다.
+- 자세한 설계와 데이터 모델은 [docs/workercare-search.plan.md](docs/workercare-search.plan.md)를 참고합니다.
+
 ## 주요 화면
 
 | 경로 | 설명 |
 |------|------|
-| `GET /` | 메인 검색 (전문 검색) |
-| `GET /search` | 상세 검색 (전문 검색 + 필터) |
-| `GET /disease_cases/:id` | 판정서 상세 |
+| `GET /` | 메인 검색 (직업·부담 신체 부위·사망여부·신청서유형 필터 + 전문 검색) — 간단한 검색 화면 |
+| `GET /search` | 상세 검색 (메인 화면의 모든 필터 + 심의결과·질병분류·신체부위·판정일·근무 형태·업무관련성 평가 필터 + 전문 검색) |
+| `GET /disease_cases/:case_no` | 판정서 상세 |
+
+`/search`는 메인 화면(`/`)의 구조화 필터를 전부 포함해서 더 넓게 검색할 수 있습니다. 다만 고용 형태·KSCO 코드는 사용자가 직접 값을 골라 검색할 이유가 적어(고용 형태는 표현이 1,500개 넘게 잘게 쪼개져 있고, KSCO 코드는 숫자 코드) 두 화면 어디에도 입력 필드는 없습니다 — 쿼리스트링이나 MCP 클라이언트로는 계속 필터링할 수 있습니다.
 
 ## MCP 서버
 
@@ -71,7 +86,7 @@ https://..../mcp
 
 | Tool | 설명 |
 |------|------|
-| `search_disease_cases` | 판정서 전문 검색 + 통계 집계 |
+| `search_disease_cases` | 판정서 전문 검색(`q`, 선택) + 직업/사망여부/KSCO 코드 등 구조화 필터 + 통계 집계. `q`와 구조화 필터가 전부 비어있으면 에러를 반환합니다(전체 판정서를 검색 결과처럼 반환하지 않음) |
 | `compare_approval_factors` | 인정/불인정 사례 패턴 비교 |
 | `suggest_evidence` | 필요 증거 자료 제안 (룰 기반) |
 | `get_procedure_guide` | 산재 신청 절차 안내 |
@@ -119,6 +134,7 @@ Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
 
 - [docs/workercare.plan.md](docs/workercare.plan.md) — 검색 서비스, FTS5, enum, 데이터 설계
 - [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — MCP 컴포넌트 설계, Tool/Prompt 명세
+- [docs/workercare-search.plan.md](docs/workercare-search.plan.md) — 직업·신체부위·사망여부 기반 메인 검색 화면, KSCO 직업분류 연동 설계
 
 ## 라이선스
 

@@ -7,8 +7,8 @@
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
-ARG RUBY_VERSION=4.0.6
+# Make sure RUBY_VERSION matches the Ruby version in .tool-versions
+ARG RUBY_VERSION=3.4.9
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
@@ -32,15 +32,8 @@ FROM base AS build
 
 # Install packages needed to build gems
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config libssl-dev libclang-dev && \
+    apt-get install --no-install-recommends -y build-essential git libyaml-dev pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
-
-# Install Rust toolchain (solid_mcp's native extension is built from source; no
-# precompiled binary gem supports this Ruby version yet)
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
 
 # Install application gems
 COPY Gemfile Gemfile.lock vendor ./

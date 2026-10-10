@@ -1,6 +1,10 @@
 class DiseaseCase < ApplicationRecord
   include HumanEnumerable
   include DiseaseCases::Searchable
+  include DiseaseCases::MainSearchable
+
+  has_many :disease_case_ksco_codes, dependent: :delete_all
+  has_many :ksco_codes, through: :disease_case_ksco_codes
 
   enum :result, {
     approved: "approved",

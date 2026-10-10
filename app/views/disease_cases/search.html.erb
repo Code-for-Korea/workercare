@@ -1,0 +1,152 @@
+<% content_for :title, t("search.title") %>
+<div class="container">
+  <h3><%= t("search.advanced") %></h3>
+  <%= form_with url: search_path, method: :get, local: true, data: { controller: "search-form" } do |form| %>
+    <div role="search">
+      <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder") %>
+      <%= form.submit t("helpers.submit.search"), name: "search", data: { "search-form-target": "button", "loading-text": t("search.loading") } %>
+    </div>
+    <div class="loading-overlay" data-search-form-target="overlay">
+      <div class="loading-spinner"></div>
+      <p class="loading-text"><%= t("search.loading") %></p>
+    </div>
+    <div class="grid">
+      <div>
+        <%= form.label :job_name, DiseaseCase.human_attribute_name(:job_name) %>
+        <%= form.text_field :job_name, value: params[:job_name] %>
+      </div>
+      <div>
+        <%= form.label :job_description, DiseaseCase.human_attribute_name(:job_description) %>
+        <%= form.text_field :job_description, value: params[:job_description] %>
+      </div>
+    </div>
+    <fieldset data-controller="checkbox-group">
+      <legend>
+        <%= t("search.search_in_columns") %>
+        <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
+        <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
+      </legend>
+      <div class="search-columns grid">
+        <% DiseaseCases::Searchable::SEARCHABLE_COLUMNS.each do |column| %>
+          <label class="flex items-center">
+            <%= check_box_tag "search_in[]", column, (params[:search_in] || DiseaseCases::Searchable::SEARCHABLE_COLUMNS).include?(column), data: { "checkbox-group-target": "checkbox" } %>
+            <%= DiseaseCase.human_attribute_name(column) %>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+    <div class="grid">
+      <div>
+        <%= form.label :result, DiseaseCase.human_attribute_name(:result) %>
+        <%= form.select :result, DiseaseCase.enum_options_for_select_with_blank(:result), { selected: params[:result] } %>
+      </div>
+      <div>
+        <%= form.label :year, DiseaseCase.human_attribute_name(:year) %>
+        <%= form.select :year, years_for_select_with_blank, { selected: params[:year] } %>
+      </div>
+    </div>
+    <fieldset data-controller="checkbox-group">
+      <legend>
+        <%= DiseaseCase.human_attribute_name(:disease_category) %>
+        <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
+        <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
+      </legend>
+      <div class="disease-categories grid grid-cols-2 md:grid-cols-4">
+        <% DiseaseCase.enum_options_for_select(:disease_category).each do |label, value| %>
+          <label class="flex items-center">
+            <%= check_box_tag "disease_category[]", value, (params[:disease_category] || DiseaseCase.disease_categories.values).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= label %>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+    <fieldset data-controller="checkbox-group">
+      <legend>
+        <%= DiseaseCase.human_attribute_name(:body_part) %>
+        <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
+        <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
+      </legend>
+      <div class="body-parts grid grid-cols-2 md:grid-cols-4">
+        <% DiseaseCase.enum_options_for_select(:body_part).each do |label, value| %>
+          <label class="flex items-center">
+            <%= check_box_tag "body_part[]", value, (params[:body_part] || DiseaseCase.body_parts.values).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= label %>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+    <fieldset data-controller="checkbox-group">
+      <legend>
+        <%= DiseaseCase.human_attribute_name(:burden_body_part) %>
+        <%= link_to t("search.select_all"), "#", data: { action: "click->checkbox-group#selectAll" } %>
+        <%= link_to t("search.deselect_all"), "#", data: { action: "click->checkbox-group#deselectAll" } %>
+      </legend>
+      <div class="grid grid-cols-2 md:grid-cols-4">
+        <% @burden_body_part_options.each do |value| %>
+          <label class="flex items-center">
+            <%= check_box_tag "burden_body_part[]", value, Array(params[:burden_body_part]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= value %>
+          </label>
+        <% end %>
+      </div>
+      <div>
+        <%= form.label :burden_body_part_text, t("search.burden_body_part_text_label") %>
+        <%= form.text_field :burden_body_part_text, value: params[:burden_body_part_text],
+              list: "burden_body_part_datalist", placeholder: t("search.burden_body_part_text_placeholder") %>
+        <datalist id="burden_body_part_datalist">
+          <% @burden_body_part_datalist_options.each do |value| %>
+            <option value="<%= value %>">
+          <% end %>
+        </datalist>
+      </div>
+    </fieldset>
+    <div class="grid">
+      <div>
+        <%= form.label :decided_on_from, DiseaseCase.human_attribute_name(:decided_on_from) %>
+        <%= form.date_field :decided_on_from, value: params[:decided_on_from] %>
+      </div>
+      <div>
+        <%= form.label :decided_on_to, DiseaseCase.human_attribute_name(:decided_on_to) %>
+        <%= form.date_field :decided_on_to, value: params[:decided_on_to] %>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <%= form.label :application_type, DiseaseCase.human_attribute_name(:application_type) %>
+        <%= form.select :application_type,
+              [ [ "— #{t('search.all_results')} —", "" ] ] + @application_type_options.map { |v| [ v, v ] },
+              selected: params[:application_type] %>
+      </div>
+      <div class="flex items-center">
+        <%= check_box_tag :death_status, "Y", params[:death_status] == "Y" %>
+        <%= label_tag :death_status, t("search.death_only") %>
+      </div>
+    </div>
+    <div class="grid">
+      <div>
+        <%= form.label :work_type, DiseaseCase.human_attribute_name(:work_type) %>
+        <%= form.text_field :work_type, value: params[:work_type] %>
+      </div>
+      <div>
+        <%= form.label :work_relevance_eval, DiseaseCase.human_attribute_name(:work_relevance_eval) %>
+        <%= form.select :work_relevance_eval,
+              [ [ "— #{t('search.all_results')} —", "" ] ] + @work_relevance_eval_options.map { |v| [ v.tr("_", " "), v ] },
+              selected: params[:work_relevance_eval] %>
+      </div>
+    </div>
+    <fieldset>
+      <legend><%= t("search.sort_label") %></legend>
+      <div class="sort-options">
+        <label>
+          <%= form.radio_button :sort, "relevance", checked: (params[:sort] || "relevance") == "relevance" %>
+          <%= t("search.sort_relevance") %>
+        </label>
+        <label>
+          <%= form.radio_button :sort, "recent", checked: params[:sort] == "recent" %>
+          <%= t("search.sort_recent") %>
+        </label>
+      </div>
+    </fieldset>
+  <% end %>
+  <%= render "search_results" %>
+</div>

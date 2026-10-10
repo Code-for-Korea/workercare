@@ -19,6 +19,24 @@ en:
         result: Result
         statement: Order
         year: Year
+        job_name: Job Title
+        job_description: Job Description
+        employment_type: Employment Type
+        work_type: Work Type
+        job_tenure_months: Tenure
+        weekly_work_hours: Weekly Work Hours
+        daily_work_hours: Daily Work Hours
+        burden_body_part: Burdened Body Part
+        bad_posture: Poor Posture
+        heavy_lifting: Heavy Lifting
+        max_item_weight: Max Item Weight
+        daily_total_weight: Daily Total Weight
+        other_harmful_factors: Other Harmful Factors
+        work_relevance_eval: Work Relevance
+        aggravating_factors: Aggravating Factors
+        main_reasoning: Main Reasoning
+        death_status: Death
+        application_type: Application Type
         disease_case/result_enum:
           approved:           "Approved"
           rejected:           "Rejected"
