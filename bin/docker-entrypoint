@@ -10,12 +10,6 @@ if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
     if ! sqlite3 /rails/storage/production_queue.sqlite3 ".tables" | grep -q '\bsolid_queue_recurring_tasks\b'; then
       ./bin/rails db:schema:load:queue
     fi
-
-    # schema_format이 :sql이라 db:prepare가 db/cache_schema.rb를 읽지 않으므로,
-    # Solid Cache 테이블도 큐와 같은 방식으로 직접 로드한다.
-    if ! sqlite3 /rails/storage/production_cache.sqlite3 ".tables" | grep -q '\bsolid_cache_entries\b'; then
-      ./bin/rails db:schema:load:cache
-    fi
   fi
 fi
 
