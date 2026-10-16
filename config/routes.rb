@@ -5,5 +5,7 @@ Rails.application.routes.draw do
 
   resources :disease_cases, param: :case_no, only: [ :show ]
 
+  post "/webhooks/kakao", to: "webhooks/kakao#create"
+
   get "up" => "rails/health#show", :as => :rails_health_check
 end
