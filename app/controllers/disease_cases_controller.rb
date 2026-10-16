@@ -104,7 +104,7 @@ class DiseaseCasesController < ApplicationController
 
   def main_search_params
     params.permit(
-      :q, :job_name, :job_description,
+      :q, :job_name, :job_description, :disease_name, :result,
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
       :burden_body_part_text,

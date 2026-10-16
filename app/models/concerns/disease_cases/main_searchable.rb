@@ -42,16 +42,28 @@ module DiseaseCases
       # MCP search_disease_cases_tool처럼 legacy DiseaseCase.search 결과에 새 구조화 필터를
       # 추가로 적용하고 싶은 호출부를 위해 public으로 유지한다 (main_search 내부에서도 재사용).
       def apply_main_filters(scope, params)
+        # FTS 가상 테이블(disease_cases_extracted_fts)과 JOIN되는 경우 job_name 등이 모호해지므로
+        # 컬럼은 항상 disease_cases.로 한정한다.
         # 직업/하는일: 부분 일치 (LIKE) — exact match는 표현 통일성이 없는 추출 데이터에서 0건 위험
         if params[:job_name].present?
           safe = sanitize_sql_like(params[:job_name])
-          scope = scope.where("job_name LIKE ?", "%#{safe}%")
+          scope = scope.where("disease_cases.job_name LIKE ?", "%#{safe}%")
         end
 
         if params[:job_description].present?
           safe = sanitize_sql_like(params[:job_description])
-          scope = scope.where("job_description LIKE ?", "%#{safe}%")
+          scope = scope.where("disease_cases.job_description LIKE ?", "%#{safe}%")
         end
+
+        # 질병명은 main_search의 FTS 대상 컬럼에 없으므로(MAIN_SEARCHABLE_COLUMNS) q로는 찾을 수 없다.
+        # job_name과 같은 LIKE 부분 일치로 처리한다. 챗봇 어댑터가 사용한다(웹 UI에는 입력 없음).
+        if params[:disease_name].present?
+          safe = sanitize_sql_like(params[:disease_name])
+          scope = scope.where("disease_cases.disease_name LIKE ?", "%#{safe}%")
+        end
+
+        # 판정 결과(enum 값 일치). 알 수 없는 값은 0건이 되므로 호출부에서 변환·검증한다.
+        scope = scope.where(result: params[:result]) if params[:result].present?
 
         # 부담_신체_부위는 파이프(|)로 구분된 다중값 텍스트다(예: "목|상체|하체").
         # exact match나 단순 LIKE '%값%'은 "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭하므로,
