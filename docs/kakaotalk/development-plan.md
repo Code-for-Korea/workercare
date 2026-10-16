@@ -136,7 +136,7 @@ post "/webhooks/kakao", to: "webhooks/kakao#create"
 | `tenure_months` | `job_tenure_months` | 표시 전용 |
 | `burden_body_part` | `burden_body_part` | 파이프 구분 값을 배열로 변환 |
 | `reasoning_summary` | `main_reasoning` | 상세용. 마스킹 후 길이 제한, 길면 웹 링크로 유도 |
-| `detail_url` | `/disease_cases/:case_no` | 질문 원문·사용자 식별자 포함 금지 |
+| `detail_url` | `link` 컬럼(근로복지공단 판정서 사이트), 없으면 `https://jilbyungcase.comwel.or.kr/service/dataView?id=<case_no>` | 질문 원문·사용자 식별자 포함 금지. 챗봇 응답의 항목 링크로 쓴다 |
 
 삭제한 후보 필드: `public_id`(없음, `case_no` 사용), `evidence_verified`(공개/검증 플래그 없음), KCD(컬럼 없음), `worker_summary`(원본 필드 없음 — `job_summary`로 대체).
 
