@@ -131,6 +131,21 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "GET /disease_cases/:case_no renders an existing case" do
+    DiseaseCase.create!(case_no: "TEST-SHOW-OK", disease_name: "상세조회성공", year: 2024)
+
+    get disease_case_path("TEST-SHOW-OK")
+
+    assert_response :success
+    assert_match "상세조회성공", response.body
+  end
+
+  test "GET /disease_cases/:case_no returns 404 for an unknown case_no" do
+    get disease_case_path("NO-SUCH-CASE")
+
+    assert_response :not_found
+  end
+
   test "GET /search filters by work_type and work_relevance_eval" do
     DiseaseCase.create!(case_no: "TEST-STRUCT-MATCH", disease_name: "구조화필터매칭",
       work_type: "02:30~11:30 (평일 및 토요일)", work_relevance_eval: "높음", year: 2024)

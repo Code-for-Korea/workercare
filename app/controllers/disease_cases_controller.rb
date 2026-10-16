@@ -24,7 +24,7 @@ class DiseaseCasesController < ApplicationController
   end
 
   def show
-    @disease_case = DiseaseCase.find_by(case_no: params[:case_no])
+    @disease_case = DiseaseCase.find_by!(case_no: params[:case_no])
   end
 
   private
