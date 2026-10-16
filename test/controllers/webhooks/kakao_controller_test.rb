@@ -39,6 +39,8 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
   end
 
   def outputs = response.parsed_body.dig("template", "outputs")
+  def list_cards = outputs.filter_map { |output| output["listCard"] }
+  def list_items = list_cards.flat_map { |card| card["items"] }
   def quick_replies = response.parsed_body.dig("template", "quickReplies")
 
   test "extracts conditions from the Kakao action key, not Rails params[:action]" do
@@ -49,10 +51,10 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal "2.0", response.parsed_body["version"]
-    cards = outputs.last.dig("carousel", "items")
-    assert_equal 1, cards.size
-    assert_match "회전근개파열", cards.first["title"]
-    assert_match "TEST-KK-CUFF", cards.first["description"]
+    items = list_items
+    assert_equal 1, items.size
+    assert_equal "인정 · 자동차 부품 조립원", items.first["title"]
+    assert_equal "TEST-KK-CUFF", items.first["description"], "신청인 주장이 없으면 사건번호를 보인다"
     assert_match "검색 조건: 질병 회전근개파열", outputs.first.dig("simpleText", "text")
   end
 
@@ -63,20 +65,19 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     post_skill(skill_payload(params: { disease_name: "회전근개", job_name: "조립", work_factor: "거상", decision_type: "불인정" }))
 
-    cards = outputs.last.dig("carousel", "items")
-    assert_equal 1, cards.size
-    assert_match "TEST-KK-MATCH", cards.first["description"]
-    assert_match "불인정", cards.first["title"]
+    items = list_items
+    assert_equal 1, items.size
+    assert_match "TEST-KK-MATCH", items.first["description"]
+    assert_match "불인정", items.first["title"]
   end
 
-  test "detail button is an absolute link to the case page" do
+  test "each list item links to the case page with an absolute url" do
     create_case("TEST-KK-LINK")
 
     post_skill(skill_payload(params: { disease_name: "회전근개" }))
 
-    button = outputs.last.dig("carousel", "items", 0, "buttons", 0)
-    assert_equal "webLink", button["action"]
-    assert_equal "http://www.example.com/disease_cases/TEST-KK-LINK", button["webLinkUrl"]
+    assert_equal({ "web" => "http://www.example.com/disease_cases/TEST-KK-LINK" }, list_items.first["link"])
+    assert_nil list_items.first["buttons"], "항목 자체가 링크라 버튼은 없다"
   end
 
   test "PUBLIC_BASE_URL overrides the request host for detail links" do
@@ -86,7 +87,7 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
     post_skill(skill_payload(params: { disease_name: "회전근개" }))
 
     assert_equal "https://workercare.example/disease_cases/TEST-KK-HOST",
-      outputs.last.dig("carousel", "items", 0, "buttons", 0, "webLinkUrl")
+      list_items.first.dig("link", "web")
   end
 
   test "always includes the approval-probability disclaimer with results" do
@@ -97,22 +98,46 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
     assert_includes outputs.first.dig("simpleText", "text"), Chatbot::KakaoResponseBuilder::DISCLAIMER
   end
 
-  test "pages through results three at a time and carries conditions in the quick reply extra" do
-    4.times { |i| create_case("TEST-KK-PAGE-#{i}", year: 2024 - i) }
+  test "pages through results ten at a time in listCards of five and carries conditions in the quick reply extra" do
+    12.times { |i| create_case("TEST-KK-PAGE-#{i}", year: 2024 - i) }
 
     post_skill(skill_payload(params: { disease_name: "회전근개", decision_type: "인정" }))
 
-    assert_equal 3, outputs.last.dig("carousel", "items").size
+    assert_equal 3, outputs.size, "요약 + listCard 2장"
+    assert_equal [ 5, 5 ], list_cards.map { |card| card["items"].size }
+    assert_equal [ "1~5번째 사례", "6~10번째 사례" ], list_cards.map { |card| card.dig("header", "title") }
     more = quick_replies.find { |q| q["label"] == "다른 사례 보기" }
     assert_not_nil more
     assert_equal "message", more["action"]
     assert_equal({ "disease_name" => "회전근개", "decision_type" => "approved", "page" => 1 }, more["extra"])
+    assert_includes outputs.first.dig("simpleText", "text"), "총 12건 중 1~10번째"
 
     post_skill(skill_payload(params: {}, client_extra: more["extra"]))
 
-    assert_equal 1, outputs.last.dig("carousel", "items").size
+    assert_equal 2, outputs.size
+    assert_equal [ 2 ], list_cards.map { |card| card["items"].size }
+    assert_equal [ "11~12번째 사례" ], list_cards.map { |card| card.dig("header", "title") }
     assert_nil quick_replies.find { |q| q["label"] == "다른 사례 보기" }
-    assert_includes outputs.first.dig("simpleText", "text"), "총 4건 중 4~4번째"
+    assert_includes outputs.first.dig("simpleText", "text"), "총 12건 중 11~12번째"
+  end
+
+  test "five or fewer results fit in a single listCard" do
+    5.times { |i| create_case("TEST-KK-FIVE-#{i}", year: 2024 - i) }
+
+    post_skill(skill_payload(params: { disease_name: "회전근개" }))
+
+    assert_equal 2, outputs.size
+    assert_equal [ 5 ], list_cards.map { |card| card["items"].size }
+    assert_equal [ "1~5번째 사례" ], list_cards.map { |card| card.dig("header", "title") }
+  end
+
+  test "a lone sixth result gets a singular header" do
+    6.times { |i| create_case("TEST-KK-SIX-#{i}", year: 2024 - i) }
+
+    post_skill(skill_payload(params: { disease_name: "회전근개" }))
+
+    assert_equal [ "1~5번째 사례", "6번째 사례" ], list_cards.map { |card| card.dig("header", "title") }
+    assert_equal [ 5, 1 ], list_cards.map { |card| card["items"].size }
   end
 
   test "reports no result without implying a decision and offers a way back" do
@@ -136,7 +161,7 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     post_skill(skill_payload(params: { disease_name: "회전근개", decision_type: "아마도" }))
 
-    assert_equal 1, outputs.last.dig("carousel", "items").size
+    assert_equal 1, list_items.size
     assert_match "판정 결과 조건은 인식하지 못해 제외", outputs.first.dig("simpleText", "text")
   end
 
@@ -173,11 +198,21 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
     assert_operator outputs.size, :<=, 3
     assert_operator quick_replies.size, :<=, 10
     assert_operator outputs.first.dig("simpleText", "text").length, :<=, 1000
-    outputs.last.dig("carousel", "items").each do |card|
-      assert_operator card["title"].length, :<=, 50
-      assert_operator card["description"].length, :<=, 128
-      card["buttons"].each { |b| assert_operator b["label"].length, :<=, 14 }
+    assert_equal 10, list_items.size, "한 번에 10건"
+    list_cards.each do |card|
+      assert_operator card["items"].size, :<=, Chatbot::KakaoResponseBuilder::LIST_ITEMS_PER_CARD
+      assert_operator card.dig("header", "title").length, :<=, Chatbot::KakaoResponseBuilder::LIST_HEADER_LIMIT
+      card["items"].each do |item|
+        assert_operator item["title"].length, :<=, Chatbot::KakaoResponseBuilder::LIST_ITEM_TITLE_LIMIT
+        assert_operator item["description"].length, :<=, Chatbot::KakaoResponseBuilder::LIST_ITEM_DESCRIPTION_LIMIT
+        assert item["link"]["web"].start_with?("http"), "링크는 절대 URL"
+      end
     end
+  end
+
+  test "the page size never needs more than the three outputs Kakao allows" do
+    assert_operator Chatbot::CaseSearch::PAGE_SIZE, :<=, Chatbot::KakaoResponseBuilder::LIST_ITEMS_PER_CARD * 2,
+      "요약 simpleText 1개 + listCard 2장 = outputs 3개가 한도"
   end
 
   test "logs counts and timing but never the utterance or extracted values" do

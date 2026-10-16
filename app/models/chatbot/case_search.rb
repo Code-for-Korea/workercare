@@ -4,7 +4,8 @@ module Chatbot
   # 정규화된 조건으로 DiseaseCase.main_search를 호출하고 공개 DTO로 변환한다.
   # 매핑(project-plan §6): disease_name/job_name/result는 구조화 필터, work_factor는 q(FTS).
   class CaseSearch
-    PAGE_SIZE = 3
+    # 한 번에 보여 주는 사례 수. listCard 5건 × 2장 = 10건이 한 응답(outputs 3개)의 한도다.
+    PAGE_SIZE = 10
     # 웹 검색(DiseaseCasesController::MAX_SEARCH_RESULTS)과 같은 상한. 도달하면 정확한 건수를 숨긴다.
     COUNT_CAP = 500
 

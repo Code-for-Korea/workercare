@@ -35,4 +35,24 @@ class Chatbot::PublicCaseTest < ActiveSupport::TestCase
     assert_operator dto.reasoning_summary.length, :<=, Chatbot::PublicCase::REASONING_SUMMARY_LENGTH
     assert_equal "https://example.test/disease_cases/TEST%20%ED%95%9C%EA%B8%80%2F1", dto.detail_url
   end
+
+  test "claim_summary strips leading bullets and the applicant subject, masks numbers and truncates" do
+    record = DiseaseCase.create!(case_no: "TEST-PC-CLAIM", disease_name: "x", result: "approved", year: 2024,
+      applicant_claim: "○ 신청인 주장 - 신청인은 010-1234-5678 번호로 연락했고 " + "가" * 400)
+
+    dto = Chatbot::PublicCase.new(record, base_url: "https://example.test")
+
+    assert dto.claim_summary.start_with?("***"), dto.claim_summary
+    assert_operator dto.claim_summary.length, :<=, Chatbot::PublicCase::CLAIM_SUMMARY_LENGTH
+    assert_no_match(/010-1234-5678/, dto.claim_summary)
+  end
+
+  test "claim_summary is nil when the claim is blank or only a lead-in" do
+    [ "", nil, "신청인 주장", "○ 신청인은 " ].each do |claim|
+      record = DiseaseCase.create!(case_no: "TEST-PC-#{SecureRandom.hex(3)}", disease_name: "x", result: "approved",
+        year: 2024, applicant_claim: claim)
+
+      assert_nil Chatbot::PublicCase.new(record, base_url: "https://example.test").claim_summary, claim.inspect
+    end
+  end
 end
