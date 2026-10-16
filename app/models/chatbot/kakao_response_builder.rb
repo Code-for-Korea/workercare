@@ -7,7 +7,7 @@ module Chatbot
   # simpleText 1000자, listCard 항목 5개(말풍선 하나).
   # 사례는 listCard로 보여 준다. 요약 simpleText 1개 + listCard 최대 2개(5건씩) = outputs 3개라
   # 한 번에 10건(CaseSearch::PAGE_SIZE)이 한도다. 항목을 누르면 판정서 상세 페이지가 열린다.
-  # 항목 제목은 '승인여부 · 신체부위 · 직업명', 설명은 신청인 주장이다.
+  # 제목(30자)은 '직업명 · 신청인 주장', 설명(16자)은 '승인여부·신체부위'를 담는다.
   # 블록 ID가 아직 없으므로 바로연결은 action: "message"만 쓴다
   # (다음 블록에서 엔티티를 재추출하지 않으므로 조건은 extra로 이어간다).
   class KakaoResponseBuilder
@@ -20,6 +20,11 @@ module Chatbot
     LIST_ITEM_TITLE_LIMIT = 30
     LIST_ITEM_DESCRIPTION_LIMIT = 16
     ELLIPSIS = "…"
+    PART_SEPARATOR = "·"
+    TITLE_SEPARATOR = " · "
+    # 제목에서 직업명이 차지할 수 있는 최대 글자 수. 긴 직업명이 신청인 주장을 밀어내지 않게 한다.
+    TITLE_JOB_LIMIT = 10
+    DESCRIPTION_BODY_PARTS = 3
     SIDE_PREFIX = /\A(?:(?:우측|좌측|양측)\s*|(?:우|좌)\s+)/
 
     HOME_MESSAGE = "처음으로"
@@ -90,38 +95,40 @@ module Chatbot
         }
       end
 
-      # 제목 = 승인여부 · 신체부위 · 직업명. 판정 결과를 맨 앞에 둬서 길어서 잘려도 핵심이 남는다.
-      # 신체부위와 직업이 모두 없으면 제목이 판정 결과뿐이라 질병명으로 보완한다.
+      # 제목(30자) = 직업명 · 신청인 주장. 직업명은 10자까지만 써서 주장이 자리를 잃지 않게 한다.
+      # 둘 중 있는 것만 쓴다. 둘 다 없을 때만 질병명을 쓴다(제목은 비면 안 되므로 마지막 수단).
       def list_title(public_case)
-        parts = [ public_case.result_label, body_part_label(public_case), public_case.job_name.presence ].compact
-        parts << public_case.disease_name if parts.size == 1 && public_case.disease_name.present?
-        fit_title(parts)
+        job = public_case.job_name.presence && ellipsize(public_case.job_name, TITLE_JOB_LIMIT)
+        parts = [ job, public_case.claim_summary.presence ].compact
+        parts = [ public_case.disease_name.to_s ] if parts.empty?
+        fit_parts(parts, LIST_ITEM_TITLE_LIMIT, TITLE_SEPARATOR)
       end
 
-      # 앞에서부터 " · "로 이어 붙이다가 제한을 넘는 항목은 남은 자리에 맞춰 줄이고 멈춘다.
-      def fit_title(parts)
-        title = parts.first.to_s
+      # 설명(16자) = 승인여부·신체부위. 자리가 좁아 공백 없는 '·'로 붙인다.
+      # 판정 결과를 맨 앞에 둬서 길어서 잘려도 핵심이 남는다. 신체부위가 없으면 판정 결과만 보인다.
+      def list_description(public_case)
+        parts = [ public_case.result_label, body_part_label(public_case) ].compact
+        fit_parts(parts, LIST_ITEM_DESCRIPTION_LIMIT, PART_SEPARATOR)
+      end
+
+      # 앞에서부터 이어 붙이다가 제한을 넘는 항목은 남은 자리에 맞춰 줄이고 멈춘다.
+      def fit_parts(parts, limit, separator)
+        text = parts.first.to_s
         parts.drop(1).each do |part|
-          room = LIST_ITEM_TITLE_LIMIT - title.length - 3
+          room = limit - text.length - separator.length
           break if room < 2
 
-          title = "#{title} · #{ellipsize(part, room)}"
+          text = "#{text}#{separator}#{ellipsize(part, room)}"
           break if part.length > room
         end
-        ellipsize(title, LIST_ITEM_TITLE_LIMIT)
+        ellipsize(text, limit)
       end
 
-      # 부담 신체 부위는 파이프로 이어진 값이다. 좌우 구분은 떼고 중복을 합쳐 앞의 둘만 보여 준다.
+      # 부담 신체 부위는 파이프로 이어진 값이다. 좌우 구분은 떼고 중복을 합쳐 앞의 셋까지 보여 준다.
       def body_part_label(public_case)
         public_case.burden_body_part
           .map { |part| part.sub(SIDE_PREFIX, "").strip }
-          .reject(&:blank?).uniq.first(2).join(",").presence
-      end
-
-      # 설명 = 신청인 주장(글자 수가 허용하는 만큼). 주장이 없으면 출처 표시로 사건번호를 보인다.
-      def list_description(public_case)
-        text = public_case.claim_summary.presence || public_case.case_no.to_s
-        ellipsize(text, LIST_ITEM_DESCRIPTION_LIMIT)
+          .reject(&:blank?).uniq.first(DESCRIPTION_BODY_PARTS).join(",").presence
       end
 
       # limit자(말줄임 포함)로 줄인다. 말줄임표 앞에 공백이 남지 않게 한다.

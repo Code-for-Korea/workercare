@@ -30,7 +30,7 @@ module Webhooks
         body = Chatbot::KakaoResponseBuilder.ask_conditions
         result = nil
       else
-        result = Chatbot::CaseSearch.new(conditions, page: adapter.page, base_url: public_base_url).call
+        result = Chatbot::CaseSearch.new(conditions, page: adapter.page).call
         body = if result.cases.empty?
           Chatbot::KakaoResponseBuilder.no_result(conditions)
         else
@@ -63,11 +63,6 @@ module Webhooks
       JSON.parse(request.raw_post)
     rescue JSON::ParserError
       {}
-    end
-
-    # 상세 링크는 절대 URL이어야 한다. 프록시 뒤에서 scheme이 어긋나면 PUBLIC_BASE_URL로 고정한다.
-    def public_base_url
-      ENV["PUBLIC_BASE_URL"].presence || request.base_url
     end
 
     # 요청 ID·결과 건수·처리 시간만 기록한다. 발화 원문과 추출 값은 남기지 않는다(development-plan §9).

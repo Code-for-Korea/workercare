@@ -11,10 +11,9 @@ module Chatbot
 
     Result = Struct.new(:cases, :total_count, :over_cap, :used_fallback, :has_more, :page, keyword_init: true)
 
-    def initialize(conditions, page:, base_url:)
+    def initialize(conditions, page:)
       @conditions = conditions
       @page = page
-      @base_url = base_url
     end
 
     def call
@@ -25,7 +24,7 @@ module Chatbot
       records = scope.offset(offset).limit(PAGE_SIZE).to_a
 
       Result.new(
-        cases: records.map { |record| PublicCase.new(record, base_url: @base_url) },
+        cases: records.map { |record| PublicCase.new(record) },
         total_count: over_cap ? nil : count,
         over_cap: over_cap,
         used_fallback: fallback,

@@ -6,15 +6,12 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
   setup do
     @original_allow_blank_token = Webhooks::KakaoController.allow_blank_token
     @original_token = ENV["KAKAO_SKILL_TOKEN"]
-    @original_base_url = ENV["PUBLIC_BASE_URL"]
     ENV.delete("KAKAO_SKILL_TOKEN")
-    ENV.delete("PUBLIC_BASE_URL")
   end
 
   teardown do
     Webhooks::KakaoController.allow_blank_token = @original_allow_blank_token
     ENV["KAKAO_SKILL_TOKEN"] = @original_token
-    ENV["PUBLIC_BASE_URL"] = @original_base_url
   end
 
   def skill_payload(params: {}, client_extra: nil, utterance: "사용자 발화 원문")
@@ -53,8 +50,9 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
     assert_equal "2.0", response.parsed_body["version"]
     items = list_items
     assert_equal 1, items.size
-    assert_equal "인정 · 자동차 부품 조립원", items.first["title"]
-    assert_equal "TEST-KK-CUFF", items.first["description"], "신청인 주장이 없으면 사건번호를 보인다"
+    assert_equal "자동차 부품 조립원", items.first["title"], "신청인 주장이 없으면 직업명만 쓴다"
+    assert_equal "인정", items.first["description"], "신체부위가 없으면 승인여부만 보인다"
+    assert_match "TEST-KK-CUFF", items.first.dig("link", "web")
     assert_match "검색 조건: 질병 회전근개파열", outputs.first.dig("simpleText", "text")
   end
 
@@ -67,27 +65,17 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     items = list_items
     assert_equal 1, items.size
-    assert_match "TEST-KK-MATCH", items.first["description"]
-    assert_match "불인정", items.first["title"]
+    assert_match "TEST-KK-MATCH", items.first.dig("link", "web")
+    assert_match "불인정", items.first["description"]
   end
 
-  test "each list item links to the case page with an absolute url" do
+  test "each list item links to the Comwel case page" do
     create_case("TEST-KK-LINK")
 
     post_skill(skill_payload(params: { disease_name: "회전근개" }))
 
-    assert_equal({ "web" => "http://www.example.com/disease_cases/TEST-KK-LINK" }, list_items.first["link"])
+    assert_equal({ "web" => "https://jilbyungcase.comwel.or.kr/service/dataView?id=TEST-KK-LINK" }, list_items.first["link"])
     assert_nil list_items.first["buttons"], "항목 자체가 링크라 버튼은 없다"
-  end
-
-  test "PUBLIC_BASE_URL overrides the request host for detail links" do
-    ENV["PUBLIC_BASE_URL"] = "https://workercare.example"
-    create_case("TEST-KK-HOST")
-
-    post_skill(skill_payload(params: { disease_name: "회전근개" }))
-
-    assert_equal "https://workercare.example/disease_cases/TEST-KK-HOST",
-      list_items.first.dig("link", "web")
   end
 
   test "always includes the approval-probability disclaimer with results" do
