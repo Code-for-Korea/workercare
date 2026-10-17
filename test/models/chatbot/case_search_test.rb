@@ -68,6 +68,28 @@ class Chatbot::CaseSearchTest < ActiveSupport::TestCase
 
   # --- 선택한 직종 이름들(job_names) ---
 
+  test "work factor filters through full text search and keeps the other conditions, newest first" do
+    create_case("FT-1", main_reasoning: "중량물 취급 업무로 허리 부담", result: "approved", year: 2020)
+    create_case("FT-2", main_reasoning: "중량물 취급 업무로 허리 부담", result: "approved", year: 2023)
+    create_case("FT-3", main_reasoning: "중량물 취급 업무로 허리 부담", result: "rejected", year: 2024)
+    create_case("FT-4", main_reasoning: "반복 동작 업무", result: "approved", year: 2024)
+
+    result = search(work_factor: "중량물 취급", result: "approved")
+
+    assert_equal %w[FT-2 FT-1], result.cases.map(&:case_no)
+    assert_equal 2, result.total_count
+    assert_not result.used_fallback
+  end
+
+  test "a work factor with no full text match falls back to the job name" do
+    create_case("FT-5", job_name: "형틀목공", main_reasoning: "무관한 내용")
+
+    result = search(work_factor: "형틀목")
+
+    assert_equal %w[FT-5], result.cases.map(&:case_no)
+    assert result.used_fallback
+  end
+
   test "job_names match whole names ignoring spaces, as an OR" do
     create_case("CS-J1", job_name: "조리원")
     create_case("CS-J2", job_name: "조리 원")

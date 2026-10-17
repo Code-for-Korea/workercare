@@ -42,7 +42,8 @@ module Chatbot
         job_name: @conditions.job_name,
         job_names: @conditions.job_names.presence,
         q: @conditions.work_factor,
-        result: @conditions.result
+        result: @conditions.result,
+        fts_as_filter: true
       }.compact
     end
   end
