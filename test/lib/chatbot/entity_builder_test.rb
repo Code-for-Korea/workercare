@@ -344,4 +344,95 @@ class Chatbot::EntityBuilderTest < ActiveSupport::TestCase
 
     assert_empty Chatbot::EntityBuilder.cross_entity_errors(builders)
   end
+
+  # --- match: token (신체부위) / static (고정 목록) ---
+
+  def token_builder(concepts, **options)
+    Chatbot::EntityBuilder.new({ "match" => "token", "min_hits" => 1, "concepts" => concepts }.merge(options.transform_keys(&:to_s)))
+  end
+
+  def create_body_case(case_no, burden_body_part)
+    DiseaseCase.create!(case_no: case_no, disease_name: "x", result: "approved", year: 2024, burden_body_part: burden_body_part)
+  end
+
+  test "token mode counts the base tokens together with their left/right variants" do
+    create_body_case("BP-1", "어깨")
+    create_body_case("BP-2", "우측 어깨|허리")
+    create_body_case("BP-3", "좌측 견관절")
+    create_body_case("BP-4", "무릎")
+    entity = token_builder({ "어깨" => { "db" => [ "어깨", "견관절" ], "colloquial" => [] } })
+
+    row = entity.rows.first
+    assert_equal 3, row.hits
+    assert_equal 1, row.plain_hits, "대표 토큰 '어깨'만 정확 일치하면 접두 없는 BP-1뿐이다"
+  end
+
+  test "token mode matches whole tokens, never substrings" do
+    create_body_case("BP-5", "손목")
+    create_body_case("BP-6", "손")
+    entity = token_builder({ "손" => { "db" => [ "손" ], "colloquial" => [] } })
+
+    assert_equal 1, entity.rows.first.hits, "'손'은 '손목'을 포함하지 않는다"
+  end
+
+  test "token mode always counts burden_body_part whatever column the file names" do
+    create_body_case("BP-7", "어깨")
+    entity = token_builder({ "어깨" => { "db" => [ "어깨" ], "colloquial" => [] } }, column: "disease_name")
+
+    assert_equal "burden_body_part", entity.column
+    assert_equal 1, entity.rows.first.hits
+  end
+
+  test "token mode reports coverage and recall like the other modes" do
+    create_body_case("BP-8", "우측 어깨")
+    entity = token_builder({ "어깨" => { "db" => [ "어깨" ], "colloquial" => [] } })
+
+    assert_match(/어깨\s+0\s+1\s+0%/, entity.report)
+    assert_equal 1, entity.coverage[:matched]
+  end
+
+  test "static mode keeps every concept in dictionary order without counting" do
+    entity = Chatbot::EntityBuilder.new({
+      "match" => "static", "min_hits" => 1000,
+      "concepts" => {
+        "모름" => { "colloquial" => [ "모르겠어요", "몰라요", "패스" ] },
+        "없음" => { "colloquial" => [ "없어요" ] }
+      }
+    })
+
+    assert_equal [ "모름", "없음" ], entity.rows.map(&:representative)
+    assert_equal [ "모르겠어요", "몰라요", "패스" ], entity.rows.first.synonyms
+    assert_nil entity.rows.first.hits
+    assert_empty entity.dropped
+    assert_nil entity.coverage
+    assert_match(/건수 없는 고정 목록/, entity.report)
+  end
+
+  test "static mode writes the same Kakao sample format" do
+    entity = Chatbot::EntityBuilder.new({
+      "match" => "static",
+      "concepts" => { "모름" => { "colloquial" => [ "모르겠어요", "몰라요" ] }, "없음" => { "colloquial" => [ "없어요" ] } }
+    })
+
+    assert_equal "모름,모르겠어요,몰라요\n없음,없어요,\n", entity.to_csv
+  end
+
+  test "static mode needs synonyms but no db variants" do
+    ok = Chatbot::EntityBuilder.new({ "match" => "static", "concepts" => { "모름" => { "colloquial" => [ "몰라요" ] } } })
+    empty = Chatbot::EntityBuilder.new({ "match" => "static", "concepts" => { "모름" => {} } })
+
+    assert_empty ok.structural_errors
+    assert_match(/동의어.*하나도 없습니다/, empty.structural_errors.join)
+  end
+
+  test "committed body_part dictionary lists base tokens only, because the left/right prefixes are added at search time" do
+    prefixes = Chatbot::BodyPartExpansion::SIDE_PREFIXES.reject(&:empty?)
+    builder = Chatbot::EntityBuilder.load("body_part")
+
+    builder.concepts.each do |name, body|
+      body[:db].each do |token|
+        assert prefixes.none? { |prefix| token.start_with?(prefix) }, "#{name}: '#{token}'에 좌우 접두가 들어 있다(확장 때 중복된다)"
+      end
+    end
+  end
 end

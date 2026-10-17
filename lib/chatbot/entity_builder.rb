@@ -12,6 +12,9 @@ module Chatbot
   #   like  (기본) 공백을 무시한 부분 일치(LIKE). 질병명·직종처럼 자유 텍스트 컬럼.
   #   exact        컬럼 값 일치. 판정 결과(enum)처럼 값이 고정된 컬럼. db에는 enum 값을 적는다.
   #   fts          서버의 DiseaseCase.main_search(q:)로 측정. db에는 q로 보낼 검색어를 적는다.
+  #   token        파이프로 이어진 burden_body_part 토큰. 서버 필터(apply_main_filters)로 재고, 좌우 접두
+  #                변형(Chatbot::BodyPartExpansion)까지 합쳐 센다. db에는 접두 없는 기본 토큰을 적는다.
+  #   static       건수가 없는 고정 목록(예: '모름' 같은 답). 모든 개념을 사전 순서대로 그대로 출력한다.
   #
   # exclude_synonyms: 건수 측정(db)에는 쓰지만 CSV 동의어에서는 뺄 표현. 다른 엔티티와 같은 표현을
   # 동의어로 올리면 카카오가 인식을 못 하므로 한쪽에서 뺄 때 쓴다(cross_entity_errors).
@@ -21,11 +24,14 @@ module Chatbot
     Row = Struct.new(:representative, :synonyms, :hits, :plain_hits, keyword_init: true)
 
     CONFIG_DIR = "config/chatbot/entities"
-    MATCH_MODES = %w[like exact fts].freeze
+    MATCH_MODES = %w[like exact fts token static].freeze
+    TOKEN_COLUMN = "burden_body_part"
     REPORT_LABELS = {
       "like" => [ "단순 LIKE", "공백무시+표기변형" ],
       "exact" => [ "건수", "합계" ],
-      "fts" => [ "q=대표어", "q 변형 합집합" ]
+      "fts" => [ "q=대표어", "q 변형 합집합" ],
+      "token" => [ "대표 토큰만", "좌우 변형 합집합" ],
+      "static" => [ "-", "-" ]
     }.freeze
     ENTITY_NAME = /\A[a-z_]+\z/
 
@@ -67,7 +73,7 @@ module Chatbot
       @match = config.fetch("match", "like").to_s
       raise InvalidDictionary, "match는 #{MATCH_MODES.join('/')} 중 하나여야 합니다: #{@match}" unless MATCH_MODES.include?(@match)
 
-      @column = config.fetch("column", "q").to_s
+      @column = (@match == "token" ? TOKEN_COLUMN : config.fetch("column", "q")).to_s
       @min_hits = config.fetch("min_hits", 5).to_i
       @concepts = config.fetch("concepts").to_h do |name, body|
         [ name.to_s, {
@@ -76,7 +82,7 @@ module Chatbot
           exclude: Array(body["exclude_synonyms"]).map(&:to_s)
         } ]
       end
-      return if @match == "fts" # q 검색은 컬럼과 무관하다
+      return if %w[fts static].include?(@match) # q 검색과 고정 목록은 컬럼과 무관하다
 
       raise InvalidDictionary, "컬럼 이름이 올바르지 않습니다: #{@column}" unless @column.match?(/\A\w+\z/) && relation.column_names.include?(@column)
     end
@@ -88,7 +94,8 @@ module Chatbot
 
       concepts.each do |name, body|
         errors << "개념명이 비어 있습니다" if name.strip.empty?
-        errors << "#{name}: db 표기가 하나도 없습니다(건수를 측정할 수 없음)" if body[:db].empty?
+        errors << "#{name}: db 표기가 하나도 없습니다(건수를 측정할 수 없음)" if body[:db].empty? && match != "static"
+        errors << "#{name}: 동의어(colloquial·db)가 하나도 없습니다" if match == "static" && (body[:colloquial] + body[:db]).empty?
         known = (body[:colloquial] + body[:db]).map { |term| normalize(term) }
         body[:exclude].each do |term|
           errors << "#{name}: exclude_synonyms의 '#{term}'이(가) 이 개념의 db·colloquial에 없습니다" unless known.include?(normalize(term))
@@ -115,16 +122,23 @@ module Chatbot
     end
 
     # 건수가 min_hits 이상인 개념의 CSV 행. 건수가 많은 순, 같으면 사전 순서.
+    # static 방식은 건수가 없으므로 모든 개념을 사전 순서대로 낸다.
     def rows
       @rows ||= begin
         validate!
-        measured.select { |row| row.hits >= min_hits }
-          .sort_by.with_index { |row, index| [ -row.hits, index ] }
+        if match == "static"
+          measured
+        else
+          measured.select { |row| row.hits >= min_hits }
+            .sort_by.with_index { |row, index| [ -row.hits, index ] }
+        end
       end
     end
 
     def dropped
       validate!
+      return [] if match == "static"
+
       measured.reject { |row| row.hits >= min_hits }
     end
 
@@ -142,8 +156,10 @@ module Chatbot
       File.write(path, to_csv, encoding: "UTF-8")
     end
 
-    # 사전의 모든 db 표기 중 하나라도 걸리는 전체 사례 수와 그 비율.
+    # 사전의 모든 db 표기 중 하나라도 걸리는 전체 사례 수와 그 비율. static 방식은 건수가 없어 nil.
     def coverage
+      return nil if match == "static"
+
       patterns = rows.flat_map { |row| concepts.fetch(row.representative)[:db] }
       matched = count_matching(patterns)
       total = @relation.count
@@ -152,6 +168,13 @@ module Chatbot
 
     def report
       lines = []
+      if match == "static"
+        rows.each { |row| lines << format("%-22s 동의어 %d개", row.representative, row.synonyms.size) }
+        lines << ""
+        lines << "대표 엔트리 #{rows.size}개, 동의어 #{rows.sum { |row| row.synonyms.size }}개 (건수 없는 고정 목록)"
+        return lines.join("\n")
+      end
+
       plain_label, union_label = REPORT_LABELS.fetch(match)
       lines << format("%-22s %10s %14s %7s", "대표 엔트리", plain_label, union_label, "재현율")
       rows.each do |row|
@@ -196,6 +219,8 @@ module Chatbot
 
     def measured
       @measured ||= concepts.map do |name, body|
+        next Row.new(representative: name, synonyms: synonyms_for(name), hits: nil, plain_hits: nil) if match == "static"
+
         Row.new(
           representative: name,
           synonyms: synonyms_for(name),
@@ -214,8 +239,14 @@ module Chatbot
       case match
       when "exact" then @relation.where(@column => terms.uniq).count
       when "fts" then fts_ids(terms).size
+      when "token" then count_tokens(BodyPartExpansion.expand(terms))
       else count_like(terms)
       end
+    end
+
+    # 서버와 같은 필터(apply_main_filters의 burden_body_part, 파이프 경계 정확 일치)로 센다.
+    def count_tokens(tokens)
+      @relation.apply_main_filters(@relation.all, burden_body_part: tokens).count
     end
 
     def count_like(terms)
@@ -233,6 +264,7 @@ module Chatbot
       case match
       when "exact" then count_matching(concepts.fetch(name)[:db])
       when "fts" then fts_ids([ name ]).size
+      when "token" then count_tokens([ name ])
       else @relation.where("#{@column} LIKE ?", "%#{@relation.sanitize_sql_like(name)}%").count
       end
     end
