@@ -65,4 +65,36 @@ class Chatbot::CaseSearchTest < ActiveSupport::TestCase
     assert_equal 2, second.cases.size
     assert_not second.has_more
   end
+
+  # --- 선택한 직종 이름들(job_names) ---
+
+  test "job_names match whole names ignoring spaces, as an OR" do
+    create_case("CS-J1", job_name: "조리원")
+    create_case("CS-J2", job_name: "조리 원")
+    create_case("CS-J3", job_name: "조리사")
+    create_case("CS-J4", job_name: "급식조리원")
+    create_case("CS-J5", job_name: "용접공")
+
+    result = search(job_names: [ "조리원", "조리사" ])
+
+    assert_equal %w[CS-J1 CS-J2 CS-J3], result.cases.map(&:case_no).sort
+    assert_equal 3, result.total_count
+  end
+
+  test "job_names are combined with the other conditions as AND" do
+    create_case("CS-J6", job_name: "조리원", disease_name: "손목터널증후군", result: "rejected", burden_body_part: "우측 손목")
+    create_case("CS-J7", job_name: "조리사", disease_name: "손목터널증후군", result: "approved", burden_body_part: "손목")
+    create_case("CS-J8", job_name: "조리원", disease_name: "허리디스크", result: "rejected", burden_body_part: "허리")
+
+    result = search(job_names: [ "조리원", "조리사" ], disease_name: "손목", body_part: "손목", result: "rejected")
+
+    assert_equal [ "CS-J6" ], result.cases.map(&:case_no)
+  end
+
+  test "no job_names leaves the job unfiltered" do
+    create_case("CS-J9", job_name: "조리원")
+    create_case("CS-J10", job_name: "용접공")
+
+    assert_equal %w[CS-J10 CS-J9], search(disease_name: "회전근개").cases.map(&:case_no).sort
+  end
 end

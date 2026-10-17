@@ -40,6 +40,7 @@ module Chatbot
         disease_name: @conditions.disease_name,
         burden_body_part: BodyPartExpansion.tokens_for(@conditions.body_part).presence,
         job_name: @conditions.job_name,
+        job_names: @conditions.job_names.presence,
         q: @conditions.work_factor,
         result: @conditions.result
       }.compact

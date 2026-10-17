@@ -304,8 +304,9 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match "알려주세요", outputs.first.dig("simpleText", "text")
-    assert_equal [ "단계별로 찾기", "처음으로" ], quick_replies.map { |q| q["label"] }
+    assert_equal [ "단계별로 찾기", "직종으로 찾기", "처음으로" ], quick_replies.map { |q| q["label"] }
     assert_equal Chatbot::KakaoResponseBuilder::WIZARD_MESSAGE, quick_replies.first["messageText"]
+    assert_equal Chatbot::KakaoResponseBuilder::JOB_SEARCH_MESSAGE, quick_replies.second["messageText"]
   end
 
   test "the next page keeps the body part and every other answer" do
@@ -320,5 +321,37 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal 2, list_items.size
     assert_includes outputs.first.dig("simpleText", "text"), "신체부위 어깨"
+  end
+
+  # --- 직종 검색 스킬에서 고른 직종 ---
+
+  test "searches the selected job names and shows them in the summary" do
+    create_case("TEST-KK-JOBS-A", job_name: "조리원")
+    create_case("TEST-KK-JOBS-B", job_name: "조리사")
+    create_case("TEST-KK-JOBS-C", job_name: "용접공")
+
+    post_skill(skill_payload(client_extra: { job_names: [ "조리원", "조리사" ] }))
+
+    assert_equal 2, list_items.size
+    assert_includes outputs.first.dig("simpleText", "text"), "검색 조건: 직종 조리원, 조리사"
+  end
+
+  test "more than three selected jobs are abbreviated in the summary" do
+    post_skill(skill_payload(client_extra: { job_names: %w[가직종 나직종 다직종 라직종 마직종] }))
+
+    assert_includes outputs.first.dig("simpleText", "text"), "직종 가직종, 나직종, 다직종 외 2"
+  end
+
+  test "the next page keeps the selected job names" do
+    12.times { |i| create_case("TEST-KK-JKEEP-#{i}", job_name: i.even? ? "조리원" : "조리사", year: 2024 - i) }
+
+    post_skill(skill_payload(client_extra: { job_names: [ "조리원", "조리사" ] }))
+    more = quick_replies.find { |q| q["label"] == "다른 사례 보기" }
+
+    assert_equal({ "job_names" => [ "조리원", "조리사" ], "page" => 1 }, more["extra"])
+
+    post_skill(skill_payload(client_extra: more["extra"]))
+
+    assert_equal 2, list_items.size
   end
 end

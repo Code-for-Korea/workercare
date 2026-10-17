@@ -21,10 +21,12 @@ module Chatbot
     MAX_VALUE_LENGTH = 100
     MAX_PAGE = 100
     SKIP_VALUE = "모름"
+    MAX_JOB_NAMES = 10
 
-    Conditions = Struct.new(:disease_name, :body_part, :job_name, :work_factor, :result, :ignored, keyword_init: true) do
+    # job_names는 직종 검색 스킬에서 고른 직종 이름들이다(DB에 있는 이름 그대로, 띄어쓰기 무시 일치).
+    Conditions = Struct.new(:disease_name, :body_part, :job_name, :job_names, :work_factor, :result, :ignored, keyword_init: true) do
       def empty?
-        [ disease_name, body_part, job_name, work_factor, result ].all?(&:blank?)
+        [ disease_name, body_part, job_name, job_names, work_factor, result ].all?(&:blank?)
       end
 
       def to_extra
@@ -32,6 +34,7 @@ module Chatbot
           "disease_name" => disease_name,
           "body_part" => body_part,
           "job_name" => job_name,
+          "job_names" => job_names.presence,
           "work_factor" => work_factor,
           "decision_type" => result
         }.compact
@@ -74,6 +77,7 @@ module Chatbot
         disease_name: value_for("disease_name", params),
         body_part: value_for("body_part", params),
         job_name: value_for("job_name", params),
+        job_names: job_names_from_extra,
         work_factor: value_for("work_factor", params),
         result: result,
         ignored: ignored
@@ -83,6 +87,12 @@ module Chatbot
     def value_for(key, params)
       text = clean(params[key]).presence || clean(client_extra[key])
       text
+    end
+
+    # 직종 검색 스킬이 `선택한 직종으로 찾기` 버튼의 extra로 보낸 배열. 버튼은 엔티티를 다시 추출하지 않는다.
+    def job_names_from_extra
+      Array(client_extra["job_names"]).filter_map { |name| clean(name) }
+        .uniq { |name| name.gsub(/\s+/, "") }.first(MAX_JOB_NAMES).presence
     end
 
     def clean(value)

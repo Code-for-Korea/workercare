@@ -31,6 +31,7 @@ module Chatbot
     REFINE_MESSAGE = "검색 조건 바꾸기"
     MORE_MESSAGE = "다른 사례 보기"
     WIZARD_MESSAGE = "단계별로 찾기"
+    JOB_SEARCH_MESSAGE = "직종으로 찾기"
 
     class << self
       def results(search_result, conditions)
@@ -59,8 +60,8 @@ module Chatbot
       end
 
       def ask_conditions
-        text = "찾고 싶은 사례의 질병명이나 직종, 작업 내용을 알려주세요.\n예) 회전근개파열, 물류 노동자 허리디스크\n\n조건을 잘 모르시면 '단계별로 찾기'로 하나씩 답해 보세요.\n이름·주민등록번호·전화번호 같은 개인정보는 입력하지 마세요."
-        build([ simple_text(text) ], [ message_reply("단계별로 찾기", WIZARD_MESSAGE), message_reply("처음으로", HOME_MESSAGE) ])
+        text = "찾고 싶은 사례의 질병명이나 직종, 작업 내용을 알려주세요.\n예) 회전근개파열, 물류 노동자 허리디스크\n\n조건을 잘 모르시면 '단계별로 찾기'로 하나씩 답하거나 '직종으로 찾기'로 직종부터 골라 보세요.\n이름·주민등록번호·전화번호 같은 개인정보는 입력하지 마세요."
+        build([ simple_text(text) ], [ message_reply("단계별로 찾기", WIZARD_MESSAGE), message_reply("직종으로 찾기", JOB_SEARCH_MESSAGE), message_reply("처음으로", HOME_MESSAGE) ])
       end
 
       def error
@@ -70,8 +71,11 @@ module Chatbot
 
       private
 
-      def build(outputs, quick_replies)
-        { version: "2.0", template: { outputs: outputs, quickReplies: quick_replies } }
+      # context: 블록에 미리 선언된 출력 컨텍스트만 갱신된다(선언되지 않은 이름은 반영되지 않는다).
+      def build(outputs, quick_replies, context: nil)
+        body = { version: "2.0", template: { outputs: outputs, quickReplies: quick_replies } }
+        body[:context] = { values: context } if context
+        body
       end
 
       def simple_text(text)
@@ -156,9 +160,15 @@ module Chatbot
         parts << "질병 #{conditions.disease_name}" if conditions.disease_name.present?
         parts << "신체부위 #{conditions.body_part}" if conditions.body_part.present?
         parts << "직종 #{conditions.job_name}" if conditions.job_name.present?
+        parts << "직종 #{job_names_label(conditions.job_names)}" if conditions.job_names.present?
         parts << "작업 #{conditions.work_factor}" if conditions.work_factor.present?
         parts << "판정 #{PublicCase::RESULT_LABELS[conditions.result]}" if conditions.result.present?
         parts.empty? ? nil : "검색 조건: #{parts.join(' · ')}"
+      end
+
+      def job_names_label(names)
+        label = names.first(3).join(", ")
+        names.size > 3 ? "#{label} 외 #{names.size - 3}" : label
       end
 
       def ignored_note(conditions)

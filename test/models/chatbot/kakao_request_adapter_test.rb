@@ -143,4 +143,38 @@ class Chatbot::KakaoRequestAdapterTest < ActiveSupport::TestCase
   test "values that merely contain # or $ are kept" do
     assert_equal "C# 개발자", Chatbot::KakaoRequestAdapter.new(payload(params: { "job_name" => "C# 개발자" })).conditions.job_name
   end
+
+  # --- 직종 검색 스킬에서 고른 직종(job_names) ---
+
+  test "reads the selected job names from clientExtra and carries them in the extra" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => [ "조리원", "조리사" ] })).conditions
+
+    assert_equal %w[조리원 조리사], conditions.job_names
+    assert_equal({ "job_names" => %w[조리원 조리사] }, conditions.to_extra)
+  end
+
+  test "selected job names alone are a usable condition" do
+    assert_not Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => [ "조리원" ] })).conditions.empty?
+  end
+
+  test "job names are cleaned, de-duplicated ignoring spaces and capped" do
+    names = [ " 조리원 ", "조리 원", "#wiz1.job", "$job", "모름", "", nil, 7 ] + (1..12).map { |i| "직종#{i}" }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => names })).conditions
+
+    assert_equal "조리원", conditions.job_names.first
+    assert_equal Chatbot::KakaoRequestAdapter::MAX_JOB_NAMES, conditions.job_names.size
+    assert_not_includes conditions.job_names, "모름"
+  end
+
+  test "job_names is only read from the button extra, never from entity params" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "job_names" => [ "조리원" ] })).conditions
+
+    assert_nil conditions.job_names
+    assert conditions.empty?
+  end
+
+  test "a malformed job_names value is ignored" do
+    assert_nil Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => {} })).conditions.job_names
+    assert_equal [ "조리원" ], Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => "조리원" })).conditions.job_names
+  end
 end

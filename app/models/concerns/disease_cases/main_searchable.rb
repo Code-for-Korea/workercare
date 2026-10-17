@@ -55,6 +55,13 @@ module DiseaseCases
           scope = scope.where("disease_cases.job_description LIKE ?", "%#{safe}%")
         end
 
+        # 직종 이름 여러 개(챗봇의 직종 검색 스킬에서 고른 값). DB에 있는 이름 그대로 띄어쓰기를 무시하고
+        # 일치시킨다(OR). 웹 검색 화면은 이 값을 받지 않는다(main_search_params에 없음).
+        if params[:job_names].present?
+          names = Array(params[:job_names]).map { |name| name.to_s.gsub(/\s+/, "") }.reject(&:empty?)
+          scope = scope.where("REPLACE(disease_cases.job_name, ' ', '') IN (?)", names) if names.any?
+        end
+
         # 질병명은 main_search의 FTS 대상 컬럼에 없으므로(MAIN_SEARCHABLE_COLUMNS) q로는 찾을 수 없다.
         # job_name과 같은 LIKE 부분 일치로 처리한다. 챗봇 어댑터가 사용한다(웹 UI에는 입력 없음).
         if params[:disease_name].present?

@@ -148,4 +148,25 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     assert_includes scope, @death
     assert_not fallback
   end
+
+  test "job_names filter matches whole names ignoring spaces and is not a substring match" do
+    DiseaseCase.create!(case_no: "TEST-JN-1", job_name: "조리원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-2", job_name: "조리 원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-3", job_name: "급식조리원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_names: [ "조리원" ])
+
+    assert_equal %w[TEST-JN-1 TEST-JN-2], scope.pluck(:case_no).sort
+  end
+
+  test "job_names filter is an OR over the names and ignores blank values" do
+    DiseaseCase.create!(case_no: "TEST-JN-4", job_name: "조리원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-5", job_name: "용접공", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-6", job_name: "경비원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_names: [ "조리원", "", "용접공" ])
+
+    assert_equal %w[TEST-JN-4 TEST-JN-5], scope.pluck(:case_no).sort
+    assert_equal DiseaseCase.count, DiseaseCase.main_search(job_names: [ "", " " ]).first.count, "빈 값뿐이면 필터를 걸지 않는다"
+  end
 end
