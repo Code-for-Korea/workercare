@@ -67,18 +67,15 @@ module DiseaseCases
 
         # 부담_신체_부위는 파이프(|)로 구분된 다중값 텍스트다(예: "목|상체|하체").
         # exact match나 단순 LIKE '%값%'은 "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭하므로,
-        # 파이프 경계를 인식하는 매칭(정확히 일치/맨앞/맨뒤/중간)으로 처리한다.
+        # 파이프 경계를 인식하는 매칭으로 처리한다. 컬럼 양끝에 파이프를 붙여('|목|상체|하체|')
+        # '%|값|%' 하나로 정확히 일치/맨앞/맨뒤/중간을 모두 잡는다. 값마다 LIKE를 4번 쓰던 방식과
+        # 결과가 같고, 챗봇이 한 개념을 토큰 수십 개로 확장해 찾을 때 4배 빠르다(5초 응답 제한).
         if params[:burden_body_part].present? || params[:burden_body_part_text].present?
           values = Array(params[:burden_body_part]).reject(&:blank?)
           values << params[:burden_body_part_text].to_s.strip if params[:burden_body_part_text].present?
           if values.any?
-            conditions = values.map {
-              "(burden_body_part = ? OR burden_body_part LIKE ? OR burden_body_part LIKE ? OR burden_body_part LIKE ?)"
-            }.join(" OR ")
-            binds = values.flat_map { |v|
-              safe = sanitize_sql_like(v)
-              [ v, "#{safe}|%", "%|#{safe}", "%|#{safe}|%" ]
-            }
+            conditions = Array.new(values.size, "('|' || disease_cases.burden_body_part || '|') LIKE ?").join(" OR ")
+            binds = values.map { |v| "%|#{sanitize_sql_like(v)}|%" }
             scope = scope.where(conditions, *binds)
           end
         end
