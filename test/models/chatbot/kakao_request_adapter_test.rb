@@ -1,0 +1,180 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class Chatbot::KakaoRequestAdapterTest < ActiveSupport::TestCase
+  def payload(params: {}, client_extra: nil, utterance: "발화 원문", detail_params: {})
+    {
+      "userRequest" => { "utterance" => utterance, "user" => { "id" => "bot-user-1", "type" => "botUserKey" } },
+      "action" => { "name" => "case_search", "params" => params, "detailParams" => detail_params, "clientExtra" => client_extra }
+    }
+  end
+
+  test "reads entity values from action.params" do
+    conditions = Chatbot::KakaoRequestAdapter.new(
+      payload(params: { "disease_name" => "회전근개파열", "job_name" => "자동차 부품 조립", "work_factor" => "어깨 작업" })
+    ).conditions
+
+    assert_equal "회전근개파열", conditions.disease_name
+    assert_equal "자동차 부품 조립", conditions.job_name
+    assert_equal "어깨 작업", conditions.work_factor
+    assert_nil conditions.result
+    assert_not conditions.empty?
+  end
+
+  test "ignores utterance and detailParams origin" do
+    conditions = Chatbot::KakaoRequestAdapter.new(
+      payload(params: {}, utterance: "허리디스크 걸렸어요",
+        detail_params: { "disease_name" => { "origin" => "허리디스크", "value" => "허리디스크" } })
+    ).conditions
+
+    assert conditions.empty?
+  end
+
+  test "maps Korean decision labels to enum values" do
+    { "인정" => "approved", "불인정" => "rejected", "일부인정" => "partially_approved", "변경인정" => "revised_approved" }.each do |label, enum|
+      conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "decision_type" => label })).conditions
+      assert_equal enum, conditions.result, label
+      assert_empty conditions.ignored
+    end
+  end
+
+  test "전체 means no result filter and is not reported as ignored" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "disease_name" => "허리디스크", "decision_type" => "전체" })).conditions
+
+    assert_nil conditions.result
+    assert_empty conditions.ignored
+  end
+
+  test "unknown decision value is dropped and reported as ignored" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "disease_name" => "허리디스크", "decision_type" => "아마도인정" })).conditions
+
+    assert_nil conditions.result
+    assert_equal [ "decision_type" ], conditions.ignored
+  end
+
+  test "continues conditions from clientExtra and lets action.params override them" do
+    adapter = Chatbot::KakaoRequestAdapter.new(
+      payload(params: { "job_name" => "물류" },
+        client_extra: { "disease_name" => "허리디스크", "job_name" => "용접", "decision_type" => "rejected", "page" => 2 })
+    )
+
+    assert_equal "허리디스크", adapter.conditions.disease_name
+    assert_equal "물류", adapter.conditions.job_name
+    assert_equal "rejected", adapter.conditions.result
+    assert_equal 2, adapter.page
+  end
+
+  test "page is clamped" do
+    assert_equal 0, Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "page" => -5 })).page
+    assert_equal Chatbot::KakaoRequestAdapter::MAX_PAGE, Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "page" => 99_999 })).page
+    assert_equal 0, Chatbot::KakaoRequestAdapter.new(payload).page
+  end
+
+  test "values are stripped, blank values dropped and long values truncated" do
+    conditions = Chatbot::KakaoRequestAdapter.new(
+      payload(params: { "disease_name" => "  허리디스크 ", "job_name" => "   ", "work_factor" => "가" * 500 })
+    ).conditions
+
+    assert_equal "허리디스크", conditions.disease_name
+    assert_nil conditions.job_name
+    assert_equal Chatbot::KakaoRequestAdapter::MAX_VALUE_LENGTH, conditions.work_factor.length
+  end
+
+  test "tolerates malformed payloads" do
+    [ nil, [], "text", {}, { "action" => "x" }, { "action" => { "params" => "x", "clientExtra" => "y" } } ].each do |bad|
+      adapter = Chatbot::KakaoRequestAdapter.new(bad)
+      assert adapter.conditions.empty?, bad.inspect
+      assert_equal 0, adapter.page
+    end
+  end
+
+  test "user_key_digest hashes the botUserKey" do
+    digest = Chatbot::KakaoRequestAdapter.new(payload).user_key_digest
+
+    assert_equal Digest::SHA256.hexdigest("bot-user-1"), digest
+    assert_nil Chatbot::KakaoRequestAdapter.new({}).user_key_digest
+  end
+
+  # --- 신체부위, 단계별 사례 찾기(컨텍스트로 이어받는 값) ---
+
+  test "reads body_part from action.params and carries it in the extra" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "어깨", "disease_name" => "회전근개 파열" })).conditions
+
+    assert_equal "어깨", conditions.body_part
+    assert_equal({ "disease_name" => "회전근개 파열", "body_part" => "어깨" }, conditions.to_extra)
+  end
+
+  test "a body part alone is a usable condition" do
+    assert_not Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "허리" })).conditions.empty?
+  end
+
+  test "continues body_part from clientExtra and lets action.params override it" do
+    adapter = Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "무릎" }, client_extra: { "body_part" => "어깨", "page" => 1 }))
+
+    assert_equal "무릎", adapter.conditions.body_part
+    assert_equal "어깨", Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "body_part" => "어깨" })).conditions.body_part
+  end
+
+  test "a skipped step ('모름') is treated as no condition for every field" do
+    params = { "disease_name" => "모름", "body_part" => "모름", "job_name" => "모름", "work_factor" => "모름", "decision_type" => "모름" }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: params)).conditions
+
+    assert conditions.empty?
+    assert_empty conditions.ignored, "'모름'은 알 수 없는 판정 값이 아니라 건너뛴 답이다"
+  end
+
+  test "unresolved context or entity references are treated as no condition" do
+    params = { "disease_name" => "#wiz2.disease_name", "body_part" => "$body_part", "job_name" => "  #wiz3.job_name " }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: params)).conditions
+
+    assert conditions.empty?
+  end
+
+  test "a skipped step does not hide the answers of the other steps" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "disease_name" => "회전근개 파열", "body_part" => "모름", "job_name" => "#wiz3.job_name", "decision_type" => "불인정" })).conditions
+
+    assert_equal "회전근개 파열", conditions.disease_name
+    assert_nil conditions.body_part
+    assert_nil conditions.job_name
+    assert_equal "rejected", conditions.result
+  end
+
+  test "values that merely contain # or $ are kept" do
+    assert_equal "C# 개발자", Chatbot::KakaoRequestAdapter.new(payload(params: { "job_name" => "C# 개발자" })).conditions.job_name
+  end
+
+  # --- 직종 검색 스킬에서 고른 직종(job_names) ---
+
+  test "reads the selected job names from clientExtra and carries them in the extra" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => [ "조리원", "조리사" ] })).conditions
+
+    assert_equal %w[조리원 조리사], conditions.job_names
+    assert_equal({ "job_names" => %w[조리원 조리사] }, conditions.to_extra)
+  end
+
+  test "selected job names alone are a usable condition" do
+    assert_not Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => [ "조리원" ] })).conditions.empty?
+  end
+
+  test "job names are cleaned, de-duplicated ignoring spaces and capped" do
+    names = [ " 조리원 ", "조리 원", "#wiz1.job", "$job", "모름", "", nil, 7 ] + (1..12).map { |i| "직종#{i}" }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => names })).conditions
+
+    assert_equal "조리원", conditions.job_names.first
+    assert_equal Chatbot::KakaoRequestAdapter::MAX_JOB_NAMES, conditions.job_names.size
+    assert_not_includes conditions.job_names, "모름"
+  end
+
+  test "job_names is only read from the button extra, never from entity params" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "job_names" => [ "조리원" ] })).conditions
+
+    assert_nil conditions.job_names
+    assert conditions.empty?
+  end
+
+  test "a malformed job_names value is ignored" do
+    assert_nil Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => {} })).conditions.job_names
+    assert_equal [ "조리원" ], Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "job_names" => "조리원" })).conditions.job_names
+  end
+end

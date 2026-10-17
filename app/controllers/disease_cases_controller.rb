@@ -24,7 +24,7 @@ class DiseaseCasesController < ApplicationController
   end
 
   def show
-    @disease_case = DiseaseCase.find_by(case_no: params[:case_no])
+    @disease_case = DiseaseCase.find_by!(case_no: params[:case_no])
   end
 
   private
@@ -56,12 +56,17 @@ class DiseaseCasesController < ApplicationController
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
   # 1,000개를 넘는 자유 텍스트라(사전 정의된 enum이 아님 — 3.2절 참고), 체크박스로는
   # 자주 쓰는 상위 N개만 노출하고 나머지는 <datalist> 자동완성 텍스트 입력으로 찾는다.
+  # 요청마다 4만 건을 읽어 집계하면 메모리가 작은 서버에서 디스크 I/O 때문에 수 초가 걸려,
+  # 필터 옵션은 하루 동안 캐시한다. 데이터를 다시 임포트하면 최대 하루 뒤에 반영된다
+  # (바로 반영하려면 Rails.cache.delete("disease_cases/burden_body_part_token_counts")).
   def burden_body_part_token_counts
-    counts = Hash.new(0)
-    DiseaseCase.where.not(burden_body_part: [ nil, "" ]).pluck(:burden_body_part).each do |raw|
-      raw.split("|").each { |token| counts[token.strip] += 1 unless token.strip.blank? }
+    Rails.cache.fetch("disease_cases/burden_body_part_token_counts", expires_in: 1.day) do
+      counts = Hash.new(0)
+      DiseaseCase.where.not(burden_body_part: [ nil, "" ]).pluck(:burden_body_part).each do |raw|
+        raw.split("|").each { |token| counts[token.strip] += 1 unless token.strip.blank? }
+      end
+      counts.to_h
     end
-    counts
   end
 
   def burden_body_part_options(counts)
@@ -74,7 +79,9 @@ class DiseaseCasesController < ApplicationController
   end
 
   def application_type_options
-    DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
+    Rails.cache.fetch("disease_cases/application_type_options", expires_in: 1.day) do
+      DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
+    end
   end
 
   def paginate(scope)
@@ -97,7 +104,7 @@ class DiseaseCasesController < ApplicationController
 
   def main_search_params
     params.permit(
-      :q, :job_name, :job_description,
+      :q, :job_name, :job_description, :disease_name, :result,
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
       :burden_body_part_text,

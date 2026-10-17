@@ -63,6 +63,9 @@ Rails.application.configure do
   # Enable DNS rebinding protection and other `Host` header attacks.
   config.hosts = %w[t-13-67.xyz t-13-67.test workercare.test]
 
+  # kamal-proxy는 헬스체크를 컨테이너 ID(예: 73e4ce9386f2:3000)를 Host로 보냅니다.
+  config.hosts << /\A\h{12}(:\d+)?\z/
+
   # Skip DNS rebinding protection for the default health check endpoint.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

@@ -191,7 +191,9 @@ AFTER UPDATE ON disease_cases BEGIN
     new.other_harmful_factors, new.aggravating_factors
   );
 END;
+CREATE INDEX "index_disease_cases_on_burden_body_part" ON "disease_cases" ("burden_body_part") /*application='Workercare'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20261013000001'),
 ('20260824000004'),
 ('20260824000003'),
 ('20260824000002'),
