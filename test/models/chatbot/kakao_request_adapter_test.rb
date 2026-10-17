@@ -95,4 +95,52 @@ class Chatbot::KakaoRequestAdapterTest < ActiveSupport::TestCase
     assert_equal Digest::SHA256.hexdigest("bot-user-1"), digest
     assert_nil Chatbot::KakaoRequestAdapter.new({}).user_key_digest
   end
+
+  # --- 신체부위, 단계별 사례 찾기(컨텍스트로 이어받는 값) ---
+
+  test "reads body_part from action.params and carries it in the extra" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "어깨", "disease_name" => "회전근개 파열" })).conditions
+
+    assert_equal "어깨", conditions.body_part
+    assert_equal({ "disease_name" => "회전근개 파열", "body_part" => "어깨" }, conditions.to_extra)
+  end
+
+  test "a body part alone is a usable condition" do
+    assert_not Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "허리" })).conditions.empty?
+  end
+
+  test "continues body_part from clientExtra and lets action.params override it" do
+    adapter = Chatbot::KakaoRequestAdapter.new(payload(params: { "body_part" => "무릎" }, client_extra: { "body_part" => "어깨", "page" => 1 }))
+
+    assert_equal "무릎", adapter.conditions.body_part
+    assert_equal "어깨", Chatbot::KakaoRequestAdapter.new(payload(client_extra: { "body_part" => "어깨" })).conditions.body_part
+  end
+
+  test "a skipped step ('모름') is treated as no condition for every field" do
+    params = { "disease_name" => "모름", "body_part" => "모름", "job_name" => "모름", "work_factor" => "모름", "decision_type" => "모름" }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: params)).conditions
+
+    assert conditions.empty?
+    assert_empty conditions.ignored, "'모름'은 알 수 없는 판정 값이 아니라 건너뛴 답이다"
+  end
+
+  test "unresolved context or entity references are treated as no condition" do
+    params = { "disease_name" => "#wiz2.disease_name", "body_part" => "$body_part", "job_name" => "  #wiz3.job_name " }
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: params)).conditions
+
+    assert conditions.empty?
+  end
+
+  test "a skipped step does not hide the answers of the other steps" do
+    conditions = Chatbot::KakaoRequestAdapter.new(payload(params: { "disease_name" => "회전근개 파열", "body_part" => "모름", "job_name" => "#wiz3.job_name", "decision_type" => "불인정" })).conditions
+
+    assert_equal "회전근개 파열", conditions.disease_name
+    assert_nil conditions.body_part
+    assert_nil conditions.job_name
+    assert_equal "rejected", conditions.result
+  end
+
+  test "values that merely contain # or $ are kept" do
+    assert_equal "C# 개발자", Chatbot::KakaoRequestAdapter.new(payload(params: { "job_name" => "C# 개발자" })).conditions.job_name
+  end
 end

@@ -38,6 +38,7 @@ module Chatbot
     def search_params
       {
         disease_name: @conditions.disease_name,
+        burden_body_part: BodyPartExpansion.tokens_for(@conditions.body_part).presence,
         job_name: @conditions.job_name,
         q: @conditions.work_factor,
         result: @conditions.result

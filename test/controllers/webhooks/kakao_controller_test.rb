@@ -256,4 +256,69 @@ class Webhooks::KakaoControllerTest < ActionDispatch::IntegrationTest
   ensure
     ActionController::Base.allow_forgery_protection = original
   end
+
+  # --- 신체부위, 단계별 사례 찾기 ---
+
+  test "filters by body part including the left/right variants and shows it in the summary" do
+    create_case("TEST-KK-BODY-A", burden_body_part: "어깨")
+    create_case("TEST-KK-BODY-B", burden_body_part: "우측 견관절")
+    create_case("TEST-KK-BODY-C", burden_body_part: "무릎")
+
+    post_skill(skill_payload(params: { body_part: "어깨" }))
+
+    links = list_items.map { |item| item.dig("link", "web") }
+    assert_equal 2, links.size
+    assert(links.any? { |link| link.end_with?("TEST-KK-BODY-A") })
+    assert(links.any? { |link| link.end_with?("TEST-KK-BODY-B") })
+    assert_includes outputs.first.dig("simpleText", "text"), "검색 조건: 신체부위 어깨"
+  end
+
+  test "all five answers are combined in one request" do
+    create_case("TEST-KK-FIVE-OK", disease_name: "회전근개파열", burden_body_part: "우측 어깨", job_name: "조립원",
+      result: "rejected", job_description: "어깨 반복 작업")
+    create_case("TEST-KK-FIVE-NO", disease_name: "회전근개파열", burden_body_part: "무릎", job_name: "조립원",
+      result: "rejected", job_description: "어깨 반복 작업")
+
+    post_skill(skill_payload(params: { disease_name: "회전근개", body_part: "어깨", job_name: "조립", work_factor: "반복", decision_type: "불인정" }))
+
+    assert_equal 1, list_items.size
+    assert_match "TEST-KK-FIVE-OK", list_items.first.dig("link", "web")
+    assert_includes outputs.first.dig("simpleText", "text"), "질병 회전근개 · 신체부위 어깨 · 직종 조립 · 작업 반복 · 판정 불인정"
+  end
+
+  test "skipped steps are ignored and the remaining answers still search" do
+    create_case("TEST-KK-SKIP-A", disease_name: "회전근개파열", burden_body_part: "무릎")
+    create_case("TEST-KK-SKIP-B", disease_name: "허리디스크")
+
+    post_skill(skill_payload(params: { disease_name: "회전근개", body_part: "모름", job_name: "#wiz3.job_name", work_factor: "모름", decision_type: "모름" }))
+
+    assert_equal 1, list_items.size
+    assert_match "TEST-KK-SKIP-A", list_items.first.dig("link", "web")
+    assert_no_match(/신체부위|직종|작업|판정/, outputs.first.dig("simpleText", "text").lines.find { |line| line.start_with?("검색 조건") })
+  end
+
+  test "when every step was skipped it asks for at least one condition and offers the step-by-step restart" do
+    params = { disease_name: "모름", body_part: "모름", job_name: "모름", work_factor: "모름", decision_type: "모름" }
+
+    post_skill(skill_payload(params: params))
+
+    assert_response :success
+    assert_match "알려주세요", outputs.first.dig("simpleText", "text")
+    assert_equal [ "단계별로 찾기", "처음으로" ], quick_replies.map { |q| q["label"] }
+    assert_equal Chatbot::KakaoResponseBuilder::WIZARD_MESSAGE, quick_replies.first["messageText"]
+  end
+
+  test "the next page keeps the body part and every other answer" do
+    12.times { |i| create_case("TEST-KK-KEEP-#{i}", burden_body_part: "어깨", year: 2024 - i) }
+
+    post_skill(skill_payload(params: { disease_name: "회전근개", body_part: "어깨", decision_type: "인정" }))
+    more = quick_replies.find { |q| q["label"] == "다른 사례 보기" }
+
+    assert_equal({ "disease_name" => "회전근개", "body_part" => "어깨", "decision_type" => "approved", "page" => 1 }, more["extra"])
+
+    post_skill(skill_payload(params: {}, client_extra: more["extra"]))
+
+    assert_equal 2, list_items.size
+    assert_includes outputs.first.dig("simpleText", "text"), "신체부위 어깨"
+  end
 end

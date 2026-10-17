@@ -30,6 +30,7 @@ module Chatbot
     HOME_MESSAGE = "처음으로"
     REFINE_MESSAGE = "검색 조건 바꾸기"
     MORE_MESSAGE = "다른 사례 보기"
+    WIZARD_MESSAGE = "단계별로 찾기"
 
     class << self
       def results(search_result, conditions)
@@ -58,8 +59,8 @@ module Chatbot
       end
 
       def ask_conditions
-        text = "찾고 싶은 사례의 질병명이나 직종, 작업 내용을 알려주세요.\n예) 회전근개파열, 물류 노동자 허리디스크\n\n이름·주민등록번호·전화번호 같은 개인정보는 입력하지 마세요."
-        build([ simple_text(text) ], [ message_reply("처음으로", HOME_MESSAGE) ])
+        text = "찾고 싶은 사례의 질병명이나 직종, 작업 내용을 알려주세요.\n예) 회전근개파열, 물류 노동자 허리디스크\n\n조건을 잘 모르시면 '단계별로 찾기'로 하나씩 답해 보세요.\n이름·주민등록번호·전화번호 같은 개인정보는 입력하지 마세요."
+        build([ simple_text(text) ], [ message_reply("단계별로 찾기", WIZARD_MESSAGE), message_reply("처음으로", HOME_MESSAGE) ])
       end
 
       def error
@@ -153,6 +154,7 @@ module Chatbot
       def condition_summary(conditions)
         parts = []
         parts << "질병 #{conditions.disease_name}" if conditions.disease_name.present?
+        parts << "신체부위 #{conditions.body_part}" if conditions.body_part.present?
         parts << "직종 #{conditions.job_name}" if conditions.job_name.present?
         parts << "작업 #{conditions.work_factor}" if conditions.work_factor.present?
         parts << "판정 #{PublicCase::RESULT_LABELS[conditions.result]}" if conditions.result.present?

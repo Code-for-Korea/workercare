@@ -7,6 +7,9 @@ module Chatbot
   # - userRequest.utterance(발화 원문)는 읽지 않는다. 저장·로깅 금지(project-plan §9).
   # - 바로연결 버튼(다른 사례 보기 등)은 엔티티를 다시 추출하지 않으므로
   #   버튼의 extra로 전달된 조건을 clientExtra에서 이어받는다. action.params의 값이 우선한다.
+  # - 단계별 사례 찾기는 블록마다 컨텍스트로 값을 이어 받는다. '모르겠어요'로 넘긴 단계는 값이 비거나
+  #   '모름'으로, 해석되지 않은 참조는 '#wiz2.disease_name'·'$body_part' 같은 문자열로 올 수 있어
+  #   모두 '조건 없음'으로 취급한다.
   class KakaoRequestAdapter
     RESULT_BY_LABEL = {
       "인정" => "approved",
@@ -17,15 +20,17 @@ module Chatbot
     ANY_RESULT_LABELS = %w[전체 모두 상관없음 all].freeze
     MAX_VALUE_LENGTH = 100
     MAX_PAGE = 100
+    SKIP_VALUE = "모름"
 
-    Conditions = Struct.new(:disease_name, :job_name, :work_factor, :result, :ignored, keyword_init: true) do
+    Conditions = Struct.new(:disease_name, :body_part, :job_name, :work_factor, :result, :ignored, keyword_init: true) do
       def empty?
-        [ disease_name, job_name, work_factor, result ].all?(&:blank?)
+        [ disease_name, body_part, job_name, work_factor, result ].all?(&:blank?)
       end
 
       def to_extra
         {
           "disease_name" => disease_name,
+          "body_part" => body_part,
           "job_name" => job_name,
           "work_factor" => work_factor,
           "decision_type" => result
@@ -67,6 +72,7 @@ module Chatbot
 
       Conditions.new(
         disease_name: value_for("disease_name", params),
+        body_part: value_for("body_part", params),
         job_name: value_for("job_name", params),
         work_factor: value_for("work_factor", params),
         result: result,
@@ -82,7 +88,10 @@ module Chatbot
     def clean(value)
       return nil unless value.is_a?(String)
 
-      value.strip.truncate(MAX_VALUE_LENGTH, omission: "").presence
+      text = value.strip.truncate(MAX_VALUE_LENGTH, omission: "").presence
+      return nil if text == SKIP_VALUE || text&.start_with?("#", "$")
+
+      text
     end
 
     def client_extra
