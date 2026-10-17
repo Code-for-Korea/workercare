@@ -23,6 +23,9 @@ module DiseaseCases
             scope = substring_job_fallback(tokens)
             fallback = true
           else
+            # 챗봇(5초 응답 제한)은 FTS를 필터로만 쓰고 최신순으로 정렬한다. JOIN + bm25 정렬은
+            # 매칭 행 전체에 점수를 매겨, 구조 필터가 넓으면(예: 작업 요인 + 판정) 수 초가 걸린다.
+            scope = main_fulltext_filter(fts_q) if params[:fts_as_filter]
             fallback = false
           end
         else
@@ -34,7 +37,8 @@ module DiseaseCases
         scope = apply_main_filters(scope, params)
 
         # 3. Sort
-        scope = apply_main_sort(scope, fts_q, fallback, params[:sort])
+        sort = params[:fts_as_filter] ? "recent" : params[:sort]
+        scope = apply_main_sort(scope, fts_q, fallback, sort)
 
         [ scope, fallback ]
       end
@@ -127,6 +131,10 @@ module DiseaseCases
       def main_fulltext(query)
         joins("JOIN disease_cases_extracted_fts ON disease_cases_extracted_fts.rowid = disease_cases.id")
           .where("disease_cases_extracted_fts MATCH ?", query)
+      end
+
+      def main_fulltext_filter(query)
+        where("disease_cases.id IN (SELECT rowid FROM disease_cases_extracted_fts WHERE disease_cases_extracted_fts MATCH ?)", query)
       end
 
       def build_main_fts_query(raw)
