@@ -38,4 +38,5 @@
 /config/credentials/*.key
 
 .omc/
+.omo/
 /wip

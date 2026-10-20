@@ -1,0 +1,68 @@
+# decision_type 엔티티 사전 (판정 결과)
+#
+# 생성: ENTITY=decision_type bin/rails chatbot:entities:build
+#
+# - match: exact — DiseaseCase.result(enum) 값과 일치하는 건수를 센다. db에는 enum 값을 적는다.
+# - 대표 엔트리는 서버(Chatbot::KakaoRequestAdapter)가 받는 값이라 이름을 바꾸면 안 된다.
+#   인정 / 불인정 / 일부인정 / 변경인정 / 전체 (테스트가 서버의 변환표와 일치하는지 확인한다)
+# - '전체'는 판정 결과 필터를 걸지 않는다는 뜻이라 네 enum 값을 모두 적었다.
+# - '인정'은 '불인정'·'일부인정'·'변경인정'의 일부 글자다. 카카오가 가장 긴 표현을 우선하는지
+#   관리자센터 봇 테스트에서 "불인정 사례"가 '불인정'으로 추출되는지 반드시 확인한다.
+# - '각하'는 본안 판단 없이 청구를 물리치는 것이라 '불인정'과 같지 않아 동의어에 넣지 않았다.
+column: result
+match: exact
+min_hits: 1
+concepts:
+  인정:
+    db:
+    - approved
+    colloquial:
+    - 승인
+    - 승인됨
+    - 인정됨
+    - 산재 인정
+    - 산재 승인
+    - 업무상 질병 인정
+    - 인용
+  불인정:
+    db:
+    - rejected
+    colloquial:
+    - 불승인
+    - 불승인됨
+    - 불인정됨
+    - 산재 불인정
+    - 산재 불승인
+    - 업무상 질병 불인정
+    - 기각
+    - 거절
+    - 부결
+  일부인정:
+    db:
+    - partially_approved
+    colloquial:
+    - 일부 인정
+    - 부분 인정
+    - 일부 승인
+    - 부분 승인
+    - 일부 인용
+  변경인정:
+    db:
+    - revised_approved
+    colloquial:
+    - 변경 인정
+    - 변경 승인
+    - 처분 변경
+  전체:
+    db:
+    - approved
+    - rejected
+    - partially_approved
+    - revised_approved
+    colloquial:
+    - 모두
+    - 전부
+    - 상관없음
+    - 상관 없음
+    - 아무거나
+    - 다 보여줘

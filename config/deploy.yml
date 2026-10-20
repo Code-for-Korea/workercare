@@ -64,3 +64,5 @@ builder:
 # SSH 접속 설정 (root가 아닌 사용자)
 ssh:
  user: ubuntu
+
+deploy_timeout: 300

@@ -53,6 +53,60 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     refute_includes scope, @wrist
   end
 
+  test "disease_name filter does partial match even though disease_name is not in the FTS columns" do
+    cuff = DiseaseCase.create!(case_no: "TEST-MAIN-CUFF", disease_name: "회전근개파열",
+      job_name: "자동차 부품 조립원", job_description: "어깨 반복 작업", year: 2024)
+
+    scope, = DiseaseCase.main_search(disease_name: "회전근개")
+    assert_includes scope, cuff
+    refute_includes scope, @neck
+  end
+
+  test "result filter matches each enum value exactly" do
+    cases = DiseaseCase.results.keys.index_with do |result|
+      DiseaseCase.create!(case_no: "TEST-MAIN-RESULT-#{result}", result: result, year: 2024)
+    end
+
+    cases.each do |result, record|
+      scope, = DiseaseCase.main_search(result: result)
+      assert_equal [ record ], scope.to_a, "result=#{result}"
+    end
+  end
+
+  test "disease_name, job_name, result and q combine as AND" do
+    match = DiseaseCase.create!(case_no: "TEST-COMBO-MATCH", disease_name: "회전근개파열",
+      job_name: "자동차 부품 조립원", job_description: "어깨 팔 거상 반복 작업",
+      result: "approved", year: 2024)
+    wrong_result = DiseaseCase.create!(case_no: "TEST-COMBO-REJECTED", disease_name: "회전근개파열",
+      job_name: "자동차 부품 조립원", job_description: "어깨 팔 거상 반복 작업",
+      result: "rejected", year: 2024)
+    wrong_disease = DiseaseCase.create!(case_no: "TEST-COMBO-DISEASE", disease_name: "허리디스크",
+      job_name: "자동차 부품 조립원", job_description: "어깨 팔 거상 반복 작업",
+      result: "approved", year: 2024)
+
+    scope, fallback = DiseaseCase.main_search(disease_name: "회전근개", job_name: "조립",
+      q: "거상", result: "approved")
+
+    assert_not fallback
+    assert_equal [ match ], scope.to_a
+    refute_includes scope, wrong_result
+    refute_includes scope, wrong_disease
+  end
+
+  test "disease_name and result filters are kept when the FTS query falls back to substring search" do
+    kept = DiseaseCase.create!(case_no: "TEST-FALLBACK-KEPT", disease_name: "허리디스크",
+      job_name: "물류상하차", result: "rejected", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-FALLBACK-OTHER", disease_name: "손목터널증후군",
+      job_name: "물류상하차", result: "rejected", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-FALLBACK-APPROVED", disease_name: "허리디스크",
+      job_name: "물류상하차", result: "approved", year: 2024)
+
+    # job_name/job_description 부분 문자열로만 걸리고 FTS 토큰으로는 0건이 되는 검색어
+    scope, fallback = DiseaseCase.main_search(q: "류상하", disease_name: "허리", result: "rejected")
+    assert fallback, "fixture must exercise the substring fallback path"
+    assert_equal [ kept ], scope.to_a
+  end
+
   test "death_status filter" do
     scope, = DiseaseCase.main_search(death_status: "Y")
     assert_includes scope, @death
@@ -93,5 +147,26 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     scope, fallback = DiseaseCase.main_search(q: "배송")
     assert_includes scope, @death
     assert_not fallback
+  end
+
+  test "job_names filter matches whole names ignoring spaces and is not a substring match" do
+    DiseaseCase.create!(case_no: "TEST-JN-1", job_name: "조리원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-2", job_name: "조리 원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-3", job_name: "급식조리원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_names: [ "조리원" ])
+
+    assert_equal %w[TEST-JN-1 TEST-JN-2], scope.pluck(:case_no).sort
+  end
+
+  test "job_names filter is an OR over the names and ignores blank values" do
+    DiseaseCase.create!(case_no: "TEST-JN-4", job_name: "조리원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-5", job_name: "용접공", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JN-6", job_name: "경비원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_names: [ "조리원", "", "용접공" ])
+
+    assert_equal %w[TEST-JN-4 TEST-JN-5], scope.pluck(:case_no).sort
+    assert_equal DiseaseCase.count, DiseaseCase.main_search(job_names: [ "", " " ]).first.count, "빈 값뿐이면 필터를 걸지 않는다"
   end
 end
