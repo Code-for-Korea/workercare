@@ -132,10 +132,15 @@ Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
 
 ## 관련 문서
 
+- [USERGUIDE.md](USERGUIDE.md) — 노동자·상담 활동가를 위한 사용 안내 (웹, 카카오톡 챗봇, MCP)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 방법: 배경, 개발 환경, 소스 구조, 데이터 파이프라인, 커밋·CI 규칙
+- [docs/kakaotalk/chatbot.md](docs/kakaotalk/chatbot.md) — 카카오톡 챗봇 작업 기록과 관리자센터 가이드
 - [docs/workercare.plan.md](docs/workercare.plan.md) — 검색 서비스, FTS5, enum, 데이터 설계
 - [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — MCP 컴포넌트 설계, Tool/Prompt 명세
 - [docs/workercare-search.plan.md](docs/workercare-search.plan.md) — 직업·신체부위·사망여부 기반 메인 검색 화면, KSCO 직업분류 연동 설계
 
 ## 라이선스
+
+**[라이선스 문구 대기]** 코드의 라이선스와 판정서 데이터의 이용 조건은 정해지는 대로 이곳과 [CONTRIBUTING.md](CONTRIBUTING.md#11-라이선스)에 적습니다.
 
 본 프로젝트는 [Code for Korea](https://codefor.kr) 커뮤니티(산업재해 프로젝트 팀)와 함께 합니다.
