@@ -19,19 +19,29 @@ namespace :export do
 
     files = {
       disease_cases: output_dir.join("disease_cases_#{export_date}.csv"),
-      ksco_codes: output_dir.join("ksco_codes_#{export_date}.csv"),
-      disease_case_ksco_codes: output_dir.join("disease_case_ksco_codes_#{export_date}.csv"),
       dictionary: output_dir.join("workercare_data_dictionary_#{export_date}.md")
     }
+    ksco_available = DiseaseCaseKscoCode.exists? && KscoCode.exists?
+    if ksco_available
+      files[:ksco_codes] = output_dir.join("ksco_codes_#{export_date}.csv")
+      files[:disease_case_ksco_codes] = output_dir.join("disease_case_ksco_codes_#{export_date}.csv")
+    else
+      # 이전 실행에서 생성된 KSCO 파일이 남아 있으면 현재 스냅샷과 혼동될 수 있다.
+      FileUtils.rm_f(output_dir.join("ksco_codes_#{export_date}.csv"))
+      FileUtils.rm_f(output_dir.join("disease_case_ksco_codes_#{export_date}.csv"))
+    end
 
     write_csv(files[:disease_cases], disease_case_columns, DiseaseCase.order(:id))
-    write_csv(files[:ksco_codes], ksco_code_columns, KscoCode.order(:code))
-    write_csv(files[:disease_case_ksco_codes], mapping_columns, DiseaseCaseKscoCode.order(:id))
-    write_dictionary(files, export_date, disease_case_columns, ksco_code_columns, mapping_columns)
+    if ksco_available
+      write_csv(files[:ksco_codes], ksco_code_columns, KscoCode.order(:code))
+      write_csv(files[:disease_case_ksco_codes], mapping_columns, DiseaseCaseKscoCode.order(:id))
+    end
+    write_dictionary(files, export_date, disease_case_columns, ksco_code_columns, mapping_columns, ksco_available)
 
     puts "추출 완료 (#{export_date})"
     files.each_value { |path| puts "- #{path.relative_path_from(Rails.root)}" }
     puts "건수: disease_cases=#{DiseaseCase.count}, ksco_codes=#{KscoCode.count}, disease_case_ksco_codes=#{DiseaseCaseKscoCode.count}"
+    puts "KSCO 추출: #{ksco_available ? '포함' : '제외 (연결 데이터 없음)'}"
   end
 
   def write_csv(path, columns, relation)
@@ -42,7 +52,7 @@ namespace :export do
     end
   end
 
-  def write_dictionary(files, export_date, disease_case_columns, ksco_code_columns, mapping_columns)
+  def write_dictionary(files, export_date, disease_case_columns, ksco_code_columns, mapping_columns, ksco_available)
     disease_case_descriptions = {
       "id" => "내부 데이터베이스 식별자",
       "case_no" => "산재 질병 사례 번호. 공개 링크와 사례 식별에 사용",
@@ -105,6 +115,27 @@ namespace :export do
       ksco_codes: KscoCode.count,
       disease_case_ksco_codes: DiseaseCaseKscoCode.count
     }
+    db_tables = ActiveRecord::Base.connection.tables.sort
+    fts_tables = %w[disease_cases_fts disease_cases_extracted_fts].select do |table|
+      ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{ActiveRecord::Base.connection.quote_table_name(table)}")
+      true
+    rescue ActiveRecord::StatementInvalid
+      false
+    end
+    table_purposes = {
+      "disease_cases" => "산재 질병 심의 사례 본체 데이터 — 추출 대상",
+      "ksco_codes" => "한국표준직업분류 마스터 — 연결 데이터가 없어 이번 추출에서 제외",
+      "disease_case_ksco_codes" => "사례-KSCO 연결 데이터 — 0건이라 이번 추출에서 제외",
+      "action_mcp_sessions" => "MCP 세션 상태·능력·registry 저장 테이블 — 운영 데이터",
+      "action_mcp_session_messages" => "MCP 세션 메시지 저장 테이블 — 운영 데이터",
+      "action_mcp_session_subscriptions" => "MCP Resource 구독 상태 테이블 — 운영 데이터",
+      "action_mcp_session_tasks" => "MCP 비동기 작업 상태·결과 테이블 — 운영 데이터",
+      "solid_mcp_messages" => "MCP 메시지 전달/보존 테이블 — 운영 데이터",
+      "disease_cases_fts" => "원문 검색용 SQLite FTS 파생 인덱스 — 원본 사례 CSV에서 재생성 가능",
+      "disease_cases_extracted_fts" => "추출 컬럼 검색용 SQLite FTS 파생 인덱스 — 원본 사례 CSV에서 재생성 가능",
+      "schema_migrations" => "Rails 마이그레이션 적용 이력 — 메타데이터",
+      "ar_internal_metadata" => "Rails 환경 메타데이터"
+    }
 
     lines = []
     lines << "# Workercare 데이터 추출 컬럼 설명"
@@ -119,18 +150,47 @@ namespace :export do
     lines << "- 추출 원칙: 데이터베이스 값을 변환·마스킹하지 않고 CSV로 내보냄"
     lines << "- 문자 인코딩: UTF-8. 셀 안의 쉼표, 줄바꿈, 큰따옴표는 CSV 규칙에 따라 인용 처리됨"
     lines << "- 개인정보 주의: `disease_cases`의 판정서 관련 컬럼에는 원문 또는 개인정보가 포함될 수 있으므로 외부 공유 전 별도 비식별 검수가 필요함"
+    lines << "- 직업 데이터 판단: `disease_cases` 내부의 직업·업무 추출 컬럼은 주요 컬럼이 약 89.1% 채워져 있어 유지함. 별도 KSCO 데이터는 연결 행이 0건이라 CSV에서 제외함"
+    lines << ""
+    lines << "## 2. DB 전체 점검 결과"
+    lines << ""
+    lines << "Rails 개발 데이터베이스의 모든 테이블을 확인했다. 아래 표에서 `추출 여부`가 ‘추출’인 테이블만 분석 CSV로 생성한다. 세션·메시지 테이블은 모두 0건인 운영 저장소이거나, 데이터가 있더라도 사례 분석 데이터가 아니므로 본 추출 범위에서 제외한다."
+    lines << ""
+    lines << "| 테이블 | 행 수 | 추출 여부 | 용도/판단 |"
+    lines << "|---|---:|---|---|"
+    db_tables.each do |table|
+      row_count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{ActiveRecord::Base.connection.quote_table_name(table)}").to_i
+      included = table == "disease_cases" || (ksco_available && %w[ksco_codes disease_case_ksco_codes].include?(table))
+      status = included ? "추출" : "제외"
+      purpose = table_purposes.fetch(table, "Rails/애플리케이션 내부 테이블")
+      lines << "| `#{table}` | #{row_count.to_fs(:delimited)} | #{status} | #{purpose} |"
+    end
+    fts_tables.each do |table|
+      row_count = ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{ActiveRecord::Base.connection.quote_table_name(table)}").to_i
+      lines << "| `#{table}` | #{row_count.to_fs(:delimited)} | 제외 | #{table_purposes.fetch(table)} |"
+    end
+    lines << "| SQLite FTS shadow tables/triggers | — | 제외 | FTS 내부 저장 구조(`*_data`, `*_idx`, `*_docsize`, `*_config`)와 유지보수용 trigger/index — 분석용 원본이 아님 |"
+    lines << "| SQLite sequence/index 및 Rails 메타데이터 | — | 제외 | 자동 증가·인덱스·마이그레이션 관리용 내부 객체 |"
+    lines << ""
+    lines << "### 직업 데이터 포함·제외 판단"
+    lines << ""
+    lines << "- 포함: `disease_cases`의 `job_name`, `job_description`, `employment_type`, `work_type`, 근로시간·중량·유해요인·업무 관련성 등 추출 컬럼. `job_name` 등 핵심 필드는 61,815건 중 55,060건(89.1%)에 값이 있어 ‘거의 비어 있음’으로 보지 않았다."
+    lines << "- 제외: `ksco_codes`는 3건뿐이고 분류 상세 컬럼이 모두 NULL이며, `disease_case_ksco_codes` 연결 행은 0건이다. 따라서 현재 스냅샷에서는 KSCO별 사례 분석이 불가능하다."
+    lines << "- 재추출 시 연결 데이터가 1건 이상 생기면 Rake 작업이 KSCO 마스터와 연결 CSV를 자동으로 다시 포함한다."
     lines << ""
     lines << "### 분석 단위(grain)"
     lines << ""
     lines << "| 파일 | 한 행의 의미 | 기본 식별자 | 현재 행 수 |"
     lines << "|---|---|---|---:|"
     lines << "| `disease_cases_#{export_date}.csv` | 산재 질병 사례 1건 | `id`(내부 키), `case_no`(사례 번호) | #{counts[:disease_cases].to_fs(:delimited)} |"
-    lines << "| `ksco_codes_#{export_date}.csv` | KSCO 직업분류 코드 1건 | `code` | #{counts[:ksco_codes].to_fs(:delimited)} |"
-    lines << "| `disease_case_ksco_codes_#{export_date}.csv` | 사례 1건과 KSCO 코드 1개의 연결 1건 | `id`; 조합 `disease_case_id` + `ksco_code_id` | #{counts[:disease_case_ksco_codes].to_fs(:delimited)} |"
+    if ksco_available
+      lines << "| `ksco_codes_#{export_date}.csv` | KSCO 직업분류 코드 1건 | `code` | #{counts[:ksco_codes].to_fs(:delimited)} |"
+      lines << "| `disease_case_ksco_codes_#{export_date}.csv` | 사례 1건과 KSCO 코드 1개의 연결 1건 | `id`; 조합 `disease_case_id` + `ksco_code_id` | #{counts[:disease_case_ksco_codes].to_fs(:delimited)} |"
+    end
     lines << ""
     lines << "현재 추출 시점에는 사례-KSCO 연결 행이 `#{counts[:disease_case_ksco_codes]}`건이므로, 사례 CSV와 KSCO CSV를 조인해도 연결된 직업분류 결과는 나오지 않는다. 이는 CSV 추출 누락이 아니라 현재 연결 테이블의 상태다."
     lines << ""
-    lines << "## 2. 테이블 관계와 조인 방법"
+    lines << "## 3. 테이블 관계와 조인 방법"
     lines << ""
     lines << "```text"
     lines << "disease_cases (1) ──< disease_case_ksco_codes >── (1) ksco_codes"
@@ -167,7 +227,7 @@ namespace :export do
       lines << "- `#{path.basename}` — #{counts.fetch(name).to_fs(:delimited)}건"
     end
     lines << ""
-    lines << "## 3. 분석을 시작할 때의 권장 순서"
+    lines << "## 4. 분석을 시작할 때의 권장 순서"
     lines << ""
     lines << "1. 먼저 `disease_cases`에서 `case_no`, `disease_name`, `result`, `year`, `decided_on`으로 사례 수와 기간을 확인한다."
     lines << "2. `result`의 값별 건수와 결측률을 확인한다. 결과값이 비어 있는 사례를 승인/불인정 그룹에 임의로 포함하지 않는다."
@@ -181,19 +241,21 @@ namespace :export do
     lines << ""
     lines.concat(column_table(disease_case_columns, DiseaseCase, disease_case_descriptions))
     lines << ""
-    lines << "## `ksco_codes_#{export_date}.csv`"
-    lines << ""
-    lines << "KSCO 직업분류 마스터다. `code`가 기본키이며, 사례와 직접 연결되지 않고 연결 테이블을 통해서만 사용된다."
-    lines << ""
-    lines.concat(column_table(ksco_code_columns, KscoCode, ksco_descriptions))
-    lines << ""
-    lines << "## `disease_case_ksco_codes_#{export_date}.csv`"
-    lines << ""
-    lines << "사례와 KSCO 직업 코드의 다대다 연결 테이블이다. `disease_case_id`와 `ksco_code_id`를 이용해 두 기본 CSV와 조인한다."
-    lines << ""
-    lines.concat(column_table(mapping_columns, DiseaseCaseKscoCode, mapping_descriptions))
-    lines << ""
-    lines << "## 4. 값 해석 시 유의사항"
+    if ksco_available
+      lines << "## `ksco_codes_#{export_date}.csv`"
+      lines << ""
+      lines << "KSCO 직업분류 마스터다. `code`가 기본키이며, 사례와 직접 연결되지 않고 연결 테이블을 통해서만 사용된다."
+      lines << ""
+      lines.concat(column_table(ksco_code_columns, KscoCode, ksco_descriptions))
+      lines << ""
+      lines << "## `disease_case_ksco_codes_#{export_date}.csv`"
+      lines << ""
+      lines << "사례와 KSCO 직업 코드의 다대다 연결 테이블이다. `disease_case_id`와 `ksco_code_id`를 이용해 두 기본 CSV와 조인한다."
+      lines << ""
+      lines.concat(column_table(mapping_columns, DiseaseCaseKscoCode, mapping_descriptions))
+      lines << ""
+    end
+    lines << "## 5. 값 해석 시 유의사항"
     lines << ""
     lines << "- 빈 값은 원본 데이터베이스의 `NULL` 또는 빈 문자열을 의미하며, 추출 과정에서 임의의 기본값을 넣지 않았다."
     lines << "- 빈 문자열은 NULL과 다를 수 있다. 결측률을 계산할 때는 NULL과 공백/빈 문자열을 별도로 확인한다."
@@ -205,7 +267,7 @@ namespace :export do
     lines << "- 텍스트 원문 안의 개인정보 비식별 표기(예: 일부 마스킹)는 원본 데이터에 저장된 표현이다. 이 CSV 생성 작업은 추가 마스킹을 하지 않는다."
     lines << "- `similarity`는 매칭 결과의 보조 점수이며 승인 가능성이나 법적 판단 확률을 의미하지 않는다."
     lines << ""
-    lines << "## 5. 컬럼 그룹별 분석 가이드"
+    lines << "## 6. 컬럼 그룹별 분석 가이드"
     lines << ""
     lines << "| 그룹 | 주요 컬럼 | 분석 용도 | 주의사항 |"
     lines << "|---|---|---|---|"
@@ -216,7 +278,7 @@ namespace :export do
     lines << "| 유해요인 추출값 | `burden_body_part`, `bad_posture`, `heavy_lifting`, `max_item_weight`, `daily_total_weight`, `other_harmful_factors`, `aggravating_factors` | 업무 부담 요인 탐색 | 텍스트/수치 혼합 가능, 결측이 곧 ‘없음’을 뜻하지 않음 |"
     lines << "| 판정 근거 추출값 | `work_relevance_eval`, `main_reasoning`, `death_status`, `application_type` | 검색·요약·분류 보조 | 원문 판정의 법적 해석을 대체하지 않음 |"
     lines << ""
-    lines << "## 6. 기본 품질 점검 예시"
+    lines << "## 7. 기본 품질 점검 예시"
     lines << ""
     lines << "분석 전에 다음 항목을 점검하는 것을 권장한다. 아래 SQL은 데이터베이스 테이블 기준이며, CSV를 사용할 때는 DuckDB의 `read_csv_auto()`로 각 파일을 읽어 적용할 수 있다."
     lines << ""
@@ -234,7 +296,7 @@ namespace :export do
     lines << "SELECT SUM(CASE WHEN job_name IS NULL OR TRIM(job_name) = '' THEN 1 ELSE 0 END) AS missing_job_name, SUM(CASE WHEN main_reasoning IS NULL OR TRIM(main_reasoning) = '' THEN 1 ELSE 0 END) AS missing_main_reasoning FROM disease_cases;"
     lines << "```"
     lines << ""
-    lines << "## 7. 해석·공유 제한"
+    lines << "## 8. 해석·공유 제한"
     lines << ""
     lines << "- 이 데이터는 사례 기록의 관찰 분포를 설명하는 자료이며, 특정 개인의 산재 인정 여부나 미래 결과를 예측하는 근거로 사용해서는 안 된다."
     lines << "- 관찰된 결과 차이는 사례 구성, 신청·심의 시기, 기록 누락, 질병·직업 분류 방식 등의 영향을 받을 수 있다. 단순 교차표만으로 원인이나 인과를 주장하지 않는다."
