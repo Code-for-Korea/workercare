@@ -81,28 +81,48 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_select "datalist#burden_body_part_datalist"
   end
 
-  test "GET /search renders work_type/work_relevance_eval inputs" do
-    get search_path
-    assert_response :success
-    assert_select "select[name='work_type'] option", text: "고정주간근무"
-    assert_select "select[name='work_type'] option", text: "기타"
-    assert_select "select[name='work_relevance_eval']"
-  end
-
-  test "GET / and GET /search never render employment_type or ksco_code inputs — no reason to pick those by hand" do
+  test "GET / and GET /search render the same normalized structured filters" do
     [ root_path, search_path ].each do |path|
       get path
       assert_response :success
-      assert_select "input[name='employment_type']", count: 0
+      assert_select "input[name='application_type[]'][value='요양급여']"
+      assert_select "input[name='application_type[]'][value='기타']"
+      assert_select "select[name='employment_type'] option", text: "정규직"
+      assert_select "select[name='employment_type'] option", text: "기타"
+      assert_select "select[name='work_type'] option", text: "고정주간근무"
+      assert_select "select[name='work_relevance_eval']"
+      assert_select "input[name='death_status']"
+    end
+  end
+
+  test "GET / and GET /search never render ksco_code inputs — no reason to pick those by hand" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_response :success
       assert_select "input[name='ksco_code[]']", count: 0
     end
   end
 
-  test "GET / (simple search) does not render work_type/work_relevance_eval inputs" do
-    get root_path
+  test "GET /search uses Korean labels for the decision date range and starts with no checkbox pre-checked" do
+    get search_path
     assert_response :success
-    assert_select "input[name='work_type']", count: 0
-    assert_select "select[name='work_relevance_eval']", count: 0
+    assert_select "label[for='decided_on_from']", text: "판정일 (시작)"
+    assert_select "label[for='decided_on_to']", text: "판정일 (종료)"
+    assert_select "input[name='disease_category[]'][checked]", count: 0
+    assert_select "input[name='body_part[]'][checked]", count: 0
+  end
+
+  test "GET / filters by several application_type checkboxes with OR" do
+    DiseaseCase.create!(case_no: "TEST-APP-1", disease_name: "신청서요양", application_type: "요양급여", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-APP-2", disease_name: "신청서유족", application_type: "유족급여|장의비", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-APP-3", disease_name: "신청서장해", application_type: "장해급여", year: 2024)
+
+    get root_path, params: { application_type: %w[장의비 요양급여] }
+
+    assert_response :success
+    assert_match "신청서요양", response.body
+    assert_match "신청서유족", response.body
+    assert_no_match(/신청서장해/, response.body)
   end
 
   test "GET /search still filters by employment_type and ksco_code via query params (MCP/API-only capability)" do

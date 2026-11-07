@@ -20,7 +20,6 @@ class DiseaseCasesController < ApplicationController
   def search
     perform_search(legacy: true)
     set_common_filter_options
-    set_advanced_filter_options
   end
 
   def show
@@ -47,11 +46,9 @@ class DiseaseCasesController < ApplicationController
     @burden_body_part_options = burden_body_part_options(counts)
     @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
-  end
-
-  def set_advanced_filter_options
-    @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
+    @employment_type_options = employment_type_options
     @work_type_options = work_type_options
+    @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
   end
 
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
@@ -85,6 +82,11 @@ class DiseaseCasesController < ApplicationController
     rules.fetch("tokens").map { |t| t["name"] } << rules.fetch("other")
   end
 
+  def employment_type_options
+    rules = DiseaseCases::Normalizer::RULES.fetch("employment_type")
+    rules.fetch("categories").map { |c| c["name"] }.uniq.reject { |n| n == rules.fetch("other") } << rules.fetch("other")
+  end
+
   def work_type_options
     rules = DiseaseCases::Normalizer::RULES.fetch("work_type")
     rules.fetch("categories").map { |c| c["name"] } << rules.fetch("other")
@@ -114,7 +116,7 @@ class DiseaseCasesController < ApplicationController
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
       :burden_body_part_text,
-      burden_body_part: [], ksco_code: []
+      application_type: [], burden_body_part: [], ksco_code: []
     )
   end
 

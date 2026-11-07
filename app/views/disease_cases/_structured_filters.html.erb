@@ -1,0 +1,42 @@
+<%# 정규화된 값으로 거르는 구조화 필터. 첫 페이지(/)와 상세 검색(/search)이 함께 쓴다. %>
+<fieldset data-controller="checkbox-group">
+  <legend>
+    <%= DiseaseCase.human_attribute_name(:application_type) %>
+    <%= link_to t("search.select_all"), "#", data: { action: "click->checkbox-group#selectAll" } %>
+    <%= link_to t("search.deselect_all"), "#", data: { action: "click->checkbox-group#deselectAll" } %>
+  </legend>
+  <div class="grid grid-cols-2 md:grid-cols-5">
+    <% @application_type_options.each do |value| %>
+      <label class="flex items-center">
+        <%= check_box_tag "application_type[]", value, Array(params[:application_type]).include?(value), id: "application_type_#{value}", data: { "checkbox-group-target": "checkbox" } %>
+        <%= value %>
+      </label>
+    <% end %>
+  </div>
+</fieldset>
+
+<div class="grid">
+  <div>
+    <%= form.label :employment_type, DiseaseCase.human_attribute_name(:employment_type) %>
+    <%= form.select :employment_type,
+          [ [ "— #{t('search.all_results')} —", "" ] ] + @employment_type_options.map { |v| [ v, v ] },
+          selected: params[:employment_type] %>
+  </div>
+  <div>
+    <%= form.label :work_type, DiseaseCase.human_attribute_name(:work_type) %>
+    <%= form.select :work_type,
+          [ [ "— #{t('search.all_results')} —", "" ] ] + @work_type_options.map { |v| [ v, v ] },
+          selected: params[:work_type] %>
+  </div>
+  <div>
+    <%= form.label :work_relevance_eval, DiseaseCase.human_attribute_name(:work_relevance_eval) %>
+    <%= form.select :work_relevance_eval,
+          [ [ "— #{t('search.all_results')} —", "" ] ] + @work_relevance_eval_options.map { |v| [ v.tr("_", " "), v ] },
+          selected: params[:work_relevance_eval] %>
+  </div>
+</div>
+
+<div class="flex items-center">
+  <%= check_box_tag :death_status, "Y", params[:death_status] == "Y" %>
+  <%= label_tag :death_status, t("search.death_only") %>
+</div>
