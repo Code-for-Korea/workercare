@@ -290,7 +290,7 @@ bin/kamal app boot
 
 올리기 전에 확인합니다.
 
-- 개발 DB의 `action_mcp_sessions`, `solid_mcp_messages` 같은 세션·메시지 테이블에 개발용 데이터가 있으면 올라갑니다. 필요하면 `/tmp/production.sqlite3`에서 `DELETE FROM ...`으로 비운 뒤 `VACUUM`합니다.
+- 개발 DB의 세션·메시지 같은 테이블에 개발용 데이터가 있으면 올라갑니다. 필요하면 `/tmp/production.sqlite3`에서 `DELETE FROM ...`으로 비운 뒤 `VACUUM`합니다. (MCP 테이블 `action_mcp_*`, `solid_mcp_messages`는 `DropMcpTables` 마이그레이션이 지웁니다.)
 - 개발 DB의 마지막 마이그레이션(`schema_migrations`)이 코드의 마지막 마이그레이션과 같거나 이전이어야 합니다. 더 새로우면 앱이 시작되지 않습니다.
 - 서버에 이미 `production.sqlite3`가 있으면 덮어씁니다. 데이터가 있는지 먼저 확인하고, 있다면 백업합니다.
 

@@ -1,3 +1,5 @@
+> **폐기(2026-11-08)**: MCP 서버를 제거했다. 이 문서는 설계 이력으로만 남긴다. 현재 구조는 [markdown-responses.md](markdown-responses.md)를 본다.
+
 # 산재상담실 LLM 채팅 구상 (MCP + 웹 LLM → 브라우저 WebLLM)
 
 - 작성일: 2026-10-21 (개정: 데이터·MCP·로그·평가 방침 반영)
