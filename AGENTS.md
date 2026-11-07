@@ -68,5 +68,5 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 - 브랜치: `feat/…`, `chore/…`, `fix/…`. 기본 브랜치는 `main`.
 - 커밋 제목은 한국어 `~합니다` 한 줄(`feat:`, `fix:`, `chore:`, `docs:` 접두어 허용). 한 커밋은 한 가지 일만(코드·문서·데이터 도구 분리).
 - **커밋은 경로를 지정한다.** 이 저장소는 파일이 미리 스테이지되는 일이 있다: `git commit -m "제목합니다" -- path/a.rb path/b.rb`. zsh는 변수를 단어 분리하지 않으므로 경로 목록은 배열로 넘긴다.
-- **커밋 메시지와 PR 본문에 `Co-Authored-By: Claude`, `Generated with Claude Code` 문구를 넣지 않는다.**
+- **커밋 메시지와 PR 본문에 `Co-Authored-By: ...`, `Generated with ...` 문구를 넣지 않는다.**
 - 구조·검색·스키마·정규화가 바뀌면 `README.md`, `USERGUIDE.md`, `CONTRIBUTING.md`, `docs/`와 이 파일의 함정 목록을 같이 고친다. 상세 내용은 이 파일에 복사하지 말고 링크한다.
