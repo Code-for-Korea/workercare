@@ -43,7 +43,7 @@ module DiseaseCases
         [ scope, fallback ]
       end
 
-      # MCP search_disease_cases_tool처럼 legacy DiseaseCase.search 결과에 새 구조화 필터를
+      # 컨트롤러의 /search처럼 legacy DiseaseCase.search 결과에 새 구조화 필터를
       # 추가로 적용하고 싶은 호출부를 위해 public으로 유지한다 (main_search 내부에서도 재사용).
       def apply_main_filters(scope, params)
         # FTS 가상 테이블(disease_cases_extracted_fts)과 JOIN되는 경우 job_name 등이 모호해지므로
