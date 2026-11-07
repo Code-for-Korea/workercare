@@ -1,4 +1,18 @@
 namespace :import do
+  # 신청서 종류/근무 형태/고용 형태는 정규화한 값과 *_detail을 함께 저장한다
+  # (규칙: config/normalization/rules.yml, 문서: docs/disease-cases-normalization.md).
+  # 재임포트해도 정규화 전 표기로 되돌아가지 않게 하기 위해 임포트에서 변환한다.
+  def normalized_columns_from(row)
+    application = DiseaseCases::Normalizer.application_type(row["신청서_종류"])
+    work = DiseaseCases::Normalizer.work_type(row["근무_형태"])
+    employment = DiseaseCases::Normalizer.employment_type(row["고용_형태"])
+    {
+      application_type: application.value, application_type_detail: application.detail,
+      work_type: work.value, work_type_detail: work.detail,
+      employment_type: employment.value, employment_type_detail: employment.detail
+    }
+  end
+
   desc "추출된 직업/근무조건/신체부위/사망/신청서 데이터 CSV 임포트\n" \
        "  사용법: rails 'import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras-ksco.csv]'"
   task :extracted_disease_cases, [:path] => :environment do |_, args|
@@ -27,22 +41,20 @@ namespace :import do
       record.update!(
         job_name: row["직종명"].to_s.strip,
         job_description: row["담당_업무"].to_s.strip,
-        employment_type: row["고용_형태"].to_s.strip,
-        work_type: row["근무_형태"].to_s.strip,
+        **normalized_columns_from(row),
         job_tenure_months: row["현_직종_총_종사기간"].to_s.strip.presence&.to_i,
         weekly_work_hours: row["1주_평균_근무시간"].to_s.strip.presence&.to_d,
         daily_work_hours: row["1일_평균_근무시간"].to_s.strip.presence&.to_d,
         burden_body_part: row["부담_신체_부위"].to_s.strip,
         bad_posture: row["주요_부적절한_자세"].to_s.strip,
-        heavy_lifting: row["중량물_취급_여부"].to_s.strip,
+        heavy_lifting: DiseaseCases::Normalizer.enum_value(:heavy_lifting, row["중량물_취급_여부"]),
         max_item_weight: row["취급_물품_최대_무게"].to_s.strip.presence&.to_d,
         daily_total_weight: row["1일_취급_총_누적_중량"].to_s.strip.presence&.to_d,
         other_harmful_factors: row["기타_유해요인_노출"].to_s.strip,
-        work_relevance_eval: row["업무관련성_평가"].to_s.strip,
+        work_relevance_eval: DiseaseCases::Normalizer.enum_value(:work_relevance_eval, row["업무관련성_평가"]),
         aggravating_factors: row["업묵부담_가중요인_노출"].to_s.strip,
         main_reasoning: row["판단_주요_근거"].to_s.strip,
-        death_status: row["사망_여부"].to_s.strip,
-        application_type: row["신청서_종류"].to_s.strip
+        death_status: DiseaseCases::Normalizer.enum_value(:death_status, row["사망_여부"])
       )
 
       # 1-1. 최종_산재_인정_여부와 기존 result 비교 — 덮어쓰지 않고 불일치만 로그

@@ -7,11 +7,11 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     @neck = DiseaseCase.create!(case_no: "TEST-MAIN-NECK", job_name: "버스 운전원",
       job_description: "시내버스 운행", burden_body_part: "목", death_status: "N",
       application_type: "요양급여", employment_type: "상용직",
-      work_type: "02:30~11:30 (평일 및 토요일)", work_relevance_eval: "높음", year: 2024)
+      work_type: "교대근무", work_type_detail: "02:30~11:30 (평일 및 토요일)", work_relevance_eval: "높음", year: 2024)
     @wrist = DiseaseCase.create!(case_no: "TEST-MAIN-WRIST", job_name: "조립공",
       job_description: "부품 조립", burden_body_part: "손목", death_status: "N",
       application_type: "요양급여", employment_type: "일용직",
-      work_type: "주간고정근무", work_relevance_eval: "낮음", year: 2023)
+      work_type: "고정주간근무", work_relevance_eval: "낮음", year: 2023)
     @death = DiseaseCase.create!(case_no: "TEST-MAIN-DEATH", job_name: "택배기사",
       job_description: "배송 업무", burden_body_part: "허리|목", death_status: "Y",
       application_type: "유족급여", year: 2022)
@@ -119,10 +119,35 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     refute_includes scope, @wrist
   end
 
-  test "work_type filter does partial (LIKE) match, not exact" do
-    scope, = DiseaseCase.main_search(work_type: "평일 및 토요일")
+  test "work_type filter matches the normalized category exactly" do
+    scope, = DiseaseCase.main_search(work_type: "고정주간근무")
+    assert_includes scope, @wrist
+    refute_includes scope, @neck
+  end
+
+  test "work_type filter normalizes legacy spellings before matching" do
+    scope, = DiseaseCase.main_search(work_type: "고정 주간근무")
+    assert_includes scope, @wrist
+    refute_includes scope, @neck
+  end
+
+  test "application_type filter matches a token inside a pipe-joined value" do
+    both = DiseaseCase.create!(case_no: "TEST-MAIN-BOTH", application_type: "유족급여|장의비", year: 2022)
+
+    scope, = DiseaseCase.main_search(application_type: "장의비")
+    assert_includes scope, both
+    refute_includes scope, @death
+
+    scope, = DiseaseCase.main_search(application_type: "유족급여")
+    assert_includes scope, both
+    assert_includes scope, @death
+    refute_includes scope, @neck
+  end
+
+  test "application_type filter normalizes legacy form names" do
+    scope, = DiseaseCase.main_search(application_type: "요양급여신청서")
     assert_includes scope, @neck
-    refute_includes scope, @wrist
+    refute_includes scope, @death
   end
 
   test "work_relevance_eval filter matches exactly" do

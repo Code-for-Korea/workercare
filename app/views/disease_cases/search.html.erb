@@ -125,7 +125,9 @@
     <div class="grid">
       <div>
         <%= form.label :work_type, DiseaseCase.human_attribute_name(:work_type) %>
-        <%= form.text_field :work_type, value: params[:work_type] %>
+        <%= form.select :work_type,
+              [ [ "— #{t('search.all_results')} —", "" ] ] + @work_type_options.map { |v| [ v, v ] },
+              selected: params[:work_type] %>
       </div>
       <div>
         <%= form.label :work_relevance_eval, DiseaseCase.human_attribute_name(:work_relevance_eval) %>

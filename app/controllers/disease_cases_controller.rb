@@ -51,6 +51,7 @@ class DiseaseCasesController < ApplicationController
 
   def set_advanced_filter_options
     @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
+    @work_type_options = work_type_options
   end
 
   # burden_body_part는 파이프(|) 구분 다중값 텍스트이며 실 데이터 기준 distinct 토큰이
@@ -78,10 +79,15 @@ class DiseaseCasesController < ApplicationController
     counts.keys.sort
   end
 
+  # 정규화된 토큰 8개 + 기타(config/normalization/rules.yml). 값 목록이 고정이라 distinct 조회가 필요 없다.
   def application_type_options
-    Rails.cache.fetch("disease_cases/application_type_options", expires_in: 1.day) do
-      DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
-    end
+    rules = DiseaseCases::Normalizer::RULES.fetch("application_type")
+    rules.fetch("tokens").map { |t| t["name"] } << rules.fetch("other")
+  end
+
+  def work_type_options
+    rules = DiseaseCases::Normalizer::RULES.fetch("work_type")
+    rules.fetch("categories").map { |c| c["name"] } << rules.fetch("other")
   end
 
   def paginate(scope)

@@ -84,7 +84,8 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
   test "GET /search renders work_type/work_relevance_eval inputs" do
     get search_path
     assert_response :success
-    assert_select "input[name='work_type']"
+    assert_select "select[name='work_type'] option", text: "고정주간근무"
+    assert_select "select[name='work_type'] option", text: "기타"
     assert_select "select[name='work_relevance_eval']"
   end
 
@@ -148,11 +149,11 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /search filters by work_type and work_relevance_eval" do
     DiseaseCase.create!(case_no: "TEST-STRUCT-MATCH", disease_name: "구조화필터매칭",
-      work_type: "02:30~11:30 (평일 및 토요일)", work_relevance_eval: "높음", year: 2024)
+      work_type: "교대근무", work_type_detail: "4조 3교대", work_relevance_eval: "높음", year: 2024)
     DiseaseCase.create!(case_no: "TEST-STRUCT-OTHER", disease_name: "구조화필터제외",
-      work_type: "야간전담", work_relevance_eval: "낮음", year: 2024)
+      work_type: "야간근무", work_relevance_eval: "낮음", year: 2024)
 
-    get search_path, params: { work_type: "토요일", work_relevance_eval: "높음" }
+    get search_path, params: { work_type: "교대근무", work_relevance_eval: "높음" }
 
     assert_response :success
     assert_match "구조화필터매칭", response.body
