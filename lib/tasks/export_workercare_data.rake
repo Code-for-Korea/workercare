@@ -75,8 +75,8 @@ namespace :export do
       "updated_at" => "데이터베이스 레코드 최종 수정 시각",
       "job_name" => "사례에서 추출한 직업명",
       "job_description" => "사례에서 추출한 직업·업무 설명",
-      "employment_type" => "고용 형태 추출값",
-      "work_type" => "근무 형태 추출값",
+      "employment_type" => "고용 형태(정규화). 정규직·상용직·일용직·계약직·파견직·특수고용·프리랜서·자영업·기타",
+      "work_type" => "근무 형태(정규화). 고정주간근무·교대근무·야간근무·격일근무·시간제근무·일용근무·기타",
       "job_tenure_months" => "해당 직업 종사 기간(개월) 추출값",
       "weekly_work_hours" => "주당 근로시간 추출값",
       "daily_work_hours" => "일일 근로시간 추출값",
@@ -90,7 +90,10 @@ namespace :export do
       "aggravating_factors" => "질병을 악화시킨 요인 추출값",
       "main_reasoning" => "판정의 주요 근거 요약 추출값",
       "death_status" => "사망 관련 여부 추출값",
-      "application_type" => "신청 유형 추출값"
+      "application_type" => "신청 유형(정규화). 요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청·기타를 `|`로 결합",
+      "application_type_detail" => "신청 유형을 정규화하며 따로 보존한 괄호 수식어·원문",
+      "work_type_detail" => "근무 형태를 범주로 정규화하며 따로 보존한 시간·근무일수 등 세부 표기",
+      "employment_type_detail" => "고용 형태를 범주로 정규화하며 따로 보존한 괄호 수식어·세부 표기"
     }
 
     ksco_descriptions = {

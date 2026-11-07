@@ -164,7 +164,7 @@ wip/                              로컬 작업 폴더. 저장소에 없음 (5�
         │
 [4] KSCO 매핑        직종명·업무 임베딩으로 표준직업분류 후보 5개 → ...-ksco.csv (55,377건)
         │
-[5] DB 적재(rake)    import:disease_cases → import:ksco_codes → import:extracted_disease_cases
+[5] DB 적재(rake)    import:disease_cases → import:ksco_codes → import:extracted_disease_cases (신청서 종류·근무 형태·고용 형태는 적재 때 정규화)
         │
 [6] 검증과 서비스    FTS 인덱스, 필터, 챗봇·MCP가 같은 DB를 읽음
 ```
@@ -231,6 +231,8 @@ bin/rails fts:rebuild
 - 1)은 `case_no`로 upsert하고 끝에서 `disease_cases_fts`를 rebuild합니다. 알 수 없는 심의결과가 있으면 그 행에서 멈춥니다.
 - 3)은 추출 컬럼을 덮어쓰고, 판정 결과가 원본과 다르면 **덮어쓰지 않고 경고만** 냅니다. KSCO 매핑은 CSV의 목록을 "전체 목표"로 보고 **목록에 없는 기존 매핑을 지웁니다.** 단, `ksco_codes_json`이 비었거나 파싱에 실패한 행은 기존 매핑을 건드리지 않습니다. 끝에서 `disease_cases_extracted_fts`를 rebuild합니다.
 - 3)에서 KSCO 코드가 없으면 경고만 내고 건너뜁니다. 먼저 2)를 실행했는지 확인하세요.
+- 3)은 신청서 종류·근무 형태·고용 형태를 `DiseaseCases::Normalizer`(규칙: `config/normalization/rules.yml`)로 정규화해 저장하고, 덮어쓰면 사라지는 부가 표기는 `application_type_detail`, `work_type_detail`, `employment_type_detail`에 남깁니다. 사망 여부·중량물 취급 여부·업무관련성 평가는 빈 값과 허용값 밖의 값을 NULL로 저장합니다.
+- 이미 적재된 데이터를 새 규칙으로 바꿀 때는 `bin/rails normalize:report[컬럼]`(미리보기)과 `bin/rails normalize:disease_cases`(dry-run) 뒤 `bin/rails "normalize:disease_cases[apply]"`를 씁니다. 원본 컬럼을 덮어쓰는 비가역 작업이라 먼저 `export:workercare_data`로 백업하세요. 배경과 규칙은 `docs/disease-cases-normalization.md`입니다.
 - 필터 옵션 캐시가 있어 적재 뒤 화면 반영은 최대 하루 걸립니다(3장).
 
 ### 5.7 단계 6. 검증
@@ -370,6 +372,7 @@ bin/ci                              # 위 단계를 config/ci.rb 순서대로 �
 | [docs/workercare.plan.md](docs/workercare.plan.md) | 검색 서비스, FTS5, enum, 초기 데이터 설계 | 설계(일부 구현과 다름) |
 | [docs/workercare-search.plan.md](docs/workercare-search.plan.md) | 직업·신체 부위·사망 여부 검색, KSCO 연동 설계 | 설계(구현됨, 세부는 코드 우선) |
 | [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) | MCP 도구·프롬프트 설계와 사용자 시나리오 | 설계 |
+| [docs/disease-cases-normalization.md](docs/disease-cases-normalization.md) | 신청서 종류·근무 형태·고용 형태 정규화 분석과 변환 규칙, 운영 적용 순서 | 현재 |
 | [docs/server-setup-ubuntu.md](docs/server-setup-ubuntu.md) | Ubuntu 서버 기본 설치 | 현재 |
 | [docs/kakaotalk/project-plan.md](docs/kakaotalk/project-plan.md) | 챗봇 기획서: 배경, 목표, 공개·안전 기준 | 기획 |
 | [docs/kakaotalk/development-plan.md](docs/kakaotalk/development-plan.md) | 챗봇 개발 계획 | 계획(진행은 `chatbot.md`) |
