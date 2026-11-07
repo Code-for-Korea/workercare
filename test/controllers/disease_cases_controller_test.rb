@@ -125,7 +125,7 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/신청서장해/, response.body)
   end
 
-  test "GET /search still filters by employment_type and ksco_code via query params (MCP/API-only capability)" do
+  test "GET /search still filters by employment_type and ksco_code via query params (URL-only capability)" do
     matched = DiseaseCase.create!(case_no: "TEST-QS-MATCH", disease_name: "쿼리필터매칭",
       employment_type: "상용직", year: 2024)
     other = DiseaseCase.create!(case_no: "TEST-QS-OTHER", disease_name: "쿼리필터제외",
@@ -178,5 +178,84 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "구조화필터매칭", response.body
     assert_no_match(/구조화필터제외/, response.body)
+  end
+
+  # --- 마크다운 응답 (.md / Accept: text/markdown) ---
+
+  test "GET /search.md responds with markdown, Vary: Accept and a Link to the HTML twin" do
+    DiseaseCase.create!(case_no: "TEST-MD-1", disease_name: "마크다운사례", year: 2024, result: "approved")
+
+    get "/search.md", params: { q: "마크다운사례" }
+
+    assert_response :success
+    assert_equal "text/markdown; charset=utf-8", response.headers["Content-Type"]
+    assert_includes response.headers["Vary"], "Accept"
+    assert_includes response.headers["Link"], 'rel="alternate"; type="text/html"'
+    assert_match "[TEST-MD-1](http://www.example.com/disease_cases/TEST-MD-1.md)", response.body
+    assert_match "## 검색 방법", response.body
+  end
+
+  test "GET / and GET /index.md serve markdown, and the HTML page advertises its markdown twin" do
+    DiseaseCase.create!(case_no: "TEST-MD-2", disease_name: "루트마크다운", year: 2024)
+
+    get "/index.md", params: { job_name: "x" }
+    assert_response :success
+    assert_equal "text/markdown", response.media_type
+
+    get root_path
+    assert_response :success
+    assert_equal "text/html", response.media_type
+    assert_includes response.headers["Vary"], "Accept"
+    assert_includes response.headers["Link"], 'type="text/markdown"'
+    assert_select "link[rel='alternate'][type='text/markdown'][href='/index.md']"
+  end
+
+  test "Accept header negotiation honours q-values in both orders" do
+    get root_path, headers: { "Accept" => "text/markdown, text/html;q=0.9" }
+    assert_equal "text/markdown", response.media_type
+
+    get root_path, headers: { "Accept" => "text/html, text/markdown;q=0.5" }
+    assert_equal "text/html", response.media_type
+  end
+
+  test "an unsupported Accept is answered with 406 instead of silently serving HTML" do
+    get root_path, headers: { "Accept" => "application/pdf" }
+    assert_response :not_acceptable
+  end
+
+  test "GET /disease_cases/:case_no.md renders the detail with PII masked" do
+    DiseaseCase.create!(case_no: "TEST-MD-3", disease_name: "상세마크다운", year: 2024, result: "approved",
+      statement: "연락처 010-1234-5678 입니다", job_name: "버스 운전원")
+
+    get "/disease_cases/TEST-MD-3.md"
+
+    assert_response :success
+    assert_equal "text/markdown", response.media_type
+    assert_match "# 상세마크다운", response.body
+    assert_match "버스 운전원", response.body
+    assert_no_match(/010-1234-5678/, response.body)
+    assert_match "***", response.body
+  end
+
+  test "GET /disease_cases/:case_no.md for an unknown case is 404" do
+    get "/disease_cases/NOPE.md"
+    assert_response :not_found
+  end
+
+  test "markdown search applies the same structured filters as HTML" do
+    DiseaseCase.create!(case_no: "TEST-MD-F1", disease_name: "필터요양", application_type: "요양급여", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-MD-F2", disease_name: "필터장해", application_type: "장해급여", year: 2024)
+
+    get "/search.md", params: { application_type: [ "요양급여" ] }
+
+    assert_match "필터요양", response.body
+    assert_no_match(/필터장해/, response.body)
+  end
+
+  test "markdown search lists the allowed values from the code, not a hard-coded copy" do
+    get "/search.md"
+
+    %w[요양급여 정규직 고정주간근무].each { |v| assert_match v, response.body }
+    assert_match "매우_높음", response.body
   end
 end
