@@ -83,7 +83,11 @@ module SelfCareForm
     private
 
     def apply_choice(key, value, allowed)
-      @data[key] = value.to_s if allowed.include?(value.to_s)
+      if value.to_s == SKIP
+        @data.delete(key)
+      elsif allowed.include?(value.to_s)
+        @data[key] = value.to_s
+      end
     end
 
     def apply_button_or_text(key, params, names)

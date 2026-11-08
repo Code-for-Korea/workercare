@@ -23,6 +23,12 @@ class SelfCareForm::AnswersTest < ActiveSupport::TestCase
     assert_equal "approved", answers["decision"]
   end
 
+  test "skipping the situation clears it" do
+    answers = Answers.new("situation" => "ill")
+    answers.apply("situation", value: "skip")
+    assert_nil answers["situation"]
+  end
+
   test "free text and a button exclude each other and free text is cut at 30 characters" do
     answers = Answers.new
     answers.apply("job", value: "택배기사")

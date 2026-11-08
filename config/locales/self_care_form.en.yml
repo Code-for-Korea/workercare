@@ -1,0 +1,82 @@
+---
+en:
+  self_care_form:
+    title: Check industrial accident cases
+    nav: Check cases
+    back: Back
+    skip: Skip
+    none: None of these
+    unknown: I don't know
+    restart: Start over
+    new_window: "(opens in a new window)"
+    progress: "Question %{n} of %{total}"
+    question_title: "Question %{n}/%{total}: %{title}"
+    disclaimer: "This is reference material based on Korea Workers' Compensation and Welfare Service rulings on occupational diseases. It does not predict whether any individual claim will be approved and is not medical or legal advice. If you are in pain or worried, contact a medical institution or a labor counseling organization."
+    error_prefix: "Error:"
+    error_heading: Please check your input
+    start:
+      lead: Choose your job and where it hurts, and we will show similar rulings.
+      about: This is reference material based on occupational disease rulings. It does not tell you whether a claim will be approved and is not medical or legal advice. Do not enter names or contact details.
+      consent: I understand the notice above.
+      consent_error: Please tick that you understand the notice above to start.
+      begin: Start
+      session_lost: Your progress was lost. You may have closed the browser or turned cookies off. Please start again.
+    steps:
+      situation:
+        title: What is your situation?
+      body_part:
+        title: Where does it hurt (or did it hurt)?
+        title_prevention: Where are you worried about?
+        free_label: Type it yourself (up to 30 characters)
+        free_hint: Type for example "left wrist" or "waist" and we will look for the closest body part.
+        free_submit: Search with what I typed
+      job:
+        title: What is (or was) your job?
+        free_label: Type it yourself (up to 30 characters)
+        free_hint: Type for example "delivery" or "welding" and we will find rulings whose job name contains it.
+        free_submit: Search with what I typed
+      decision:
+        title: Which rulings would you like to see?
+      profile:
+        title: A little more about you
+        lead: These optional questions are used only for statistics. The results are the same if you skip them.
+        respondent: Whose work is this about?
+        application_experience: Experience applying
+        age_band: Age group (you or the worker)
+        region: Region of work
+        no_answer: Prefer not to answer
+        next: Next
+        skip_to_review: Skip and see results
+    review:
+      title: Check your choices
+      change: Change
+      show_result: Show results
+      situation: Situation
+      body_part: Body part
+      job: Job
+      decision: Ruling
+      typed: "Typed: %{text}"
+      not_chosen: Not chosen
+      stats_heading: Optional answers for statistics
+      no_answer: Prefer not to answer
+    result:
+      title: Similar rulings (for reference)
+      title_prevention: Rulings for people doing the same work (for reference)
+      count: "Found %{count} rulings."
+      count_capped: "Found 500 or more. Showing the first 10."
+      none: No rulings found. That only means none were found, not a judgement about approval. Try changing your choices.
+      relaxed: "We loosened the search: %{dropped}"
+      dropped_decision: ruling type
+      dropped_job: job
+      body_matched: "Searched for '%{name}'."
+      body_unmatched: We could not tell which body part you meant, so we searched without a body part.
+      guide_heading: Good to know first
+      original: Original ruling
+      detail: Details
+      job: Job
+      body: Body part
+      decision: Ruling
+      year_suffix: "%{year}"
+      apply_guide: How to apply
+      appeal_guide: If your claim was rejected, see how to appeal
+      more_detail: Search in more detail

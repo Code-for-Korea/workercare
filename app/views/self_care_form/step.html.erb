@@ -1,0 +1,13 @@
+<% content_for :title, page_title_for_step(@step, @answers) %>
+<% n = SelfCareForm::Flow.question_number(@step) %>
+<% total = SelfCareForm::Flow.question_count %>
+<div class="container self-care-form">
+  <p class="progress-text"><%= t("self_care_form.progress", n: n, total: total) %></p>
+  <progress value="<%= n %>" max="<%= total %>" aria-label="<%= t("self_care_form.progress", n: n, total: total) %>"></progress>
+
+  <h1 tabindex="-1" autofocus><%= step_title(@step, @answers) %></h1>
+
+  <%= render "step_#{@step}", answers: @answers %>
+
+  <p><%= link_to t("self_care_form.back"), back_path_for(@step) %></p>
+</div>

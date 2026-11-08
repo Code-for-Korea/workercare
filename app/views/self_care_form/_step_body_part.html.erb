@@ -1,0 +1,10 @@
+<%= form_with url: self_care_form_step_path("body_part"), method: :post, local: true do %>
+  <ul class="choices">
+    <% SelfCareForm::Flow.body_part_names.each do |name| %>
+      <%= render "choice_button", value: name, label: name, secondary: false %>
+    <% end %>
+    <%= render "choice_button", value: "none", label: t("self_care_form.none"), secondary: true %>
+  </ul>
+<% end %>
+
+<%= render "free_text", step: "body_part", value: answers["body_part_text"] %>
