@@ -179,7 +179,7 @@ class DiseaseCasesController < ApplicationController
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
       :burden_body_part_text,
-      application_type: [], burden_body_part: [], ksco_code: []
+      application_type: [], burden_body_part: [], job_name_any: [], ksco_code: []
     )
   end
 

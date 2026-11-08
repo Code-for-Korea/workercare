@@ -258,4 +258,20 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     %w[요양급여 정규직 고정주간근무].each { |v| assert_match v, response.body }
     assert_match "매우_높음", response.body
   end
+
+  test "job_name_any is accepted by / and /search and by the markdown usage table" do
+    DiseaseCase.create!(case_no: "TEST-JANY-1", disease_name: "핵심어매칭", job_name: "택배원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JANY-2", disease_name: "핵심어제외", job_name: "조리원", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path, params: { job_name_any: %w[택배 배송] }
+      assert_response :success
+      assert_match "핵심어매칭", response.body
+      assert_no_match(/핵심어제외/, response.body)
+    end
+
+    get "/search.md", params: { job_name_any: %w[택배] }
+    assert_match "핵심어매칭", response.body
+    assert_match "job_name_any", response.body
+  end
 end

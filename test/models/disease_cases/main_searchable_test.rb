@@ -194,4 +194,35 @@ class DiseaseCases::MainSearchableTest < ActiveSupport::TestCase
     assert_equal %w[TEST-JN-4 TEST-JN-5], scope.pluck(:case_no).sort
     assert_equal DiseaseCase.count, DiseaseCase.main_search(job_names: [ "", " " ]).first.count, "빈 값뿐이면 필터를 걸지 않는다"
   end
+
+  test "job_name_any is an OR over keywords, ignores spaces on both sides and is a substring match" do
+    DiseaseCase.create!(case_no: "TEST-JA-1", job_name: "택배원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JA-2", job_name: "배송 기사", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JA-3", job_name: "자동차조립원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JA-4", job_name: "자동차 조립원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JA-5", job_name: "조리원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_name_any: %w[택배 배송])
+    assert_equal %w[TEST-JA-1 TEST-JA-2], scope.where("case_no LIKE 'TEST-JA-%'").pluck(:case_no).sort
+
+    scope, = DiseaseCase.main_search(job_name_any: [ "자동차 조립" ])
+    assert_equal %w[TEST-JA-3 TEST-JA-4], scope.where("case_no LIKE 'TEST-JA-%'").pluck(:case_no).sort
+
+    scope, = DiseaseCase.main_search(job_name_any: [ "자동차조립" ])
+    assert_equal %w[TEST-JA-3 TEST-JA-4], scope.where("case_no LIKE 'TEST-JA-%'").pluck(:case_no).sort
+  end
+
+  test "job_name_any escapes LIKE wildcards and treats blank input as no condition" do
+    DiseaseCase.create!(case_no: "TEST-JW-1", job_name: "100%할인점원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JW-2", job_name: "점원", year: 2024)
+
+    scope, = DiseaseCase.main_search(job_name_any: [ "%" ])
+    assert_equal %w[TEST-JW-1], scope.where("case_no LIKE 'TEST-JW-%'").pluck(:case_no)
+
+    scope, = DiseaseCase.main_search(job_name_any: [ "_" ])
+    assert_empty scope.where("case_no LIKE 'TEST-JW-%'")
+
+    assert_equal DiseaseCase.count, DiseaseCase.main_search(job_name_any: [ "", " " ]).first.count
+    assert_equal DiseaseCase.count, DiseaseCase.main_search(job_name_any: []).first.count
+  end
 end
