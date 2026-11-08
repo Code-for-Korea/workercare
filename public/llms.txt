@@ -13,6 +13,10 @@
 
 - `/disease_cases/{연번}.md`: 판정서 한 건. 검색 결과 표의 연번 링크로 들어갑니다.
 
+## 산재 신청 방법
+
+- [산재 신청 방법 안내](/apply-guide.md): 신청 절차, 필요 서류, 불인정 시 대응, 급여 종류, 처리 기간(참고용, 마지막 확인일 표시)
+
 ## 문서
 
 - [마크다운 응답 규칙](https://github.com/Code-for-Korea/workercare/blob/main/docs/markdown-responses.md): 주소, 헤더, 파라미터, 이스케이프/비식별 규칙

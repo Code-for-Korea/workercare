@@ -13,6 +13,8 @@
 | `app/models/disease_case.rb` + `concerns/disease_cases/` | `searchable`(`/search`, 원문 FTS), `main_searchable`(메인 검색·챗봇 공용, 추출 컬럼 FTS + 구조화 필터) |
 | `app/models/disease_cases/normalizer.rb` | 신청서 종류·근무 형태·고용 형태 정규화(순수 Ruby). 규칙은 `config/normalization/rules.yml` |
 | `app/models/chatbot/` | 챗봇 전용(요청 어댑터, 응답 빌더, `PublicCase` 허용 필드 DTO, 엔티티 사전) |
+| `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/` | 산재알아보기(단계별 자가진단). 답은 세션 쿠키에만 두고 DB에 쓰지 않는다. 문서 `docs/self-care-form.md` |
+| `app/models/apply_guide.rb`, `config/apply_guide/procedure_guides.yml` | 신청 가이드(`/apply-guide`, `.md`). 마크다운→HTML은 `ApplyGuide::HtmlRenderer`(sanitize·https 링크만) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
 | `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
@@ -52,6 +54,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 8. **챗봇 응답은 `Chatbot::PublicCase` 허용 필드만** — 새 필드는 비식별 확인 후 추가한다. 엔티티 CSV(`docs/kakaotalk/entities/*.csv`)는 생성물이므로 `config/chatbot/entities/*.yml`을 고치고 `chatbot:entities:build`.
 9. **`업묵부담_가중요인_노출`(업묵) 철자** — 추출 CSV 헤더와 import 태스크가 같은 오타를 읽는다. 한쪽만 고치면 컬럼이 비어 들어간다.
 10. **CI가 꺼져 있다** — `.github/workflows/ci.yml_`(끝에 `_`)는 비활성. rubocop은 `wip/`까지 검사해 실패하고 brakeman·bundler-audit도 실패 중이다. 새 변경이 상태를 더 나쁘게 만들지 않는지 로컬에서 확인한다.
+12. **산재알아보기는 저장하지 않는다** — 답은 암호화 세션 쿠키(`session[:self_care_form]`, 직접 입력 30자 상한)에만 두고 URL·DB·로그에 남기지 않는다(`filter_parameters`에 `free_text`·통계 답 키). 결과에는 질병명·직업명·신체부위·판정 결과·연도·원문 링크만 쓰고 **서술형 요약은 노출하지 않는다**. 단계·허용값은 `SelfCareForm::Flow` 한 곳이다. 신체부위 직접 입력은 `BodyPartMatcher`가 사전 개념을 찾고(한 글자 표기는 엄격 규칙), 못 찾으면 조건 없이 찾고 알린다. `job_name_any`는 `main_search_params` 허용 목록에 있는 공용 필터다(`/search`가 폼의 직종 조건을 이어 받는다). 신청 가이드 문구는 출시 전 공식 출처로 재확인한다.
 11. **마크다운 응답은 `.md` 확장자와 `Accept`로만 결정** — User-Agent로 봇에게만 다르게 주지 않는다(cloaking). 모든 표현에 `Vary: Accept`와 서로를 가리키는 `Link` 헤더가 붙는다. 본문은 `PIIMasking`을 거치지만 웹 HTML 상세는 아직 아니다. 새 컬럼을 노출하면 `MarkdownRenderer`의 이스케이프(`cell`)와 비식별을 같이 본다. MCP는 제거됐다(`action_mcp_*` 테이블은 `DropMcpTables` 마이그레이션으로 삭제).
 
 ## 개인정보·보안
