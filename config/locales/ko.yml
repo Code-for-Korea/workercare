@@ -3,6 +3,12 @@ ko:
   layout:
     skip_to_content: 본문 바로가기
     main_nav: 주 메뉴
+    site_name: 업무상 질병 판정서
+  apply_guide:
+    title: 산재 신청 방법 안내
+    source: 출처
+    last_updated: 마지막 확인일
+    new_window: "(새 창)"
   helpers:
     submit:
       search: 검색

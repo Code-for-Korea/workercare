@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   get "/index", to: "disease_cases#index", as: :index
   get "/search", to: "disease_cases#search", as: :search
   get "/about", to: "pages#about", as: :about
+  get "/apply-guide", to: "pages#apply_guide", as: :apply_guide
 
   resources :disease_cases, param: :case_no, only: [ :show ]
 

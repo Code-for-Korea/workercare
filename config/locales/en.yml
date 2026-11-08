@@ -3,6 +3,12 @@ en:
   layout:
     skip_to_content: Skip to main content
     main_nav: Main menu
+    site_name: Occupational disease rulings
+  apply_guide:
+    title: How to apply for industrial accident compensation
+    source: Source
+    last_updated: Last checked
+    new_window: "(opens in a new window)"
   helpers:
     submit:
       search: Search
