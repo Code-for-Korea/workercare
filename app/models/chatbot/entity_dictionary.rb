@@ -13,18 +13,39 @@ module Chatbot
         cache[entity] ||= load_dictionary(entity)
       end
 
+      # { 공백 없는 대표 엔트리 => { db: [...], colloquial: [...] } }
+      # db_by_concept은 db 표기만 돌려주므로, 사용자가 직접 입력한 문장에서 개념을 찾는 호출부(자가진단 폼의
+      # 신체부위 매칭)를 위해 구어 표기(colloquial)까지 함께 돌려준다. db_by_concept의 결과는 바뀌지 않는다.
+      def concepts(entity)
+        concepts_cache[entity] ||= load_concepts(entity)
+      end
+
       def normalize(text)
         text.to_s.gsub(/\s+/, "")
       end
 
       def reset!
         @cache = nil
+        @concepts_cache = nil
       end
 
       private
 
       def cache
         @cache ||= {}
+      end
+
+      def concepts_cache
+        @concepts_cache ||= {}
+      end
+
+      def load_concepts(entity)
+        path = EntityBuilder.config_path(entity)
+        return {} unless path.exist?
+
+        YAML.safe_load_file(path).fetch("concepts", {}).to_h do |name, body|
+          [ normalize(name), { db: Array(body["db"]).map(&:to_s), colloquial: Array(body["colloquial"]).map(&:to_s) } ]
+        end
       end
 
       def load_dictionary(entity)

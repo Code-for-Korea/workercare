@@ -34,4 +34,25 @@ class Chatbot::EntityDictionaryTest < ActiveSupport::TestCase
     assert_not_same first, Dictionary.db_by_concept("body_part")
     assert_equal first, Dictionary.db_by_concept("body_part")
   end
+
+  test "concepts returns db and colloquial variants, keyed without spaces" do
+    concepts = Dictionary.concepts("body_part")
+
+    assert_includes concepts.keys, "손목"
+    assert_includes concepts["어깨"][:db], "견관절"
+    assert_includes concepts["어깨"][:colloquial], "어깨 관절"
+    assert_equal({}, Dictionary.concepts("no_such_entity"))
+    assert_raises(ArgumentError) { Dictionary.concepts("../secrets") }
+  end
+
+  test "concepts leaves db_by_concept unchanged and both are cleared by reset" do
+    before = Dictionary.db_by_concept("body_part")
+    Dictionary.concepts("body_part")
+
+    assert_equal before, Dictionary.db_by_concept("body_part")
+    assert_same Dictionary.concepts("body_part"), Dictionary.concepts("body_part")
+
+    Dictionary.reset!
+    refute_same before, Dictionary.db_by_concept("body_part")
+  end
 end
