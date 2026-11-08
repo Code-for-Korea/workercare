@@ -32,3 +32,10 @@ ko:
     burden_body_part_text_placeholder: "예: 견관절, 요추"
     death_only: 사망 사례만 보기
     death_badge: 사망
+    carried:
+      title: 검색 화면에 없는 조건
+      job: "직종 핵심어: %{keywords}"
+      body_concept: "신체 부위: %{name}(좌우 포함)"
+      body_tokens: "신체 부위 토큰 %{count}개"
+      remove_job: 직종 조건 빼기
+      remove_body: 신체 부위 조건 빼기

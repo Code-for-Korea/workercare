@@ -32,3 +32,10 @@ en:
     burden_body_part_text_placeholder: "e.g. shoulder joint, lumbar spine"
     death_only: Fatal cases only
     death_badge: Fatal
+    carried:
+      title: Conditions not shown on this screen
+      job: "Job keywords: %{keywords}"
+      body_concept: "Body part: %{name} (left/right included)"
+      body_tokens: "%{count} body part tokens"
+      remove_job: Remove job condition
+      remove_body: Remove body part condition
