@@ -15,7 +15,8 @@
     <%= javascript_importmap_tags %>
   </head>
   <body>
-    <nav class="container">
+    <a class="skip-link" href="#main"><%= t("layout.skip_to_content") %></a>
+    <nav class="container" aria-label="<%= t("layout.main_nav") %>">
       <ul>
         <li>
           <%= link_to root_path do %>
@@ -32,7 +33,7 @@
         </li>
       </ul>
     </nav>
-    <main>
+    <main id="main" tabindex="-1">
       <%= yield %>
     </main>
   </body>

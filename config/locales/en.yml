@@ -1,5 +1,8 @@
 ---
 en:
+  layout:
+    skip_to_content: Skip to main content
+    main_nav: Main menu
   helpers:
     submit:
       search: Search

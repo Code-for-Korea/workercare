@@ -1,5 +1,8 @@
 ---
 ko:
+  layout:
+    skip_to_content: 본문 바로가기
+    main_nav: 주 메뉴
   helpers:
     submit:
       search: 검색
