@@ -33,7 +33,11 @@
     <% end %>
   </dl>
 
-  <p><%= link_to t("self_care_form.review.show_result"), self_care_form_result_path, role: "button" %></p>
+  <% if SelfCareForm.google_enabled? %>
+    <%= button_to t("self_care_form.review.show_result"), self_care_form_submit_result_path, method: :post %>
+  <% else %>
+    <p><%= link_to t("self_care_form.review.show_result"), self_care_form_result_path, role: "button" %></p>
+  <% end %>
   <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "secondary outline" %>
   <p><%= link_to t("self_care_form.back"), back_path_for("review") %></p>
 </div>

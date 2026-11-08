@@ -1,0 +1,11 @@
+# 산재알아보기 통계를 구글 폼으로 보내는 설정. 문서: docs/self-care-form.md ("구글 폼 작성 방법")
+#
+# 기본은 꺼짐이다. 동의 문구·보관 기간·삭제 주체가 확정되고 법률·개인정보 검토를 마치기 전에는 켜지 않는다.
+# 꺼져 있으면 전송도, 시작 화면의 "통계용 저장" 선택 동의란도 나타나지 않는다.
+#
+# enabled: true 이고 아래 값이 모두 검증을 통과해야 켜진다.
+#   google_form_response_url  https://docs.google.com/forms/d/e/<폼 ID>/formResponse (viewform → formResponse)
+#   entries                   앱 키 → 구글 폼 문항의 entry id(숫자). 키는 Flow::SENDABLE_KEYS 중에서만.
+enabled: false
+google_form_response_url: ""
+entries: {}

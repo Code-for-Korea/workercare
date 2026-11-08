@@ -4,9 +4,9 @@
 module SelfCareForm
   class << self
     # 통계 응답을 구글 폼으로 보내는 기능이 켜져 있는지. 기본 꺼짐이다(동의 문구·보관 기간·삭제 주체가
-    # 확정되기 전에는 켜지 않는다). 구글 연동 묶음에서 설정 파일(config/self_care_form.yml)을 읽도록 바뀐다.
+    # 확정되기 전에는 켜지 않는다). 설정은 config/self_care_form.yml이고 SelfCareForm::Settings가 검증한다.
     def google_enabled?
-      false
+      Settings.current.enabled?
     end
   end
 end

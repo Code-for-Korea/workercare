@@ -2,6 +2,9 @@
 <div class="container self-care-form">
   <h1 tabindex="-1" autofocus><%= result_title(@answers) %></h1>
 
+  <% if session[:self_care_form_submitted] %>
+    <p class="notice" role="status"><%= t("self_care_form.result.stats_sent") %></p>
+  <% end %>
   <% if @result.dropped.any? %>
     <p class="notice" role="status"><%= t("self_care_form.result.relaxed", dropped: dropped_labels(@result.dropped)) %></p>
   <% end %>

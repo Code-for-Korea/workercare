@@ -19,6 +19,10 @@ en:
       about: This is reference material based on occupational disease rulings. It does not tell you whether a claim will be approved and is not medical or legal advice. Do not enter names or contact details.
       consent: I understand the notice above.
       consent_error: Please tick that you understand the notice above to start.
+      stats_consent: "(Optional) I agree to save the options I chose in a Google Form (the team's Google Sheet) for statistics."
+      stats_detail: "Only the chosen options for the questions that exist in the survey are sent; text you typed is not sent. Because this service's server sends it, Google sees the server's IP. We ask you not to enter identifying details, but combinations of choices may still allow re-identification. You can use everything the same without agreeing."
+      stats_once: Even if you start over, the statistics answer is sent only once from this browser.
+      stats_retention: "Retention and deletion owner: [not decided yet - edit this text before turning it on]"
       begin: Start
       session_lost: Your progress was lost. You may have closed the browser or turned cookies off. Please start again.
     steps:
@@ -62,6 +66,7 @@ en:
     result:
       title: Similar rulings (for reference)
       title_prevention: Rulings for people doing the same work (for reference)
+      stats_sent: The statistics answer has already been sent from this browser.
       count: "Found %{count} rulings."
       count_capped: "Found 500 or more. Showing the first 10."
       none: No rulings found. That only means none were found, not a judgement about approval. Try changing your choices.

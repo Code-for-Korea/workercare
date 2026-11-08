@@ -32,6 +32,11 @@ module SelfCareForm
       "region" => %w[서울 부산 대구 인천 광주 대전 울산 세종 경기 강원 충북 충남 전북 전남 경북 경남 제주]
     }.freeze
 
+    # 구글 폼으로 보낼 수 있는 값의 전체 키. 실제로 보내는 것은 설정(config/self_care_form.yml)의 entries에 id가
+    # 있는 키뿐이다(전송 키 = SENDABLE_KEYS ∩ entries 키). 자유 입력 원문은 보내지 않는다.
+    SENDABLE_KEYS = %w[body_part job decision age_band region application_experience respondent situation relaxed
+                       result_count].freeze
+
     # 직종 버튼 소제목 묶음. 합집합은 챗봇 사전(config/chatbot/entities/job_name.yml)의 직종 54개와 같아야 한다(테스트).
     JOB_GROUPS = {
       "건설·현장" => [ "용접공", "목수", "석공", "도장공", "배관공", "철근공", "철골공", "미장공", "조적공", "타일공",

@@ -21,6 +21,19 @@
     <% if @consent_error %>
       <small id="consent-error" class="field-error"><%= t("self_care_form.error_prefix") %> <%= t("self_care_form.start.consent_error") %></small>
     <% end %>
+
+    <%# 통계용 저장은 구글 연동이 켜진 배포에서만 선택 동의로 묻는다. 꺼져 있으면 체크란도 안내도 없다. %>
+    <% if SelfCareForm.google_enabled? %>
+      <label for="stats_consent">
+        <%= check_box_tag "stats_consent", "1", false, id: "stats_consent", "aria-describedby": "stats-consent-detail" %>
+        <%= t("self_care_form.start.stats_consent") %>
+      </label>
+      <small id="stats-consent-detail">
+        <%= t("self_care_form.start.stats_detail") %>
+        <%= t("self_care_form.start.stats_once") %>
+        <%= t("self_care_form.start.stats_retention") %>
+      </small>
+    <% end %>
     <button type="submit"><%= t("self_care_form.start.begin") %></button>
   <% end %>
 </div>

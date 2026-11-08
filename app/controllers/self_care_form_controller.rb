@@ -14,6 +14,8 @@ class SelfCareFormController < ApplicationController
     if params[:consent] == "1"
       session[:self_care_form_consent] = true
       session[:self_care_form] ||= {}
+      # 통계용 저장 동의는 구글 연동이 켜진 배포에서만 받는다(꺼져 있으면 체크란도 없다).
+      session[:self_care_form_stats_consent] = (SelfCareForm.google_enabled? && params[:stats_consent] == "1") || nil
       redirect_to self_care_form_step_path("situation")
     else
       @consent_error = true
@@ -51,10 +53,21 @@ class SelfCareFormController < ApplicationController
     @search_link_params = search_link_params(@result.conditions)
   end
 
-  # POST /self-care-form/reset — 답을 비우고 처음부터 다시 시작한다(제출 표시는 남긴다)
+  # POST /self-care-form/result — [결과 보기]. 선택 동의한 사람의 선택을 구글 폼으로 보내고(켜진 배포에서만, 브라우저
+  # 세션당 한 번) 결과 화면으로 간다. 구글 요청은 응답을 보낸 뒤에 실행해 결과 화면이 구글 지연에 묶이지 않는다.
+  def submit_result
+    if SelfCareForm.google_enabled? && session[:self_care_form_stats_consent] && !session[:self_care_form_submitted]
+      submit_stats
+    end
+    redirect_to self_care_form_result_path
+  end
+
+  # POST /self-care-form/reset — 답을 비우고 처음부터 다시 시작한다. 구글 제출 표시(:self_care_form_submitted)는
+  # 일부러 지우지 않는다("브라우저 세션당 한 번" 정책).
   def reset
     session.delete(:self_care_form)
     session.delete(:self_care_form_consent)
+    session.delete(:self_care_form_stats_consent)
     redirect_to self_care_form_start_path
   end
 
@@ -62,6 +75,41 @@ class SelfCareFormController < ApplicationController
 
   def answers
     SelfCareForm::Answers.from_session(session[:self_care_form])
+  end
+
+  # 제출 표시를 응답을 만들기 전에 같은 요청 안에서 먼저 켠다(중복 방지를 재시도보다 우선). 콜백은 응답을 보낸 뒤에
+  # 돌기 때문에 거기서는 세션을 쓸 수 없다. 그래서 구글 요청이 실패해도 같은 브라우저 세션에서 재시도하지 않는다.
+  def submit_stats
+    settings = SelfCareForm::Settings.current
+    needs_result = (settings.entries.keys & %w[relaxed result_count]).any?
+    result = needs_result ? SelfCareForm::CaseFinder.new(answers.search_conditions).call : nil
+    values = SelfCareForm::GoogleFormSubmitter.values_for(answers, result: result)
+
+    registered = after_response { SelfCareForm::GoogleFormSubmitter.new(settings: settings).submit(values) }
+    session[:self_care_form_submitted] = true if registered
+  end
+
+  # Rack 3 표준 rack.response_finished에 콜백을 단다. 달았으면 true, 배열이 없어 건너뛰었으면 false(이때는 제출 표시도
+  # 켜지 않아 나중에 다시 시도할 수 있다). Puma는 응답을 보낸 뒤 같은 스레드에서 역순으로 실행하고
+  # Rails 실행기도 같은 배열에 자기 완료 처리를 넣으므로, 콜백 안의 예외는 모두 삼킨다. 배열이 없으면 요청 처리 중에
+  # 동기로 구글을 부르지 않고 건너뛴다.
+  def after_response(&block)
+    callbacks = request.env["rack.response_finished"]
+    unless callbacks
+      Rails.logger.warn("[self_care_form] rack.response_finished가 없어 구글 폼 전송을 건너뜁니다")
+      return false
+    end
+
+    callbacks << lambda do |_env, _status, _headers, error|
+      next if error
+
+      begin
+        block.call
+      rescue StandardError => e
+        Rails.logger.warn("[self_care_form] 구글 폼 전송 콜백 오류 (#{e.class})")
+      end
+    end
+    true
   end
 
   def answer_params
