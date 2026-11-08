@@ -7,7 +7,8 @@ class DiseaseCasesController < ApplicationController
 
   # 같은 주소를 .md 확장자나 `Accept: text/markdown`으로 부르면 마크다운으로 응답한다(LLM·스크립트용,
   # docs/markdown-responses.md). 두 표현 모두 `Vary: Accept`와 서로를 가리키는 `Link` 헤더를 단다.
-  after_action :set_representation_headers
+  include RepresentationHeaders
+  advertise_markdown
 
   # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
   # 근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. KSCO 코드는 숫자라 사용자가 직접 골라
@@ -41,8 +42,6 @@ class DiseaseCasesController < ApplicationController
     end
   end
 
-  helper_method :markdown_alternate_path
-
   private
 
   def markdown_renderer
@@ -62,33 +61,6 @@ class DiseaseCasesController < ApplicationController
 
   def render_markdown(body)
     render plain: body, content_type: "text/markdown; charset=utf-8"
-  end
-
-  # HTML과 마크다운이 서로를 가리키게 한다. 헤드리스 fetcher는 <head>를 읽지 않으므로 헤더로도 알린다.
-  def markdown_path_base
-    path = request.path.sub(/\.md\z/, "")
-    path == "/" ? "/index" : path
-  end
-
-  def markdown_alternate_path
-    suffix = request.query_string.present? ? "?#{request.query_string}" : ""
-    "#{markdown_path_base}.md#{suffix}"
-  end
-
-  def html_alternate_path
-    base = markdown_path_base
-    suffix = request.query_string.present? ? "?#{request.query_string}" : ""
-    "#{base == '/index' ? '/' : base}#{suffix}"
-  end
-
-  def set_representation_headers
-    response.headers["Vary"] = [ response.headers["Vary"], "Accept" ].compact_blank.join(", ")
-    link = if request.format.md?
-      "<#{html_alternate_path}>; rel=\"alternate\"; type=\"text/html\""
-    else
-      "<#{markdown_alternate_path}>; rel=\"alternate\"; type=\"text/markdown\""
-    end
-    response.headers["Link"] = link
   end
 
   def perform_search(legacy:)
