@@ -16,6 +16,35 @@ en:
     source: Source
     last_updated: Last checked
     new_window: "(opens in a new window)"
+  about:
+    title: About
+    lead: This site organizes the occupational disease rulings published by the Korea Workers' Compensation & Welfare Service so they are easier to look up. You can find similar rulings by occupation, affected body part or disease name.
+    features:
+      heading: What you can do
+      search: Search
+      search_text: Find rulings by conditions such as occupation, application type or body part, and by keywords. Advanced search can also search the full text of a ruling.
+      advanced: Advanced search
+      self_care_form: Check your situation
+      self_care_form_text: Answer a few questions and see similar rulings.
+      apply_guide: How to apply
+      apply_guide_text: A guide to the application procedure, required documents and what to do if a claim is rejected.
+      markdown: Markdown addresses
+      markdown_text: Search results, ruling details and the application guide are available as Markdown by adding .md to the address. How to use them is described in llms.txt.
+    reference:
+      heading: For reference only
+      text: The rulings are reference material. This site does not predict whether any individual claim will be approved and does not replace medical or legal advice. Talk to the Korea Workers' Compensation & Welfare Service or a labor counseling organization before you apply.
+    source:
+      heading: Data source
+      text: The occupational disease rulings published by the Korea Workers' Compensation & Welfare Service. Each case links to the original. The rulings are de-identified but may not be complete.
+    privacy:
+      heading: Privacy
+      lead: This site uses cookies for separate purposes.
+      self_care_heading: Your answers in the self-check
+      self_care_text: Kept in an encrypted session cookie and not stored in the server database. The cookie has no expiry time, so it usually disappears when you close the browser, but it may remain if the browser restores the previous session. Choosing "Start over" in the self-check clears your answers.
+      display_heading: Display settings
+      display_text: The large text and high contrast settings are kept in a separate cookie for one year. The cookie holds only the setting value and no personal information.
+      stats_heading: Saving statistics
+      stats_text: Only if you separately agree and the connection is turned on. It is off now, so nothing is sent.
   helpers:
     submit:
       search: Search

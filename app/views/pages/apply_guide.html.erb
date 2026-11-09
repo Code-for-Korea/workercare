@@ -1,18 +1,17 @@
 <% content_for :title, "#{t('apply_guide.title')} — #{t('layout.site_name')}" %>
-<div class="container">
+<div class="container-narrow">
   <h1><%= t("apply_guide.title") %></h1>
   <p><%= ApplyGuide::DISCLAIMER %></p>
 
   <% ApplyGuide.topics.each do |topic| %>
     <%# 모든 주제를 펼쳐 둔다: 다른 화면에서 #rejection_appeal 같은 앵커로 바로 올 수 있게 하려면 JS 없이는 펼쳐 있어야 한다. %>
-    <details id="<%= topic.key %>" open>
+    <details id="<%= topic.key %>" class="guide-topic" open>
       <summary><h2><%= topic.title %></h2></summary>
       <%= ApplyGuide::HtmlRenderer.render(topic.markdown) %>
     </details>
   <% end %>
 
-  <p>
-    <small>
+  <p class="text-muted text-sm">
       <% if ApplyGuide.source %>
         <%= t("apply_guide.source") %>:
         <%= link_to ApplyGuide.source, ApplyGuide.source, target: "_blank", rel: "noopener noreferrer" %><span class="visually-hidden"> <%= t("apply_guide.new_window") %></span>
@@ -20,6 +19,5 @@
       <% if ApplyGuide.last_updated %>
         · <%= t("apply_guide.last_updated") %>: <%= ApplyGuide.last_updated %>
       <% end %>
-    </small>
   </p>
 </div>

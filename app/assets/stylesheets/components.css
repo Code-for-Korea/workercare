@@ -99,6 +99,12 @@
     overflow-x: auto;
   }
 
+  /* 가이드 본문의 표는 렌더러가 감싸지 않으므로 표 자체를 스크롤 영역으로 만든다. */
+  .guide-topic table {
+    display: block;
+    overflow-x: auto;
+  }
+
   .filters > summary {
     font-weight: 600;
   }

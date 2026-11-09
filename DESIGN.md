@@ -156,6 +156,7 @@
 | `.error-summary` | 폼 오류 요약. `role="alert"`. 각 오류 항목은 해당 입력으로 연결한다. |
 | `.table-scroll` | 표를 감싸는 가로 스크롤 영역. `role="region"`, `tabindex="0"`, `aria-label`이 반드시 있다. 가로로만 스크롤한다(세로 스크롤 영역을 중첩하지 않는다). 행 구분선만 쓴다. |
 | 외부 링크 | 새 창으로 열리는 원문 링크. 아이콘 옆에 `<span class="sr-only">(새 창, 외부 사이트)</span>`를 둔다. `rel="noopener noreferrer"`. |
+| `.guide-topic` | 신청 가이드의 주제 하나(`details`). 안의 표는 좁은 화면에서 가로로 스크롤한다. 본문 HTML은 `ApplyGuide::HtmlRenderer`가 만든다. |
 | `.case-list` | 사례 목록(검색 결과 아님, 산재알아보기 결과). 질병명이 제목(상세 링크)이고 나머지는 `text-muted` 한 줄 메타 정보다. 판정 결과를 색으로 구분하지 않는다. |
 | `details`/`summary` 아코디언 | 가이드·필터처럼 길고 선택적인 내용. `summary` 안의 `h2`·`h3`는 인라인이고 펼침 표시는 CSS로 만든다. |
 | `progress` | 산재알아보기 진행 표시. 높이 0.5rem. 옆에 "질문 5개 중 3번째" 같은 글자를 함께 둔다. |
