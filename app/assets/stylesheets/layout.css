@@ -41,6 +41,13 @@
     min-height: var(--control-h);
   }
 
+  /* 현재 메뉴: 굵게 + 굵은 밑줄. 색에만 기대지 않는다. */
+  .site-header [aria-current="page"] {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 0.2em;
+  }
+
   .site-footer {
     margin-top: var(--space-12);
     padding: var(--space-4) max(var(--space-4), calc((100% - 72rem) / 2 + var(--space-4)));

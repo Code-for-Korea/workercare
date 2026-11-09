@@ -19,13 +19,13 @@
   <body>
     <a class="skip-link" href="#main"><%= t("layout.skip_to_content") %></a>
     <header class="site-header">
-      <%= link_to t("layout.site_name"), root_path, class: "site-name" %>
+      <%= nav_link_to t("layout.site_name"), root_path, :home, class: "site-name" %>
       <nav class="site-nav" aria-label="<%= t("layout.main_nav") %>">
         <ul>
-          <li><%= link_to "검색", search_path %></li>
-          <li><%= link_to t("self_care_form.nav"), self_care_form_start_path %></li>
-          <li><%= link_to t("apply_guide.title"), apply_guide_path %></li>
-          <li><%= link_to "소개", about_path %></li>
+          <li><%= nav_link_to t("layout.nav_search"), search_path, :search %></li>
+          <li><%= nav_link_to t("self_care_form.nav"), self_care_form_start_path, :self_care_form %></li>
+          <li><%= nav_link_to t("apply_guide.title"), apply_guide_path, :apply_guide %></li>
+          <li><%= nav_link_to t("layout.nav_about"), about_path, :about %></li>
         </ul>
       </nav>
     </header>
