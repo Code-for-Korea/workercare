@@ -161,6 +161,65 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_match "상세조회성공", response.body
   end
 
+  test "GET / and GET /search put the page title in an h1" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "h1", count: 1
+      assert_select "h3", count: 0
+    end
+  end
+
+  test "result tables sit in a focusable, labelled scroll region" do
+    DiseaseCase.create!(case_no: "TEST-REGION", disease_name: "스크롤영역", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select ".table-scroll[role=region][tabindex='0'][aria-label='#{I18n.t('search.results_table')}'] table"
+    end
+  end
+
+  test "original-document links in both result tables open a new window and say so" do
+    DiseaseCase.create!(case_no: "TEST-EXT-ROW", link: "https://example.com/case/ext", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "td a[href='https://example.com/case/ext'][target=_blank][rel='noopener noreferrer']" do
+        assert_select "span.sr-only", text: /#{Regexp.escape(I18n.t('search.external_link'))}/
+        assert_select "svg[aria-hidden=true][focusable=false]"
+      end
+    end
+  end
+
+  test "the filters details is closed without filter params and open with one" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "details.filters", count: 1
+      assert_select "details.filters[open]", count: 0
+
+      get path, params: { q: "허리", sort: "recent", page: 1, employment_type: "", application_type: [ "" ] }
+      assert_select "details.filters[open]", count: 0
+
+      get path, params: { job_name: "택배" }
+      assert_select "details.filters[open]", count: 1
+
+      get path, params: { application_type: [ "요양급여" ] }
+      assert_select "details.filters[open]", count: 1
+    end
+  end
+
+  test "GET /disease_cases/:case_no shows the metadata as a dl and an external original link" do
+    DiseaseCase.create!(case_no: "TEST-SHOW-EXT", disease_name: "상세외부링크", link: "https://example.com/case/show",
+      statement: "긴 원문\n둘째 줄", year: 2024)
+
+    get disease_case_path("TEST-SHOW-EXT")
+
+    assert_select "h1", text: "상세외부링크"
+    assert_select "dl.case-meta dt", text: DiseaseCase.human_attribute_name(:case_no)
+    assert_select "dd a[href='https://example.com/case/show'][target=_blank][rel='noopener noreferrer'] span.sr-only",
+      text: I18n.t("search.external_link")
+    assert_select "p.case-text", text: /긴 원문/
+  end
+
   test "GET /disease_cases/:case_no returns 404 for an unknown case_no" do
     get disease_case_path("NO-SUCH-CASE")
 

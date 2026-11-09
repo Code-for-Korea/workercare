@@ -154,7 +154,7 @@
 | `.search-row` | 검색창 한 줄. 입력은 `flex: 1 1 12rem; min-width: 0`, 버튼은 줄어들지 않는다. 좁거나 글씨가 크면 버튼이 다음 줄로 내려간다. |
 | `.notice` | 정보 안내. 왼쪽 굵은 테두리. 상태 알림은 `role="status"`를 붙인다. |
 | `.error-summary` | 폼 오류 요약. `role="alert"`. 각 오류 항목은 해당 입력으로 연결한다. |
-| `.table-scroll` | 표를 감싸는 가로 스크롤 영역. `role="region"`, `tabindex="0"`, `aria-label`이 반드시 있다. 머리글은 sticky, 행 구분선만 쓴다. |
+| `.table-scroll` | 표를 감싸는 가로 스크롤 영역. `role="region"`, `tabindex="0"`, `aria-label`이 반드시 있다. 가로로만 스크롤한다(세로 스크롤 영역을 중첩하지 않는다). 행 구분선만 쓴다. |
 | 외부 링크 | 새 창으로 열리는 원문 링크. 아이콘 옆에 `<span class="sr-only">(새 창, 외부 사이트)</span>`를 둔다. `rel="noopener noreferrer"`. |
 | `.case-list` | 사례 목록. 질병명이 제목이고 나머지는 `text-muted` 한 줄 메타 정보다. 판정 결과를 색으로 구분하지 않는다. |
 | `details`/`summary` 아코디언 | 가이드·필터처럼 길고 선택적인 내용. `summary` 안의 `h2`·`h3`는 인라인이고 펼침 표시는 CSS로 만든다. |
@@ -162,6 +162,9 @@
 | 로딩 오버레이 | 오래 걸리는 요청 중 표시. `prefers-reduced-motion`이면 스피너를 멈춘다. |
 | 건너뛰기 링크 | 페이지 맨 앞. 포커스를 받을 때만 보이고 `main#main`으로 간다. |
 | `.carried-filters` | `/`·`/search`에서 화면 필터에 입력칸이 없는 조건(직종 핵심어 `job_name_any`, 체크박스 목록 밖 신체부위 토큰)을 보여 주고, hidden 필드로 다시 검색해도 유지하며, [빼기] 링크를 둔다. 주로 산재알아보기의 '더 자세히 찾기'에서 넘어온다. |
+| `.filters` | `/`·`/search`의 필터 묶음 `<details>`. 검색어·정렬·쪽 말고 값이 있는 조건이 있으면 `open`(`search_filters_open?`), 없으면 접어 둔다. 정렬은 이 안에 넣지 않고 바로 아래에 둔다. |
+| `.case-meta` | 상세 머리 정보 `dl`. 좁은 화면 1열, 40rem 이상 2열. |
+| `.case-text` | 상세 원문 문단. 읽기 폭 70ch, 줄바꿈 보존(`pre-wrap`), `overflow-wrap: anywhere`. |
 | 페이지네이션 | Pagy `series_nav` 출력을 토큰으로 스타일한다. 현재 쪽은 `aria-current="page"`와 굵은 밑줄로 표시한다. |
 | 화면 설정 `.display-settings` | 헤더의 [큰 글씨]·[고대비] 토글. `aria-pressed`로 상태를 알린다. 5장 참고. |
 | 사이트 헤더·메뉴·푸터 | `.site-header`(사이트명, 주 메뉴, 화면 설정), `.site-nav`, `.site-footer`(참고용 고지, 데이터 출처 한 줄). 줄바꿈한다. |

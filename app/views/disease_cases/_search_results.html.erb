@@ -10,7 +10,7 @@
   <% if @cases.empty? %>
     <p class="text-muted"><%= t("search.no_results") %></p>
   <% else %>
-    <div class="table-scroll">
+    <div class="table-scroll" role="region" tabindex="0" aria-label="<%= t("search.results_table") %>">
       <%= render "case_list", cases: @cases %>
     </div>
     <%== @pagy.series_nav %>

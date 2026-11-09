@@ -189,8 +189,6 @@
   }
 
   thead th {
-    position: sticky;
-    top: 0;
     background: var(--color-surface);
   }
 

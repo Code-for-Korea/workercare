@@ -2,30 +2,53 @@
 
 <div class="container">
   <section>
-    <h3><%= @disease_case.disease_name %></h3>
-    <p>
-      <%= DiseaseCase.human_attribute_name(:result) %>
-      <%= @disease_case.human_attribute_enum(:result) %>
-      &middot; 
-      <%= @disease_case.human_attribute_enum(:disease_category) %>
-      &middot;
-      <%= @disease_case.human_attribute_enum(:body_part) %>
-      <%= link_to "#{DiseaseCase.human_attribute_name(:link)} ↗", @disease_case.link, target: "_blank", rel: "noopener noreferrer" %>
-      <%= DiseaseCase.human_attribute_name(:case_no) %> <%= @disease_case.case_no %>
-      <% if @disease_case.decided_on.present? %>
-        &middot; <%= DiseaseCase.human_attribute_name(:decided_on) %>: <%= l(@disease_case.decided_on) %>
-      <% else %>
-        &middot; <%= @disease_case.year %>년
+    <h1><%= @disease_case.disease_name %></h1>
+    <dl class="case-meta">
+      <div>
+        <dt><%= DiseaseCase.human_attribute_name(:result) %></dt>
+        <dd><%= @disease_case.human_attribute_enum(:result).presence || "-" %></dd>
+      </div>
+      <div>
+        <dt><%= DiseaseCase.human_attribute_name(:disease_category) %></dt>
+        <dd><%= @disease_case.human_attribute_enum(:disease_category).presence || "-" %></dd>
+      </div>
+      <div>
+        <dt><%= DiseaseCase.human_attribute_name(:body_part) %></dt>
+        <dd><%= @disease_case.human_attribute_enum(:body_part).presence || "-" %></dd>
+      </div>
+      <div>
+        <dt><%= DiseaseCase.human_attribute_name(:case_no) %></dt>
+        <dd><%= @disease_case.case_no %></dd>
+      </div>
+      <div>
+        <% if @disease_case.decided_on.present? %>
+          <dt><%= DiseaseCase.human_attribute_name(:decided_on) %></dt>
+          <dd><%= l(@disease_case.decided_on) %></dd>
+        <% else %>
+          <dt><%= DiseaseCase.human_attribute_name(:year) %></dt>
+          <dd><%= @disease_case.year %>년</dd>
+        <% end %>
+      </div>
+      <% if @disease_case.link.present? %>
+        <div>
+          <dt><%= DiseaseCase.human_attribute_name(:link) %></dt>
+          <dd>
+            <%= link_to @disease_case.link, target: "_blank", rel: "noopener noreferrer" do %>
+              <%= DiseaseCase.human_attribute_name(:link) %> <span aria-hidden="true">↗</span>
+              <span class="sr-only"><%= t("search.external_link") %></span>
+            <% end %>
+          </dd>
+        </div>
       <% end %>
-    </p>
+    </dl>
   </section>
 
   <% DiseaseCase.detail_sections.each do |attr, label| %>
     <% content = @disease_case.public_send(attr) %>
     <% if content.present? %>
       <section>
-        <h4><%= label %></h4>
-        <small class="whitespace-pre-wrap"><%= content %></small>
+        <h2><%= label %></h2>
+        <p class="case-text"><%= content %></p>
       </section>
     <% end %>
   <% end %>

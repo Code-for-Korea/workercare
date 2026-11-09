@@ -1,11 +1,10 @@
 module ApplicationHelper
-  def result_badge_class(result)
-    case result
-    when "approved"           then "bg-success"
-    when "rejected"           then "bg-danger"
-    when "partially_approved" then "bg-warning text-dark"
-    when "revised_approved"   then "bg-info text-dark"
-    else                           "bg-secondary"
+  # 검색 화면의 필터 묶음을 펼쳐 둘지: 검색어·정렬·쪽 말고 값이 있는 조건이 하나라도 있으면 true.
+  SEARCH_NON_FILTER_PARAMS = %w[q sort page search commit].freeze
+
+  def search_filters_open?
+    request.query_parameters.any? do |key, value|
+      SEARCH_NON_FILTER_PARAMS.exclude?(key) && Array(value).any?(&:present?)
     end
   end
 
