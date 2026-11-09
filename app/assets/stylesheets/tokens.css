@@ -59,7 +59,7 @@
     --color-error: #ff9a9a;
   }
 
-  /* OS가 고대비를 요청하면 화면 설정이 없어도 같은 값을 쓴다. */
+  /* OS가 고대비를 요청하면 화면 설정(쿠키)이 없을 때만 같은 값을 쓴다. "normal"은 data-contrast가 있으므로 OS 설정을 끄는 선택이다. */
   @media (prefers-contrast: more) {
     :root:not([data-contrast]) {
       --color-bg: #000000;

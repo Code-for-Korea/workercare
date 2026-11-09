@@ -5,6 +5,9 @@ ko:
     main_nav: 주 메뉴
     nav_search: 검색
     nav_about: 소개
+    display_settings: 화면 설정
+    large_text: 큰 글씨
+    high_contrast: 고대비 화면
     site_name: 업무상 질병 판정서
     footer_notice: 이 사이트의 판정 사례는 참고 자료이며, 개인의 산재 인정 여부를 예측하거나 의료·법률 판단을 대신하지 않습니다.
     footer_source: 데이터 출처는 근로복지공단 업무상질병 판정서 공개 자료입니다.

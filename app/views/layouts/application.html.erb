@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>">
+<html lang="<%= I18n.locale %>" <%= tag.attributes(display_settings_attributes) %>>
   <head>
     <title><%= content_for(:title) || t("search.title") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -28,6 +28,12 @@
           <li><%= nav_link_to t("layout.nav_about"), about_path, :about %></li>
         </ul>
       </nav>
+      <div class="display-settings" role="group" aria-label="<%= t("layout.display_settings") %>">
+        <%= button_to t("layout.large_text"), display_settings_path, params: { setting: "size" },
+              form: { data: { turbo: false } }, aria: { pressed: display_setting_on?("size").to_s } %>
+        <%= button_to t("layout.high_contrast"), display_settings_path, params: { setting: "contrast" },
+              form: { data: { turbo: false } }, aria: { pressed: display_setting_on?("contrast").to_s } %>
+      </div>
     </header>
     <main id="main" tabindex="-1">
       <%= yield %>

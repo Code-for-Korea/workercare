@@ -196,11 +196,14 @@ WCAG 2.2 AA를 바탕으로 하고 본문 대비만 AAA(7:1)를 목표로 한다
   | `.md` 응답, 오류 페이지 | 없음 |
 
 - **화면 설정(큰 글씨·고대비).**
-  - 쿠키 `display_size=large`, `display_contrast=high`. 1년, `same_site: :lax`, `httponly`. 허용값 외에는 무시한다.
+  - 쿠키 `display_size`(`large`), `display_contrast`(`high`, `normal`). 1년, `same_site: :lax`, `httponly`. 허용값 외에는 무시한다.
+  - 큰 글씨는 쿠키 없음 ⇄ `large`다. 눌러서 끄면 쿠키를 지운다.
+  - 고대비는 상태가 셋이다. 쿠키 없음이면 속성이 없어서 OS의 `prefers-contrast: more`를 따른다. `high`는 `data-contrast="high"`, `normal`은 `data-contrast="normal"`이다. [고대비 화면]을 눌러 끄면 쿠키를 지우지 않고 `normal`로 바꾼다. 그래야 OS 설정을 쓰는 사람도 끌 수 있다. 버튼은 쿠키가 `high`일 때만 눌린 상태다.
   - 서버가 `<html data-size="large" data-contrast="high">`를 그린다. JS가 없고 깜빡임이 없다.
+  - 눌린 버튼은 `aria-pressed="true"`에 더해 "✓" 표시와 굵은 테두리로 구분한다.
   - 헤더 `role="group" aria-label="화면 설정"` 안에 `POST /display-settings` 폼 둘. 버튼 이름은 고정이고 상태는 `aria-pressed`로 알린다.
   - 폼은 `data-turbo="false"`다. Turbo Drive가 `<html>` 속성을 바꾸지 않기 때문이다.
-  - 이 쿠키는 산재알아보기 세션 쿠키와 별개다. 답은 여기에 두지 않는다.
+  - 이 쿠키는 산재알아보기 세션 쿠키와 별개다. 답은 여기에 두지 않는다. 폼은 `button_to`라서 `form.button_to`가 붙는다. `.display-settings .button_to`로 스타일한다.
 
 ## 6. 글꼴(Pretendard)
 
