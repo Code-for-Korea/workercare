@@ -29,7 +29,7 @@
           <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
           <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
         </legend>
-        <div class="search-columns checkbox-grid">
+        <div class="checkbox-grid">
           <% DiseaseCases::Searchable::SEARCHABLE_COLUMNS.each do |column| %>
             <label class="flex items-center">
               <%= check_box_tag "search_in[]", column, (params[:search_in] || DiseaseCases::Searchable::SEARCHABLE_COLUMNS).include?(column), data: { "checkbox-group-target": "checkbox" } %>
@@ -54,7 +54,7 @@
           <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
           <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
         </legend>
-        <div class="disease-categories checkbox-grid">
+        <div class="checkbox-grid">
           <% DiseaseCase.enum_options_for_select(:disease_category).each do |label, value| %>
             <label class="flex items-center">
               <%= check_box_tag "disease_category[]", value, Array(params[:disease_category]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
@@ -69,7 +69,7 @@
           <%= link_to t("search.select_all") , "#", data: { action: "click->checkbox-group#selectAll" } %>
           <%= link_to t("search.deselect_all") , "#", data: { action: "click->checkbox-group#deselectAll" } %>
         </legend>
-        <div class="body-parts checkbox-grid">
+        <div class="checkbox-grid">
           <% DiseaseCase.enum_options_for_select(:body_part).each do |label, value| %>
             <label class="flex items-center">
               <%= check_box_tag "body_part[]", value, Array(params[:body_part]).include?(value), data: { "checkbox-group-target": "checkbox" } %>

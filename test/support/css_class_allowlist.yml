@@ -1,0 +1,12 @@
+# CSS 클래스 검사(test/integration/css_classes_test.rb)의 예외. 항목마다 이유를 적는다.
+# 가능하면 여기에 더하지 말고 CSS나 뷰를 고친다. 규칙은 DESIGN.md.
+
+# 화면에 쓰이지만 스타일이 없는 클래스(테스트·JS·스크린리더 연결용 훅)
+unstyled:
+  free-text: 시험이 form.free-text로 직접 입력 폼을 찾는다(self_care_form_controller_test.rb)
+  guide-first: 시험이 section.guide-first로 신청 안내를 앞에 둔 결과 화면을 찾는다
+  series-nav: Pagy가 쪽수 이동 nav에 붙이는 클래스. 스타일은 .pagy가 맡는다
+
+# CSS에는 있지만 서버가 그리는 HTML에는 없는 클래스(JS가 붙인다)
+dynamic:
+  is-active: search_form_controller.js가 붙인다

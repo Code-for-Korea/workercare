@@ -6,7 +6,7 @@
 
 - **최소 디자인.** 장식을 더하지 않는다. 읽고, 찾고, 누르는 데 필요한 것만 둔다.
 - **토큰 우선.** 색, 간격, 글자 크기, 모서리는 `tokens.css`의 변수만 쓴다. 컴포넌트 CSS에 `#hex`, `px`, 임의의 `rem` 값을 직접 쓰지 않는다. 필요한 값이 없으면 토큰을 먼저 더한다.
-- **컴포넌트는 고정 변형만.** 버튼은 기본, `.btn-secondary`, `.btn-link` 세 가지다. 높이·색을 화면마다 바꾸지 않는다. 변형이 필요하면 이 문서에 먼저 적는다.
+- **컴포넌트는 고정 변형만.** 버튼은 기본과 `.btn-secondary` 두 가지다. 높이·색을 화면마다 바꾸지 않는다. 변형이 필요하면 이 문서에 먼저 적는다.
 - **Tailwind를 쓰지 않는다.**
   - 화면은 erb 25개, 클래스 종류 약 40개다. 직접 쓰는 CSS 500줄 안팎이면 충분하다.
   - `tailwindcss-rails`는 빌드 바이너리, `bin/dev` watcher, Docker 빌드 단계를 늘린다. 지금은 importmap + propshaft로 빌드가 없다.
@@ -21,7 +21,7 @@
 |---|---|
 | `tokens.css` | 색(밝은 화면, 고대비), 간격, 글자 크기, 모서리, `--control-h`, 큰 글씨 |
 | `base.css` | 최소 리셋, 본문·링크·포커스, 폼 요소·표·`details`·`progress` 기본 스타일 |
-| `layout.css` | `.container`, `.container-narrow`, 헤더·메뉴·푸터, `.display-settings`, `.stack`, `.cluster`, `.grid-auto` |
+| `layout.css` | `.container`, `.container-narrow`, 헤더·메뉴·푸터, `.display-settings`, `.grid-auto` |
 | `components.css` | 4장의 컴포넌트. 페이지네이션 포함 |
 | `utilities.css` | `sr-only`(`visually-hidden` 별칭 포함), `text-muted`, `text-sm`, `whitespace-*`, `flex`, `items-center`, `gap-*` 등 쓰는 것만 |
 | `application.css` | 유지한다. 내용을 바꾸지 않고 지우지 않는다 |
@@ -51,6 +51,8 @@
   - `unstyled`: HTML에는 있지만 스타일이 없는 클래스(테스트·JS 훅용).
   - `dynamic`: CSS에는 있지만 서버 HTML에 나오지 않는 클래스(JS가 붙이는 `is-active` 등).
 - 허용 목록에 더하기 전에 클래스를 지울 수 있는지 먼저 본다.
+- 허용 목록에 있는데 더는 필요 없는 항목(이미 스타일이 생겼거나 서버가 그리게 된 클래스)도 테스트가 실패시킨다.
+- `application.css`는 매니페스트 주석만 있어 검사에서 빼고, 클래스를 정의하지 않는지만 확인한다.
 
 ## 3. 토큰
 
@@ -110,6 +112,8 @@
 
 기준: 본문·보조 글자·링크·버튼 글자·오류 글자 7:1 이상, 포커스·테두리 3:1 이상. 아래 값은 Ruby 스크립트로 계산했다. 두 테마 모두 모든 조합이 기준을 넘는다.
 
+`test/design/contrast_test.rb`는 아래 조합에 더해 오류 글자 / 표면(7:1)도 두 테마에서 확인한다.
+
 **밝은 화면**
 
 | 전경 / 배경 | 대비 | 기준 |
@@ -148,7 +152,6 @@
 |---|---|
 | 버튼 `button`, `[type=submit]` | 채운 강조색. 화면의 주된 동작 하나에 쓴다. 높이는 `--control-h` 하나뿐이다. |
 | `.btn-secondary` | 테두리만 있는 버튼. 되돌리기, 초기화 같은 보조 동작이다. |
-| `.btn-link` | 링크 모양 버튼. 문장 속에서 폼을 제출해야 할 때만 쓴다. |
 | 선택 버튼 `ul.choices` | 산재알아보기의 보기 선택. 흰 바탕 2px 테두리, 왼쪽 정렬, 높이 3rem, 최소 10rem 칸 auto-fill. hover·focus-visible은 테두리와 배경을 함께 바꾼다. `.btn-secondary`(해당 없음·모르겠어요·건너뛰기)는 같은 모양에 점선 테두리라 색 없이도 구분된다. forced-colors에서도 테두리가 보인다. |
 | 입력, `.field` | 라벨 위, 입력 아래. 오류는 `[aria-invalid=true]`에 빨간 테두리와 **문구**를 함께 둔다. 라벨 전체를 클릭 영역으로 쓴다. |
 | `.search-row` | 검색창 한 줄(산재알아보기 직접 입력도 같은 줄을 쓴다). 입력은 `flex: 1 1 12rem; min-width: 0`, 버튼은 줄어들지 않는다. 좁거나 글씨가 크면 버튼이 다음 줄로 내려간다. |
