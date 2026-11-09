@@ -8,7 +8,7 @@ en:
     none: None of these
     unknown: I don't know
     restart: Start over
-    new_window: "(opens in a new window)"
+    new_window: "(opens in a new window, external site)"
     progress: "Question %{n} of %{total}"
     question_title: "Question %{n}/%{total}: %{title}"
     disclaimer: "This is reference material based on Korea Workers' Compensation and Welfare Service rulings on occupational diseases. It does not predict whether any individual claim will be approved and is not medical or legal advice. If you are in pain or worried, contact a medical institution or a labor counseling organization."
@@ -77,7 +77,6 @@ en:
       body_unmatched: We could not tell which body part you meant, so we searched without a body part.
       guide_heading: Good to know first
       original: Original ruling
-      detail: Details
       job: Job
       body: Body part
       decision: Ruling

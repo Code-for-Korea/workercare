@@ -224,6 +224,18 @@ class SelfCareFormControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[role=button][href='#{self_care_form_result_path}']", text: "결과 보기"
   end
 
+  test "the review page shows the answers as dl rows, each with a change link" do
+    begin_session
+    answer("situation", value: "ill")
+    get self_care_form_review_path
+
+    assert_select "main .container-narrow dl.case-meta", minimum: 2
+    assert_select "dl.case-meta > div", minimum: 4 do
+      assert_select "dt"
+      assert_select "dd a[href^='/self-care-form/']", text: "바꾸기"
+    end
+  end
+
   test "starting over clears the answers and the consent but is a POST" do
     begin_session
     answer("situation", value: "ill")
@@ -265,6 +277,25 @@ class SelfCareFormControllerTest < ActionDispatch::IntegrationTest
     assert_match "개인의 산재 인정 여부를 예측하거나", response.body
     assert_no_match(/SECRET-CLAIM|SECRET-REASONING|SECRET-JOB-DESC/, response.body, "서술형 요약은 노출하지 않는다")
     assert_no_match(/인정됩니다|인정될 것|가능성이 높/, response.body)
+  end
+
+  test "the result's original-document links open a new window and say so for screen readers" do
+    make_cases
+    begin_session
+    answer("body_part", value: "손목")
+    get self_care_form_result_path
+
+    assert_select ".container-narrow ul.case-list li a[target=_blank][rel='noopener noreferrer'] .visually-hidden", text: /새 창, 외부 사이트/
+  end
+
+  test "every choice step renders its buttons inside ul.choices" do
+    begin_session
+    %w[situation body_part job decision].each do |step|
+      get self_care_form_step_path(step)
+      assert_select ".container-narrow ul.choices button[name=value]", minimum: 2
+      assert_select "p.progress-text", count: 1
+      assert_select "progress", count: 1
+    end
   end
 
   test "zero results relax the decision then the job, tell the user, and the more-detail link carries only what produced results" do

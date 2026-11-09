@@ -1,5 +1,5 @@
 <% content_for :title, "#{self_care_title} — #{t('layout.site_name')}" %>
-<div class="container self-care-form">
+<div class="container-narrow">
   <% if @consent_error %>
     <%= render "error_summary", errors: { "consent" => t("self_care_form.start.consent_error") } %>
   <% end %>
@@ -12,7 +12,7 @@
   <p><%= t("self_care_form.start.about") %></p>
 
   <%= form_with url: self_care_form_agree_path, method: :post, local: true do %>
-    <label for="consent">
+    <label for="consent" class="check-row">
       <%= check_box_tag "consent", "1", false, id: "consent",
             "aria-invalid": (@consent_error ? "true" : nil),
             "aria-describedby": (@consent_error ? "consent-error" : nil) %>
@@ -24,7 +24,7 @@
 
     <%# 통계용 저장은 구글 연동이 켜진 배포에서만 선택 동의로 묻는다. 꺼져 있으면 체크란도 안내도 없다. %>
     <% if SelfCareForm.google_enabled? %>
-      <label for="stats_consent">
+      <label for="stats_consent" class="check-row">
         <%= check_box_tag "stats_consent", "1", false, id: "stats_consent", "aria-describedby": "stats-consent-detail" %>
         <%= t("self_care_form.start.stats_consent") %>
       </label>

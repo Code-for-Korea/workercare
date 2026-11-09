@@ -1,8 +1,10 @@
 <%# 직접 입력: 버튼과 별도의 form이라 Enter가 엉뚱한 버튼을 누르지 않는다. 서버가 30자로 자르고 로그에 남기지 않는다. %>
 <%= form_with url: self_care_form_step_path(step), method: :post, local: true, class: "free-text" do %>
   <label for="free_text_<%= step %>"><%= t("self_care_form.steps.#{step}.free_label") %></label>
-  <input type="text" id="free_text_<%= step %>" name="free_text" maxlength="<%= SelfCareForm::Flow::FREE_TEXT_MAX %>"
-         value="<%= value %>" autocomplete="off" aria-describedby="free_text_hint_<%= step %>">
-  <small id="free_text_hint_<%= step %>"><%= t("self_care_form.steps.#{step}.free_hint") %></small>
-  <button type="submit"><%= t("self_care_form.steps.#{step}.free_submit") %></button>
+  <div class="search-row">
+    <input type="text" id="free_text_<%= step %>" name="free_text" maxlength="<%= SelfCareForm::Flow::FREE_TEXT_MAX %>"
+           value="<%= value %>" autocomplete="off" aria-describedby="free_text_hint_<%= step %>">
+    <button type="submit"><%= t("self_care_form.steps.#{step}.free_submit") %></button>
+  </div>
+  <p id="free_text_hint_<%= step %>" class="text-muted text-sm"><%= t("self_care_form.steps.#{step}.free_hint") %></p>
 <% end %>

@@ -8,7 +8,7 @@ ko:
     none: 해당 없음
     unknown: 모르겠어요
     restart: 처음부터 다시
-    new_window: "(새 창)"
+    new_window: "(새 창, 외부 사이트)"
     progress: "질문 %{total}개 중 %{n}번째"
     question_title: "질문 %{n}/%{total}: %{title}"
     disclaimer: "이 자료는 근로복지공단 업무상질병 판정서를 바탕으로 한 참고용 결과입니다. 개인의 산재 인정 여부를 예측하거나 의료·법률 판단을 대신하지 않습니다. 몸이 아프거나 걱정되면 의료기관이나 노동 상담 기관에 문의하세요."
@@ -77,7 +77,6 @@ ko:
       body_unmatched: 입력한 신체 부위를 정확히 알아보지 못해 신체 부위 조건 없이 찾았습니다.
       guide_heading: 먼저 알아 두면 좋은 것
       original: 원문 판정서
-      detail: 상세 보기
       job: 직업
       body: 신체 부위
       decision: 판정 결과

@@ -3,7 +3,7 @@
   <% SelfCareForm::Flow::PROFILE_FIELDS.each do |field, options| %>
     <fieldset>
       <legend><%= t("self_care_form.steps.profile.#{field}") %></legend>
-      <div class="radio-options">
+      <div class="radio-options checkbox-grid">
         <label>
           <input type="radio" name="<%= field %>" value="" <%= "checked" if answers[field].blank? %>>
           <%= t("self_care_form.steps.profile.no_answer") %>

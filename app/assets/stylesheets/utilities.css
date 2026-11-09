@@ -19,6 +19,10 @@
     color: var(--color-muted);
   }
 
+  .text-sm {
+    font-size: var(--text-sm);
+  }
+
   .whitespace-nowrap {
     white-space: nowrap;
   }

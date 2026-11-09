@@ -1,5 +1,5 @@
 <% content_for :title, "#{result_title(@answers)} — #{self_care_title}" %>
-<div class="container self-care-form">
+<div class="container-narrow">
   <h1 tabindex="-1" autofocus><%= result_title(@answers) %></h1>
 
   <% if session[:self_care_form_submitted] %>
@@ -46,7 +46,6 @@
             <% if kase.year.present? %> · <%= t("self_care_form.result.year_suffix", year: kase.year) %><% end %>
           </p>
           <p>
-            <%= link_to t("self_care_form.result.detail"), disease_case_path(kase.case_no) %> ·
             <%= link_to kase.detail_url, target: "_blank", rel: "noopener noreferrer" do %><%= t("self_care_form.result.original") %><span class="visually-hidden"> <%= t("self_care_form.new_window") %></span><% end %>
           </p>
         </li>
@@ -61,5 +60,5 @@
   <p><%= link_to t("self_care_form.result.more_detail"), search_path(@search_link_params) %></p>
   <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "btn-secondary" %>
 
-  <p><small><%= t("self_care_form.disclaimer") %></small></p>
+  <p class="text-muted text-sm"><%= t("self_care_form.disclaimer") %></p>
 </div>
