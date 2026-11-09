@@ -165,6 +165,9 @@
 | 페이지네이션 | Pagy `series_nav` 출력을 토큰으로 스타일한다. 현재 쪽은 `aria-current="page"`와 굵은 밑줄로 표시한다. |
 | 화면 설정 `.display-settings` | 헤더의 [큰 글씨]·[고대비] 토글. `aria-pressed`로 상태를 알린다. 5장 참고. |
 | 사이트 헤더·메뉴·푸터 | `.site-header`(사이트명, 주 메뉴, 화면 설정), `.site-nav`, `.site-footer`(참고용 고지, 데이터 출처 한 줄). 줄바꿈한다. |
+| `.site-name` | 헤더의 사이트명 링크. 굵게, 밑줄 없음. 홈에서는 `aria-current="page"`가 붙는다. |
+| `.checkbox-grid` | 체크박스·라디오 격자. 최소 8rem 칸으로 자동 채운다(auto-fill). 라벨 전체가 클릭 영역이다. |
+| `.cell-wide` | 표에서 글이 긴 칸(직무 설명, 질병명). 최소 10rem, 최대 12rem이고 단어 중간에서 줄바꿈한다. |
 | 컨테이너 | `.container`(최대 72rem), `.container-narrow`(40rem; 산재알아보기·가이드·소개). 좌우 여백 `--space-4`. |
 
 ## 5. 접근성 규칙

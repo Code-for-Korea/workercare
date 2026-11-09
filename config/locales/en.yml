@@ -4,6 +4,8 @@ en:
     skip_to_content: Skip to main content
     main_nav: Main menu
     site_name: Occupational disease rulings
+    footer_notice: The rulings on this site are for reference only. They do not predict whether any individual claim will be approved and are not medical or legal advice.
+    footer_source: Source is the published occupational disease rulings of the Korea Workers' Compensation & Welfare Service.
   apply_guide:
     title: How to apply for industrial accident compensation
     source: Source

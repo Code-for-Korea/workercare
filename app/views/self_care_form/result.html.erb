@@ -59,7 +59,7 @@
     <p><%= link_to t("self_care_form.result.appeal_guide"), apply_guide_path(anchor: "rejection_appeal") %></p>
   <% end %>
   <p><%= link_to t("self_care_form.result.more_detail"), search_path(@search_link_params) %></p>
-  <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "secondary outline" %>
+  <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "btn-secondary" %>
 
   <p><small><%= t("self_care_form.disclaimer") %></small></p>
 </div>

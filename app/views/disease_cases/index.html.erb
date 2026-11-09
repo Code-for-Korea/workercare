@@ -2,7 +2,7 @@
 <div class="container">
   <h3><%= t("search.main_title") %></h3>
   <%= form_with url: root_path, method: :get, local: true, data: { controller: "search-form" } do |form| %>
-    <div role="search">
+    <div role="search" class="search-row">
       <%= form.search_field :q, value: params[:q], placeholder: t("search.main_placeholder") %>
       <%= form.submit t("helpers.submit.search"), name: "search", data: { "search-form-target": "button", "loading-text": t("search.loading") } %>
     </div>
@@ -12,7 +12,7 @@
     </div>
     <%= render "carried_filters" %>
 
-    <div class="grid">
+    <div class="grid-auto">
       <div>
         <%= form.label :job_name, DiseaseCase.human_attribute_name(:job_name) %>
         <%= form.text_field :job_name, value: params[:job_name] %>
@@ -29,7 +29,7 @@
         <%= link_to t("search.select_all"), "#", data: { action: "click->checkbox-group#selectAll" } %>
         <%= link_to t("search.deselect_all"), "#", data: { action: "click->checkbox-group#deselectAll" } %>
       </legend>
-      <div class="grid grid-cols-2 md:grid-cols-4">
+      <div class="checkbox-grid">
         <% @burden_body_part_options.each do |value| %>
           <label class="flex items-center">
             <%= check_box_tag "burden_body_part[]", value, Array(params[:burden_body_part]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
