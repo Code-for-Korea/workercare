@@ -71,6 +71,8 @@
 
 ## 7. 웹 접근성 (목표: KWCAG 2.2 / WCAG 2.2 AA 수준)
 
+색 대비, 포커스 표시, 44px 터치 크기, 큰 글씨·고대비 화면 설정의 기준과 구현은 [DESIGN.md](../DESIGN.md)에 있다. 여기서는 되풀이하지 않는다.
+
 이 작업은 접근성을 높이려는 구현 기준이며 "KWCAG 준수"나 웹접근성 품질마크 인증을 주장하지 않는다. 항목별 조문은 NIA 지침 원문으로 대조해야 한다 `[확인 필요]`. KRDS의 라디오·단계 표시 명세와 라이선스는 확인하지 못해 **코드를 복사하지 않았다**. GOV.UK Design System의 패턴(질문 하나·뒤로 가기·답변 확인·`fieldset`+`legend`·오류 요약)만 참고했다.
 
 자동 테스트가 확인하는 것(`test/controllers/self_care_form_controller_test.rb`, `layout_accessibility_test.rb`):

@@ -4,6 +4,7 @@
 # See the Securing Rails Applications Guide for more information:
 # https://guides.rubyonrails.org/security.html#content-security-policy-header
 
+# CSP를 켜면 Pretendard 글꼴(CDN) 때문에 style_src와 font_src 둘 다에 https://cdn.jsdelivr.net을 넣는다(DESIGN.md 6장).
 # Rails.application.configure do
 #   config.content_security_policy do |policy|
 #     policy.default_src :self, :https
