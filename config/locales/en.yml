@@ -36,6 +36,47 @@ en:
     source:
       heading: Data source
       text: The occupational disease rulings published by the Korea Workers' Compensation & Welfare Service. Each case links to the original. The rulings are de-identified but may not be complete.
+    facts:
+      # Static text, not computed per request. Counted on 2026-11-11 from the dev DB (61,815 rulings) with bin/rails runner;
+      # to refresh, rerun the queries in docs/about-figures.md and update the values and the as-of date together.
+      heading: Good to know about the data
+      basis: "The numbers below count the 61,815 occupational disease rulings published by the Korea Workers' Compensation & Welfare Service, as of 2026-11-11. Ruling dates run from 2016-12-27 to 2021-12-30 (197 rulings have no date). Only 16 rulings are from 2016; most are from 2017 to 2021."
+      overview_heading: The rulings at a glance
+      overview_caption: Rulings by result (out of 61,815, as of 2026-11-11)
+      col_result: Result
+      col_count: Count
+      col_percent: Share
+      results:
+        - { label: Approved, count: "30,357", percent: "49.11%" }
+        - { label: Partially approved, count: "6,826", percent: "11.04%" }
+        - { label: Revised approval, count: "1,030", percent: "1.67%" }
+        - { label: Rejected, count: "23,602", percent: "38.18%" }
+      death_text: "Rulings involving a death (death status Y) number 4,587, or 7.42% of the total. 6,819 rulings with no death status recorded are not counted."
+      caveat: These numbers only count past rulings. They do not tell you whether your own case would be approved, and they do not show approval rates by job or disease.
+      groups_heading: Common disease groups and body parts
+      groups_basis: Disease groups and body parts are classifications extracted from the rulings. Rulings with no value are not counted, so the totals do not add up to 61,815 (no disease group 6,290; no body part 19,848). Shares are out of all 61,815.
+      disease_groups_label: Disease group
+      disease_groups:
+        - { label: Musculoskeletal, count: "42,596", percent: "68.9%" }
+        - { label: Cerebro-cardiovascular, count: "12,547", percent: "20.3%" }
+        - { label: Other diseases, count: "381", percent: "0.6%" }
+      body_parts_label: Body part (of the claimed condition)
+      body_parts:
+        - { label: Arm, count: "18,466", percent: "29.9%" }
+        - { label: Lower back, count: "13,805", percent: "22.3%" }
+        - { label: Leg, count: "4,378", percent: "7.1%" }
+        - { label: Other, count: "2,501", percent: "4.0%" }
+        - { label: Neck, count: "2,081", percent: "3.4%" }
+      checks_heading: Points that often appear in rulings
+      checks_lead: Reading the conclusions of the rulings, these points are often examined. This is an observation from the documents. It does not mean that having them guarantees approval, and it is not legal advice.
+      checks:
+        - The link between work and the disease (rulings often use the term "causal relationship")
+        - Work records such as the length of employment and days worked, and work load such as daily amounts of work
+        - For musculoskeletal diseases, physical strain such as repetitive motion, forceful exertion, awkward posture and vibration
+        - Medical opinions such as diagnoses and treatment records
+        - Telling apart a pre-existing or personal condition and natural progression
+      limits_heading: Limits of the data
+      limits_text: Some fields, such as disease group, body part and occupation, were extracted automatically from the ruling text and may be wrong or empty. The rulings are de-identified, so individual cases cannot be fully known, and similar diagnoses can have different outcomes. The counting method is in docs/about-figures.md in the repository.
     privacy:
       heading: Privacy
       lead: This site uses cookies for separate purposes.

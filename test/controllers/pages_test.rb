@@ -17,6 +17,22 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_select "main a[href='/llms.txt']"
   end
 
+  test "GET /about shows DB-verified overall figures with basis and no per-job approval rates" do
+    get about_path
+    assert_response :success
+
+    assert_select "h2", text: "알아 두면 좋은 자료"
+    assert_select "h3", text: "판정 사례 한눈에 보기"
+    assert_select "h3", text: "자주 나오는 질병군·신체 부위"
+    assert_select "h3", text: "판정서에 자주 나오는 확인 항목"
+    assert_select "main", text: /61,815건.*기준일은 2026-11-11/m
+    assert_select "tr", text: /인정\s*30,357건\s*49\.11%/
+    assert_select "p", text: /예측|알려 주지 않고/
+    assert_select "p", text: /직업이나 질병별 인정 비율도 보여 주지 않습니다/
+    assert_select "main", text: /직종별 인정률|직업별 인정률/, count: 0
+    assert_select ".table-scroll table", minimum: 3
+  end
+
   test "GET /about says statistics saving is on when the Google Form setting is enabled" do
     SelfCareForm::Settings.current = SelfCareForm::Settings.load(file_fixture("self_care_form_sample.yml"))
     get about_path

@@ -24,6 +24,73 @@
   </section>
 
   <section>
+    <h2><%= t("about.facts.heading") %></h2>
+    <p><%= t("about.facts.basis") %></p>
+
+    <h3><%= t("about.facts.overview_heading") %></h3>
+    <div class="table-scroll" role="region" tabindex="0" aria-label="<%= t("about.facts.overview_caption") %>">
+      <table>
+        <caption><%= t("about.facts.overview_caption") %></caption>
+        <thead>
+          <tr>
+            <th scope="col"><%= t("about.facts.col_result") %></th>
+            <th scope="col"><%= t("about.facts.col_count") %></th>
+            <th scope="col"><%= t("about.facts.col_percent") %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% t("about.facts.results").each do |row| %>
+            <tr>
+              <th scope="row"><%= row[:label] %></th>
+              <td><%= row[:count] %></td>
+              <td><%= row[:percent] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <p><%= t("about.facts.death_text") %></p>
+    <p><%= t("about.facts.caveat") %></p>
+
+    <h3><%= t("about.facts.groups_heading") %></h3>
+    <p><%= t("about.facts.groups_basis") %></p>
+    <% { "disease_groups" => "disease_groups_label", "body_parts" => "body_parts_label" }.each do |rows_key, label_key| %>
+      <div class="table-scroll" role="region" tabindex="0" aria-label="<%= t("about.facts.#{label_key}") %>">
+        <table>
+          <caption><%= t("about.facts.#{label_key}") %></caption>
+          <thead>
+            <tr>
+              <th scope="col"><%= t("about.facts.#{label_key}") %></th>
+              <th scope="col"><%= t("about.facts.col_count") %></th>
+              <th scope="col"><%= t("about.facts.col_percent") %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% t("about.facts.#{rows_key}").each do |row| %>
+              <tr>
+                <th scope="row"><%= row[:label] %></th>
+                <td><%= row[:count] %></td>
+                <td><%= row[:percent] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <h3><%= t("about.facts.checks_heading") %></h3>
+    <p><%= t("about.facts.checks_lead") %></p>
+    <ul>
+      <% t("about.facts.checks").each do |item| %>
+        <li><%= item %></li>
+      <% end %>
+    </ul>
+
+    <h3><%= t("about.facts.limits_heading") %></h3>
+    <p><%= t("about.facts.limits_text") %></p>
+  </section>
+
+  <section>
     <h2><%= t("about.privacy.heading") %></h2>
     <p><%= t("about.privacy.lead") %></p>
     <h3><%= t("about.privacy.self_care_heading") %></h3>
