@@ -81,12 +81,34 @@ class SelfCareForm::CaseFinderTest < ActiveSupport::TestCase
     assert_equal %w[TEST-CF-A TEST-CF-B TEST-CF-C TEST-CF-D], numbers(any)
   end
 
-  test "SQL statements stay within attempts plus one count" do
+  test "SQL statements stay within attempts plus the row read and one count" do
     worst = conditions(body_tokens: [ "허리" ], job_name_any: [ "조리" ], decision: "rejected")
-    assert_operator sql_count { SelfCareForm::CaseFinder.new(worst).call }, :<=, 4
+    assert_operator sql_count { SelfCareForm::CaseFinder.new(worst).call }, :<=, 5
 
     first_hit = conditions(body_tokens: [ "손목" ])
-    assert_operator sql_count { SelfCareForm::CaseFinder.new(first_hit).call }, :<=, 2
+    assert_operator sql_count { SelfCareForm::CaseFinder.new(first_hit).call }, :<=, 3
+  end
+
+  test "the list is found by ids first and only those rows are read in full" do
+    selects = []
+    callback = lambda { |*, payload| selects << payload[:sql] if payload[:sql].match?(/\A\s*SELECT/i) && payload[:name] != "SCHEMA" }
+    result = ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      SelfCareForm::CaseFinder.new(conditions(body_tokens: [ "손목" ])).call
+    end
+
+    id_query, row_query = selects
+    assert_match(/\ASELECT "disease_cases"\."id" FROM/, id_query)
+    assert_match(/INDEXED BY "#{SelfCareForm::CaseFinder::INDEX_NAME}"/, id_query)
+    assert_match(/\ASELECT "disease_cases"\.\* FROM "disease_cases" WHERE "disease_cases"\."id" IN \(/, row_query)
+    assert_equal %w[TEST-CF-A TEST-CF-B TEST-CF-C], numbers(result), "year 내림차순"
+  end
+
+  test "records with the same year come back newest id first" do
+    older = DiseaseCase.create!(case_no: "TEST-CF-T1", job_name: "동점", year: 2019)
+    newer = DiseaseCase.create!(case_no: "TEST-CF-T2", job_name: "동점", year: 2019)
+    result = SelfCareForm::CaseFinder.new(conditions(job_name: "동점")).call
+
+    assert_equal [ newer.id, older.id ], result.records.map(&:id)
   end
 
   test "more than ten records sets more and shows ten" do
