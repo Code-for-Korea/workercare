@@ -20,7 +20,6 @@ class DiseaseCasesController < ApplicationController
   def search
     perform_search(legacy: true)
     set_common_filter_options
-    set_advanced_filter_options
   end
 
   def show
@@ -47,9 +46,8 @@ class DiseaseCasesController < ApplicationController
     @burden_body_part_options = burden_body_part_options(counts)
     @burden_body_part_datalist_options = burden_body_part_datalist_options(counts)
     @application_type_options = application_type_options
-  end
-
-  def set_advanced_filter_options
+    @employment_type_options = employment_type_options
+    @work_type_options = work_type_options
     @work_relevance_eval_options = WORK_RELEVANCE_EVAL_OPTIONS
   end
 
@@ -78,10 +76,20 @@ class DiseaseCasesController < ApplicationController
     counts.keys.sort
   end
 
+  # 정규화된 토큰 8개 + 기타(config/normalization/rules.yml). 값 목록이 고정이라 distinct 조회가 필요 없다.
   def application_type_options
-    Rails.cache.fetch("disease_cases/application_type_options", expires_in: 1.day) do
-      DiseaseCase.where.not(application_type: [ nil, "" ]).distinct.order(:application_type).pluck(:application_type)
-    end
+    rules = DiseaseCases::Normalizer::RULES.fetch("application_type")
+    rules.fetch("tokens").map { |t| t["name"] } << rules.fetch("other")
+  end
+
+  def employment_type_options
+    rules = DiseaseCases::Normalizer::RULES.fetch("employment_type")
+    rules.fetch("categories").map { |c| c["name"] }.uniq.reject { |n| n == rules.fetch("other") } << rules.fetch("other")
+  end
+
+  def work_type_options
+    rules = DiseaseCases::Normalizer::RULES.fetch("work_type")
+    rules.fetch("categories").map { |c| c["name"] } << rules.fetch("other")
   end
 
   def paginate(scope)
@@ -108,7 +116,7 @@ class DiseaseCasesController < ApplicationController
       :death_status, :application_type, :employment_type, :work_type,
       :work_relevance_eval, :sort, :commit, :search,
       :burden_body_part_text,
-      burden_body_part: [], ksco_code: []
+      application_type: [], burden_body_part: [], ksco_code: []
     )
   end
 

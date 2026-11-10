@@ -92,18 +92,23 @@ module DiseaseCases
         end
 
         scope = scope.where(death_status: params[:death_status]) if params[:death_status].present?
-        scope = scope.where(application_type: params[:application_type]) if params[:application_type].present?
-        # employment_type은 distinct 값이 1,583개로 잘게 쪼개져 있어(예: "1년 계약직"/
-        # "1년 계약직(비정규직)") 웹 UI에는 입력을 두지 않는다(사용자가 직접 골라 검색할 이유가
-        # 없음). MCP 클라이언트가 구조화 필터로 넘길 때만 exact match로 쓰인다.
-        scope = scope.where(employment_type: params[:employment_type]) if params[:employment_type].present?
+        # application_type은 정규화된 토큰을 `|`로 결합한 다중값이다(예: "유족급여|장의비").
+        # burden_body_part처럼 파이프 경계로 매칭하고, 여러 토큰은 OR로 묶는다.
+        # 옛 표기("요양급여신청서" 등)가 들어와도 Normalizer로 토큰으로 바꿔 매칭한다.
+        tokens = Array(params[:application_type]).flat_map { |v| DiseaseCases::Normalizer.application_type(v).value.to_s.split("|") }.uniq
+        if tokens.any?
+          conditions = Array.new(tokens.size, "('|' || disease_cases.application_type || '|') LIKE ?").join(" OR ")
+          scope = scope.where(conditions, *tokens.map { |t| "%|#{sanitize_sql_like(t)}|%" })
+        end
 
-        # work_type은 distinct 값이 14,582개로(예: "02:30~11:30 (평일 및 토요일)") 사실상 자유 텍스트라
-        # <datalist>로 목록화할 수 없다(3.2절). exact match를 쓰면 사용자가 직접 입력한 값이 저장된
-        # 문자열과 한 글자라도 다르면 0건이 되므로, job_name/job_description과 같은 LIKE 부분 일치로 처리한다.
+        # employment_type / work_type은 정규화된 범주(config/normalization/rules.yml)와 exact match한다.
+        # 범주 밖의 옛 표기("상용/정규직", "고정 주간근무")는 Normalizer로 범주로 바꿔서 비교한다.
+        # 시간·괄호 부가 표기는 *_detail 컬럼에 있고 검색 대상이 아니다.
+        if params[:employment_type].present?
+          scope = scope.where(employment_type: DiseaseCases::Normalizer.employment_type(params[:employment_type]).value)
+        end
         if params[:work_type].present?
-          safe = sanitize_sql_like(params[:work_type])
-          scope = scope.where("work_type LIKE ?", "%#{safe}%")
+          scope = scope.where(work_type: DiseaseCases::Normalizer.work_type(params[:work_type]).value)
         end
 
         scope = scope.where(work_relevance_eval: params[:work_relevance_eval]) if params[:work_relevance_eval].present?

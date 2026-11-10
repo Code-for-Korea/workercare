@@ -104,6 +104,7 @@
 - `work_relevance_eval`: `["매우_높음", "높음", "보통", "낮음", "매우_낮음", "미흡"]` (`wip/cerebras_prompts.rb`의 추출 스키마 기준 6개 전부 — 4개만 쓰면 `매우_낮음`/`미흡` 데이터를 필터로 찾을 수 없다)
 - `death_status`: `["Y", "N"]` → boolean enum 처리 가능
 - `application_type`: `["요양급여", "유족급여 및 장의비", "요양급여신청서", "유족급여 및 장의비청구서", ...]` (정규화 필요)
+  > **해결됨 (정규화 적용)**: `docs/disease-cases-normalization.md`. 토큰 8개(요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청)+`기타`를 `|`로 결합해 저장하고, 원문 부가 표기는 `application_type_detail`에 남긴다. `employment_type`(정규직·상용직·일용직·계약직·파견직·특수고용·프리랜서·자영업·기타)과 `work_type`(고정주간근무·교대근무·야간근무·격일근무·시간제근무·일용근무·기타)도 범주로 정규화하고 세부 표기는 `*_detail`에 둔다. 아래 위 항목들의 distinct 값 서술(`employment_type` 1,583개, `work_type` 14,582개)은 정규화 전 수치다.
 - `burden_body_part`/`bad_posture`: 파이프 구분 다중값이므로 단일 컬럼 enum으로 만들지 않는다.
   > **해결됨 (실 데이터 profiling 결과)**: `burden_body_part`를 실제 CSV(`wip/extract_disease_cases_details_cerebras-ksco.csv`)에서 파이프로 split해 집계한 결과, distinct 원자값이 **1,174개**였다(원본 combined 문자열 기준 7,334개). 빈도 상위 10개가 전체 (행,토큰) 발생의 67.6%, 상위 20개 83.0%, 상위 30개 88.5%를 차지하는 롱테일 분포(우측/좌측/양측 접두어, "어깨"/"견관절" 같은 동의어가 원인)라 전부 체크박스로 노출할 수 없었다. 최종적으로 **상위 12개만 체크박스**(빈도순으로 골라 표시는 가나다순)로 노출하고, 나머지는 새 텍스트 입력 `burden_body_part_text`에 네이티브 HTML `<datalist>`(전체 distinct 토큰을 `<option>`으로 나열)로 자동완성해 찾도록 했다. 자유 텍스트 값도 체크박스와 동일한 파이프 경계 인식 LIKE 매칭을 그대로 탄다(5.3절 `apply_main_filters` 참고). KSCO 계층형 자동완성처럼 별도 Stimulus 컴포넌트나 서버 엔드포인트를 새로 만들지 않고 브라우저 네이티브 기능만으로 구현 범위를 좁혔다.
 
@@ -500,17 +501,19 @@ end
 | **직업 (직종명)** | `/`, `/search` | 텍스트 입력 | `job_name` (LIKE) | KSCO 자동완성 드롭다운은 2차 구현으로 미룸(아래 참고) |
 | **하는일 (담당 업무)** | `/`, `/search` | 텍스트 입력 | `job_description` (LIKE) | 한국어 조사 제거는 FTS5 쪽에만 적용(구조화 필터는 단순 LIKE) |
 | **아픈 신체 부위** | `/`, `/search` | 체크박스(빈도 상위 12개) + `<datalist>` 자동완성 텍스트 입력(`burden_body_part_text`) | `burden_body_part` (파이프 구분 다중값) | 단일 exact match도 단순 `LIKE '%값%'`도 아님 — "목"이 "손목"/"발목"/"뒷목"까지 잘못 매칭되지 않도록 파이프 경계 인식 LIKE로 매칭 (5.3절). 실 데이터 distinct 토큰이 1,174개라 전부 체크박스로 못 내서, 상위 12개만 체크박스로 두고 나머지는 네이티브 `<datalist>`로 자동완성 (3.2절 참고) |
-| **신청서 유형** | `/`, `/search` | 드롭다운 | `application_type` | distinct 값 그대로 노출(정규화는 후속 작업 — 아래 3.2절 참고) |
+| **신청서 종류** | `/`, `/search` | 체크박스(토큰 8개 + 기타, 다중 선택은 OR) | `application_type` (`\|` 결합 다중값) | 파이프 경계 매칭(`('\|' \|\| application_type \|\| '\|') LIKE '%\|토큰\|%'`). 옛 표기(`요양급여신청서` 등)는 `DiseaseCases::Normalizer`로 토큰으로 바꿔 매칭한다. AND(모두 포함)는 보류 |
 | **사망 여부** | `/`, `/search` | 스위치 / 체크박스 | `death_status` | Y/N |
-| **근무 형태** | `/search`만 | 텍스트 입력(자동완성 없음) | `work_type` (LIKE) | distinct 값이 14,582개로 사실상 자유 텍스트라(예: `"02:30~11:30 (평일 및 토요일)"`) `<datalist>`에 담을 수 없다. 처음엔 exact match였는데, 사용자가 직접 입력한 값이 저장된 문자열과 한 글자만 달라도 0건이 되는 문제가 있어 LIKE 부분 일치로 바꿨다 |
-| **업무관련성 평가** | `/search`만 | 드롭다운 | `work_relevance_eval` | 추출 스키마상 6개뿐인 진짜 enum(`매우_높음`~`미흡`)이라 exact match 그대로 유지 |
-| **고용 형태** | UI 없음(쿼리스트링/MCP만) | — | `employment_type` (exact match) | distinct 값이 1,583개로 잘게 쪼개져 있어(예: `"1년 계약직"`/`"1년 계약직(비정규직)"`) 사용자가 직접 골라 검색할 이유가 없다고 판단해 웹 UI에서 뺐다 |
+| **근무 형태** | `/`, `/search` | 드롭다운(범주 7개) | `work_type` (exact match) | 정규화 전에는 distinct 14,582개 자유 텍스트라 LIKE 부분 일치였다. 지금은 범주로 통일되어 exact match이고, 시간·근무일수는 `work_type_detail`에 보존(검색 대상 아님) |
+| **업무관련성 평가** | `/`, `/search` | 드롭다운 | `work_relevance_eval` | 추출 스키마상 6개뿐인 진짜 enum(`매우_높음`~`미흡`)이라 exact match. 빈 문자열은 NULL로 정리됨 |
+| **고용 형태** | `/`, `/search` | 드롭다운(범주 8개) | `employment_type` (exact match) | 정규화 전에는 distinct 1,583개라 웹 UI에서 뺐다. 범주로 통일된 뒤 노출. 세부 표기는 `employment_type_detail` |
 | **KSCO 코드** | UI 없음(쿼리스트링/MCP만) | — | `ksco_codes` (JOIN) | 숫자 코드라 사용자가 외워서 검색할 이유가 없다고 판단해 웹 UI에서 뺐다. MCP 클라이언트가 직업 설명 → KSCO 코드로 매핑해 구조화 필터로 넘길 때 쓴다 |
 | **Full-text 검색** | `/`, `/search` | 텍스트 입력 | `disease_cases_extracted_fts` (5개 컬럼) | 기존 FTS5 패턴 재사용 |
 | **심의결과** | `/search`만 (기존 유지) | 드롭다운 | `result` | — |
 | **정렬** | `/`, `/search` | 라디오 버튼 | relevance / recent | BM25 (FTS5) 또는 `year DESC` |
 
 > **해결됨 (최종 UI 노출 범위)**: 위 표의 노출 범위는 두 차례 조정을 거쳤다. ① 코드 리뷰에서 "웹 UI가 employment_type/work_type/work_relevance_eval/ksco_code 구조화 필터를 하나도 못 쓴다"는 지적을 받고 네 필터 모두 `/`·`/search`에 노출했다. ② 이후 후속 요청으로 다시 좁혔다 — employment_type/ksco_code는 사용자가 값을 몰라 직접 고를 이유가 없어 완전히 뺐고(쿼리스트링/MCP 전용으로 남김), work_type/work_relevance_eval은 `/search`(상세 검색)에만 남기고 `/`(메인 화면, 간단한 검색)에서는 뺐다. `apply_main_filters`/`main_search_params`는 네 값 모두 그대로 받으므로 백엔드 동작은 바뀌지 않았다(5.2절 참고).
+
+> **갱신 (정규화 이후)**: 위 노출 범위는 `docs/disease-cases-normalization.md`의 정규화로 다시 바뀌었다. `application_type`·`employment_type`·`work_type`이 범주로 통일되어 `employment_type`·`work_type`·`work_relevance_eval`도 `/`와 `/search` 둘 다에 노출한다(공통 partial `_structured_filters`). KSCO 코드만 UI 없이 쿼리스트링/MCP 전용으로 남는다.
 
 ### 6.2 KSCO 필터 상호작용
 

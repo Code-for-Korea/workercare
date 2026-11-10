@@ -54,7 +54,7 @@
       <div class="disease-categories grid grid-cols-2 md:grid-cols-4">
         <% DiseaseCase.enum_options_for_select(:disease_category).each do |label, value| %>
           <label class="flex items-center">
-            <%= check_box_tag "disease_category[]", value, (params[:disease_category] || DiseaseCase.disease_categories.values).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= check_box_tag "disease_category[]", value, Array(params[:disease_category]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
             <%= label %>
           </label>
         <% end %>
@@ -69,7 +69,7 @@
       <div class="body-parts grid grid-cols-2 md:grid-cols-4">
         <% DiseaseCase.enum_options_for_select(:body_part).each do |label, value| %>
           <label class="flex items-center">
-            <%= check_box_tag "body_part[]", value, (params[:body_part] || DiseaseCase.body_parts.values).include?(value), data: { "checkbox-group-target": "checkbox" } %>
+            <%= check_box_tag "body_part[]", value, Array(params[:body_part]).include?(value), data: { "checkbox-group-target": "checkbox" } %>
             <%= label %>
           </label>
         <% end %>
@@ -102,38 +102,15 @@
     </fieldset>
     <div class="grid">
       <div>
-        <%= form.label :decided_on_from, DiseaseCase.human_attribute_name(:decided_on_from) %>
+        <%= form.label :decided_on_from, t("search.filter.decided_on_from") %>
         <%= form.date_field :decided_on_from, value: params[:decided_on_from] %>
       </div>
       <div>
-        <%= form.label :decided_on_to, DiseaseCase.human_attribute_name(:decided_on_to) %>
+        <%= form.label :decided_on_to, t("search.filter.decided_on_to") %>
         <%= form.date_field :decided_on_to, value: params[:decided_on_to] %>
       </div>
     </div>
-    <div class="grid">
-      <div>
-        <%= form.label :application_type, DiseaseCase.human_attribute_name(:application_type) %>
-        <%= form.select :application_type,
-              [ [ "— #{t('search.all_results')} —", "" ] ] + @application_type_options.map { |v| [ v, v ] },
-              selected: params[:application_type] %>
-      </div>
-      <div class="flex items-center">
-        <%= check_box_tag :death_status, "Y", params[:death_status] == "Y" %>
-        <%= label_tag :death_status, t("search.death_only") %>
-      </div>
-    </div>
-    <div class="grid">
-      <div>
-        <%= form.label :work_type, DiseaseCase.human_attribute_name(:work_type) %>
-        <%= form.text_field :work_type, value: params[:work_type] %>
-      </div>
-      <div>
-        <%= form.label :work_relevance_eval, DiseaseCase.human_attribute_name(:work_relevance_eval) %>
-        <%= form.select :work_relevance_eval,
-              [ [ "— #{t('search.all_results')} —", "" ] ] + @work_relevance_eval_options.map { |v| [ v.tr("_", " "), v ] },
-              selected: params[:work_relevance_eval] %>
-      </div>
-    </div>
+    <%= render "structured_filters", form: form %>
     <fieldset>
       <legend><%= t("search.sort_label") %></legend>
       <div class="sort-options">

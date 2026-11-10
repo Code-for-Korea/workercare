@@ -48,18 +48,7 @@
       </div>
     </fieldset>
 
-    <div class="grid">
-      <div>
-        <%= form.label :application_type, DiseaseCase.human_attribute_name(:application_type) %>
-        <%= form.select :application_type,
-              [ [ "— #{t('search.all_results')} —", "" ] ] + @application_type_options.map { |v| [ v, v ] },
-              selected: params[:application_type] %>
-      </div>
-      <div class="flex items-center">
-        <%= check_box_tag :death_status, "Y", params[:death_status] == "Y" %>
-        <%= label_tag :death_status, t("search.death_only") %>
-      </div>
-    </div>
+    <%= render "structured_filters", form: form %>
 
     <fieldset>
       <legend><%= t("search.sort_label") %></legend>

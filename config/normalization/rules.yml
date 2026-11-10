@@ -1,0 +1,45 @@
+# disease_cases 검색 컬럼 정규화 규칙 (docs/disease-cases-normalization.md)
+# 패턴은 NFKC 정규화 후 공백을 모두 제거한 문자열에 적용하는 정규식이다.
+
+application_type:
+  # 표시·결합 순서. 같은 토큰 집합은 항상 이 순서로 `|` 결합한다.
+  other: 기타
+  tokens:
+    - { name: 요양급여, pattern: "요양" }
+    - { name: 휴업급여, pattern: "휴업" }
+    - { name: 유족급여, pattern: "유족" }
+    - { name: 장의비, pattern: "장의비|장례비" }
+    - { name: 추가상병, pattern: "추가상병" }
+    - { name: 장해급여, pattern: "장해" }
+    - { name: 미지급보험급여, pattern: "미지급" }
+    - { name: 재신청, pattern: "재신청" }
+
+work_type:
+  other: 기타
+  # 우선순위 순. 먼저 매치되는 범주를 쓴다.
+  categories:
+    - { name: 격일근무, pattern: "격일", core: "격일" }
+    - { name: 교대근무, pattern: "교대", core: "교대" }
+    - { name: 야간근무, pattern: "야간", core: "야간" }
+    - { name: 고정주간근무, pattern: "주간", core: "주간" }
+    - { name: 시간제근무, pattern: "시간제|파트타임|파트", core: "시간제|파트타임|파트" }
+    - { name: 일용근무, pattern: "일용", core: "일용" }
+
+employment_type:
+  other: 기타
+  # 본문(괄호 제외)에서 가장 먼저 나오는 키워드로 분류한다. 같은 위치면 긴 패턴 우선.
+  categories:
+    - { name: 기타, pattern: "비정규" }
+    - { name: 파견직, pattern: "파견|용역", core: "파견|용역" }
+    - { name: 특수고용·프리랜서, pattern: "특수고용|특수형태|프리랜서|특고", core: "특수고용|특수형태|프리랜서|특고" }
+    - { name: 자영업, pattern: "자영|개인사업|사업주|사업자", core: "자영|개인사업|사업주|사업자" }
+    - { name: 일용직, pattern: "일용", core: "일용" }
+    - { name: 계약직, pattern: "계약|기간제|임시", core: "계약|기간제|임시" }
+    - { name: 정규직, pattern: "정규", core: "정규" }
+    - { name: 상용직, pattern: "상용", core: "상용" }
+
+# 빈값 NULL 처리 + 허용값 검사 대상 열거형 컬럼
+enums:
+  death_status: [Y, N]
+  heavy_lifting: [Y, N]
+  work_relevance_eval: [매우_높음, 높음, 보통, 낮음, 매우_낮음, 미흡]
