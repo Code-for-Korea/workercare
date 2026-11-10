@@ -1,3 +1,5 @@
+> **갱신(2026-11-08)**: 이 문서의 MCP(`app/mcp/tools/search_disease_cases_tool.rb` 등) 언급은 이력이다. MCP 서버는 제거되었고 검색·상세는 `.md` 마크다운 응답으로 제공한다([markdown-responses.md](markdown-responses.md)).
+
 ## 2. 데이터 모델 검토 및 제안
 
 - 수정 의견: `DiseaseCase` 확장으로 결정

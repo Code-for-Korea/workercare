@@ -46,7 +46,7 @@ flowchart TD
 | FTS 동기화 | insert/update/delete 트리거로 인덱스 자동 동기화 | `20260824000004_create_disease_cases_extracted_fts.rb` |
 | 상세 `show` | `find_by(case_no:)` 후 nil 처리 없음. 뷰는 `detail_sections` 필드를 마스킹 없이 그대로 출력 | `disease_cases_controller.rb:26-28`, `show.html.erb:23-29` |
 | 검색 로깅 | `log_search_event`가 `params[:q]` 원문을 기록 | `disease_cases_controller.rb:108-115` |
-| 직렬화 | `as_safe_json`(`PIIMasking`)은 MCP 상세 리소스에서만 사용. 웹 상세·검색 화면은 미적용 | `disease_case.rb`, `app/mcp/resource_templates/` |
+| 직렬화 | `PIIMasking`은 마크다운 응답에서만 사용(MCP·`as_safe_json` 제거). 웹 HTML 상세·검색 화면은 미적용 | `app/models/disease_cases/markdown_renderer.rb` |
 | 서비스 레이어 | `app/services` 없음. 검색 로직은 모델 concern | — |
 
 ### 남은 확인 대상
@@ -295,7 +295,7 @@ post "/webhooks/kakao", to: "webhooks/kakao#create"
 - 장애 시 정적 도움말과 기존 웹 검색 페이지로 이동할 수 있도록 한다.
 - 엔티티 CSV·발화·안내 문서의 버전을 Git에서 관리한다.
 - 오류 신고 및 자료 정정 요청을 접수한다. 원본 데이터는 비식별이 완료되어 있으며, 예외적 누락이 신고되면 해당 `case_no`를 DB에서 수정·삭제한다. 검색·상세는 DB를 읽고 FTS는 트리거로 동기화되므로 즉시 반영되고, 챗봇은 사례 본문을 저장하지 않으므로 카카오 쪽 추가 조치는 없다.
-- `PIIMasking`은 형태 기반 보조 장치로 MCP 경로에만 적용되어 있다. 웹 상세 적용 여부는 후속 과제.
+- `PIIMasking`은 형태 기반 보조 장치로 마크다운 응답에만 적용되어 있다. 웹 상세 적용 여부는 후속 과제.
 - 카카오싱크·Event API·영구 대화 이력은 초기 범위에서 제외한다.
 
 ## 10. 착수 전 결정 사항

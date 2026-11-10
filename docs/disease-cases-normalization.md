@@ -99,7 +99,7 @@ NULL, `''`, 공백만 있는 값은 모두 NULL로 바꾼다. 허용값 목록 �
 - 구조화 필터(신청서 종류·고용 형태·근무 형태·업무관련성·사망 여부)를 `_structured_filters` partial로 분리해 두 화면이 함께 쓴다.
 - 신청서 종류는 체크박스이고 여러 개를 고르면 OR(하나라도 포함)이다. 둘 다 있는 건만 찾는 AND(모두 포함)는 보류했다. 값이 더 많은 `burden_body_part` 정규화 때 연결 테이블(태그) 방식과 함께 다시 검토한다.
 - 상세 검색의 질병분류·신체부위 체크박스는 기본 미선택이고, 고르지 않으면 조건 없이 찾는다. 판정일 라벨은 한글로 고쳤다.
-- 근무 형태·고용 형태는 범주 exact match다. 옛 표기가 들어오면 `Normalizer`로 범주로 바꿔 매칭한다(MCP 호환).
+- 근무 형태·고용 형태는 범주 exact match다. 옛 표기가 들어오면 `Normalizer`로 범주로 바꿔 매칭한다(옛 링크·외부 클라이언트 호환).
 - 카카오 챗봇은 이 필터를 쓰지 않아 영향이 없다.
 
 ## 3. 진행 순서
@@ -109,7 +109,7 @@ NULL, `''`, 공백만 있는 값은 모두 NULL로 바꾼다. 허용값 목록 �
 3. 군집 탐색 rake(읽기 전용)로 유사 표기 후보를 뽑아 사전 YAML을 만들고 검토한다. 자동 병합 결과를 검토 없이 덮어쓰지 않는다.
 4. `Normalizer` + 마이그레이션(`application_type_detail`, `work_type_detail`, `employment_type_detail` 추가) + 백필 rake. dry-run을 먼저 하고, 고유값 단위 `update_all`로 처리하며 여러 번 돌려도 결과가 같게 한다.
 5. 재임포트 rake(`import_extracted_disease_cases.rake`)에 Normalizer를 연결해 재임포트해도 원본 표기로 돌아가지 않게 한다.
-6. 검색 코드(`main_searchable.rb`, `disease_cases_controller.rb`, `search.html.erb`)를 위 방식으로 변경한다. MCP·챗봇 입력은 Normalizer로 변환해 호환을 유지한다.
+6. 검색 코드(`main_searchable.rb`, `disease_cases_controller.rb`, `search.html.erb`)를 위 방식으로 변경한다. 챗봇 입력과 URL 파라미터는 Normalizer로 변환해 호환을 유지한다.
 7. 테스트와 전후 distinct 수 비교.
 
 ## 4. 주의

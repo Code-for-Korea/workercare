@@ -1,9 +1,9 @@
 산업재해 프로젝트 산재상담실
 ---------------------
 
-노동자들이 다치거나 아플 때 근로복지공단으로 요양급여 신청서를 작성하는데 참고하기 위해 근로복지공단 업무상질병 판정서를 검색하고, MCP 프로토콜을 통해 상담 챗봇을 지원합니다.
+노동자들이 다치거나 아플 때 근로복지공단으로 요양급여 신청서를 작성하는데 참고하기 위해 근로복지공단 업무상질병 판정서를 검색하고, 카카오톡 챗봇과 마크다운 응답(LLM·스크립트용)을 제공합니다.
 
-한국어 전문 검색(full-text)을 구현하며, MCP 엔드포인트를 제공합니다. 로그인 없이 데이터 조회 결과만 제공하기위해 sqlite 데이터베이스를 사용하였고 mysql 또는 postgresql 로 바꾸는 것은 앞으로 검토할 예정입니다.
+한국어 전문 검색(full-text)을 구현하며, 검색·검색결과·상세를 마크다운으로도 제공합니다. 로그인 없이 데이터 조회 결과만 제공하기위해 sqlite 데이터베이스를 사용하였고 mysql 또는 postgresql 로 바꾸는 것은 앞으로 검토할 예정입니다.
 
 ## 기술 스택
 
@@ -12,7 +12,6 @@
 | Ruby | 3.4.9 |
 | Rails | 8.1 |
 | 데이터베이스 | SQLite3 (FTS5 전문 검색) |
-| MCP 서버 | actionmcp + Falcon |
 | CSS | [oat](https://oat.ink/) (importmap CDN) |
 | 페이지네이션 | pagy |
 | 배포 | Kamal 2.x |
@@ -71,40 +70,24 @@ rails "import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras
 | `GET /search` | 상세 검색 (메인 화면의 모든 필터 + 심의결과·심의연도·질병분류·신체부위·판정일 필터 + 판정서 본문 전문 검색) |
 | `GET /disease_cases/:case_no` | 판정서 상세 |
 
-두 화면은 같은 구조화 필터(신청서 종류·고용 형태·근무 형태·업무관련성·사망 여부)를 씁니다. 이 값들은 표기 흔들림을 정리한 정규화 값입니다(`docs/disease-cases-normalization.md`). 신청서 종류는 체크박스(여러 개를 고르면 하나라도 포함된 사례), 고용 형태·근무 형태는 범주 목록에서 고릅니다. KSCO 코드는 숫자 코드라 입력 필드가 없고, 쿼리스트링이나 MCP 클라이언트로 필터링할 수 있습니다.
+두 화면은 같은 구조화 필터(신청서 종류·고용 형태·근무 형태·업무관련성·사망 여부)를 씁니다. 이 값들은 표기 흔들림을 정리한 정규화 값입니다(`docs/disease-cases-normalization.md`). 신청서 종류는 체크박스(여러 개를 고르면 하나라도 포함된 사례), 고용 형태·근무 형태는 범주 목록에서 고릅니다. KSCO 코드는 숫자 코드라 입력 필드가 없고, 쿼리스트링으로 필터링할 수 있습니다.
 
-## MCP 서버
+## 마크다운 응답 (LLM·스크립트용)
 
-MCP 지원 클라이언트에서 아래 URL을 연결하면 업무상질병 판정서 상담 기능을 사용할 수 있습니다.
+같은 주소에 `.md`를 붙이거나 `Accept: text/markdown`을 보내면 마크다운으로 응답합니다. MCP 서버는 제거했습니다.
 
-```
-https://..../mcp
-```
-> 도메인 준비중 입니다
-
-### 제공 Tool
-
-| Tool | 설명 |
-|------|------|
-| `search_disease_cases` | 판정서 전문 검색(`q`, 선택) + 직업/사망여부/KSCO 코드 등 구조화 필터 + 통계 집계. `q`와 구조화 필터가 전부 비어있으면 에러를 반환합니다(전체 판정서를 검색 결과처럼 반환하지 않음) |
-| `compare_approval_factors` | 인정/불인정 사례 패턴 비교 |
-| `suggest_evidence` | 필요 증거 자료 제안 (룰 기반) |
-| `get_procedure_guide` | 산재 신청 절차 안내 |
-
-### 제공 Prompt
-
-| Prompt | 설명 |
-|--------|------|
-| `extract_search_keywords` | 자연어 질문에서 검색 키워드 추출 |
-| `explain_determination` | 검색 결과를 템플릿 기반으로 구조화 |
-
-MCP 서버는 stateless입니다. 슬롯 관리·LLM 호출·대화 맥락 유지는 클라이언트에서 수행합니다.
-
-### 로컬에서 MCP 서버 실행
+| 주소 | 내용 |
+|---|---|
+| `/index.md` (또는 `/`) | 간단한 검색 결과 |
+| `/search.md` | 상세 검색 결과 |
+| `/disease_cases/:case_no.md` | 판정서 상세 |
 
 ```bash
-bundle exec falcon serve --bind http://0.0.0.0:3001 --config mcp/config.ru
+curl 'https://.../search.md?q=손목&application_type[]=요양급여'
+curl -H 'Accept: text/markdown' 'https://.../disease_cases/<연번>'
 ```
+
+파라미터, 헤더(`Vary: Accept`, `Link`), 이스케이프·비식별 규칙은 [docs/markdown-responses.md](docs/markdown-responses.md)에 있습니다.
 
 ## 배포
 
@@ -128,15 +111,16 @@ Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
 
 환경변수를 이미 별도로(쉘 프로필, 시크릿 매니저 등) 설정하였다면 `bin/kamal setup` / `bin/kamal deploy`를 직접 실행하여도 됩니다.
 
-`config/deploy.yml`에 웹 서버(`web`)와 MCP 서버(`mcp`) 두 개의 role이 정의되어 있습니다.
+`config/deploy.yml`에는 웹 서버(`web`) role 하나가 정의되어 있습니다. MCP를 제거했으므로 이전 배포에서 남은 `mcp` 컨테이너는 `bin/kamal app stop --roles=mcp`로 정리합니다.
 
 ## 관련 문서
 
-- [USERGUIDE.md](USERGUIDE.md) — 노동자·상담 활동가를 위한 사용 안내 (웹, 카카오톡 챗봇, MCP)
+- [USERGUIDE.md](USERGUIDE.md) — 노동자·상담 활동가를 위한 사용 안내 (웹, 카카오톡 챗봇, 마크다운 응답)
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 기여 방법: 배경, 개발 환경, 소스 구조, 데이터 파이프라인, 커밋·CI 규칙
 - [docs/kakaotalk/chatbot.md](docs/kakaotalk/chatbot.md) — 카카오톡 챗봇 작업 기록과 관리자센터 가이드
 - [docs/workercare.plan.md](docs/workercare.plan.md) — 검색 서비스, FTS5, enum, 데이터 설계
-- [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — MCP 컴포넌트 설계, Tool/Prompt 명세
+- [docs/markdown-responses.md](docs/markdown-responses.md) — 검색·상세 마크다운 응답(주소, 헤더, 파라미터)
+- [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — (폐기) MCP 설계 이력
 - [docs/workercare-search.plan.md](docs/workercare-search.plan.md) — 직업·신체부위·사망여부 기반 메인 검색 화면, KSCO 직업분류 연동 설계
 
 ## 라이선스

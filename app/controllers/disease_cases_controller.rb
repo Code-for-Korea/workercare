@@ -5,14 +5,21 @@ class DiseaseCasesController < ApplicationController
   # DB에도 이 6개만 존재하는 진짜 enum이라 distinct pluck 대신 고정 목록을 순서대로 노출한다.
   WORK_RELEVANCE_EVAL_OPTIONS = %w[매우_높음 높음 보통 낮음 매우_낮음 미흡].freeze
 
+  # 같은 주소를 .md 확장자나 `Accept: text/markdown`으로 부르면 마크다운으로 응답한다(LLM·스크립트용,
+  # docs/markdown-responses.md). 두 표현 모두 `Vary: Accept`와 서로를 가리키는 `Link` 헤더를 단다.
+  after_action :set_representation_headers
+
   # / (메인 화면). 간단한 검색을 위해 직업·부담 신체 부위·사망 여부·신청서 유형만 노출한다 —
-  # 근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. 고용형태·KSCO 코드는 사용자가
-  # 직접 골라 검색할 이유가 없어(고용형태는 값이 너무 잘게 쪼개져 있고, KSCO 코드는 숫자다)
-  # 웹 UI에는 아예 없다. apply_main_filters/main_search_params는 두 값 모두 그대로 받아서
-  # MCP 클라이언트(직업 설명 → 고용형태/KSCO 코드 매핑)는 계속 쓸 수 있다.
+  # 근무형태/업무관련성은 /search(상세 검색)에서만 노출한다. KSCO 코드는 숫자라 사용자가 직접 골라
+  # 검색할 이유가 없어 웹 UI에는 없다. apply_main_filters/main_search_params는 ksco_code도 그대로 받아
+  # URL로 직접 호출하는 클라이언트(직업 설명 → KSCO 코드 매핑)는 계속 쓸 수 있다.
   def index
     perform_search(legacy: false)
     set_common_filter_options
+    respond_to do |format|
+      format.html
+      format.md { render_markdown_search("/index") }
+    end
   end
 
   # /search (상세 검색, 이전에는 root였다). 메인 화면 필터도 함께 쓸 수 있도록
@@ -20,13 +27,69 @@ class DiseaseCasesController < ApplicationController
   def search
     perform_search(legacy: true)
     set_common_filter_options
+    respond_to do |format|
+      format.html
+      format.md { render_markdown_search("/search") }
+    end
   end
 
   def show
     @disease_case = DiseaseCase.find_by!(case_no: params[:case_no])
+    respond_to do |format|
+      format.html
+      format.md { render_markdown(markdown_renderer.show(@disease_case)) }
+    end
   end
 
+  helper_method :markdown_alternate_path
+
   private
+
+  def markdown_renderer
+    DiseaseCases::MarkdownRenderer.new(base_url: request.base_url)
+  end
+
+  def render_markdown_search(path)
+    options = {
+      application_type: @application_type_options, employment_type: @employment_type_options,
+      work_type: @work_type_options, work_relevance_eval: @work_relevance_eval_options,
+      burden_body_part: @burden_body_part_options
+    }
+    body = markdown_renderer.search(cases: @cases, pagy: @pagy, metadata: @metadata, path: path,
+      query: request.query_parameters.except("page", "format"), options: options)
+    render_markdown(body)
+  end
+
+  def render_markdown(body)
+    render plain: body, content_type: "text/markdown; charset=utf-8"
+  end
+
+  # HTML과 마크다운이 서로를 가리키게 한다. 헤드리스 fetcher는 <head>를 읽지 않으므로 헤더로도 알린다.
+  def markdown_path_base
+    path = request.path.sub(/\.md\z/, "")
+    path == "/" ? "/index" : path
+  end
+
+  def markdown_alternate_path
+    suffix = request.query_string.present? ? "?#{request.query_string}" : ""
+    "#{markdown_path_base}.md#{suffix}"
+  end
+
+  def html_alternate_path
+    base = markdown_path_base
+    suffix = request.query_string.present? ? "?#{request.query_string}" : ""
+    "#{base == '/index' ? '/' : base}#{suffix}"
+  end
+
+  def set_representation_headers
+    response.headers["Vary"] = [ response.headers["Vary"], "Accept" ].compact_blank.join(", ")
+    link = if request.format.md?
+      "<#{html_alternate_path}>; rel=\"alternate\"; type=\"text/html\""
+    else
+      "<#{markdown_alternate_path}>; rel=\"alternate\"; type=\"text/markdown\""
+    end
+    response.headers["Link"] = link
+  end
 
   def perform_search(legacy:)
     if legacy
@@ -126,7 +189,9 @@ class DiseaseCasesController < ApplicationController
       query: params[:q],
       result_count: @metadata[:total_count],
       over_cap: @metadata[:over_cap],
-      used_fallback: @fallback
+      used_fallback: @fallback,
+      format: request.format.symbol,
+      user_agent: request.user_agent.to_s[0, 60]
     }.to_json)
   end
 end

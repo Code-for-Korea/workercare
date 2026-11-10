@@ -32,13 +32,13 @@
 | 구성 요소 | 하는 일 | 위치 |
 |---|---|---|
 | 웹 검색 | 메인 검색(`/`), 상세 검색(`/search`), 판정서 상세(`/disease_cases/:case_no`) | `app/controllers/disease_cases_controller.rb`, `app/views/disease_cases/` |
-| MCP 서버 | MCP 클라이언트(LLM 앱)가 판정서 검색·비교·절차 안내 도구를 호출 | `app/mcp/`, `mcp/config.ru` |
+| 마크다운 응답 | 같은 주소에 `.md`나 `Accept: text/markdown`을 보내면 검색·결과·상세를 마크다운으로 응답(LLM·스크립트용) | `app/models/disease_cases/markdown_renderer.rb`, `docs/markdown-responses.md` |
 | 카카오톡 챗봇 스킬 서버 | 카카오 챗봇 관리자센터가 호출하는 `POST /webhooks/kakao`, `POST /webhooks/kakao/jobs` | `app/controllers/webhooks/`, `app/models/chatbot/` |
 | 데이터 적재 도구 | CSV를 DB로 가져오는 rake 태스크, 챗봇 엔티티 사전 도구 | `lib/tasks/`, `lib/chatbot/` |
 
 ### 기술 스택
 
-Ruby 3.4.9(`.tool-versions`), Rails 8.1, SQLite3와 FTS5 전문 검색, propshaft, importmap, pagy, solid_cache와 solid_queue, actionmcp(MCP), Kamal 2.x 배포입니다. 로그인 없이 조회만 제공하므로 SQLite를 씁니다. MySQL이나 PostgreSQL로의 전환은 검토만 하고 있습니다(README).
+Ruby 3.4.9(`.tool-versions`), Rails 8.1, SQLite3와 FTS5 전문 검색, propshaft, importmap, pagy, solid_cache와 solid_queue, Kamal 2.x 배포입니다. 로그인 없이 조회만 제공하므로 SQLite를 씁니다. MySQL이나 PostgreSQL로의 전환은 검토만 하고 있습니다(README).
 
 ---
 
@@ -46,7 +46,7 @@ Ruby 3.4.9(`.tool-versions`), Rails 8.1, SQLite3와 FTS5 전문 검색, propshaf
 
 | 종류 | 예 |
 |---|---|
-| 코드 | 검색 정확도·속도 개선, 챗봇 응답 개선, MCP 도구 개선, 버그 수정, 테스트 추가 |
+| 코드 | 검색 정확도·속도 개선, 챗봇 응답 개선, 마크다운 응답 개선, 버그 수정, 테스트 추가 |
 | 데이터 | 구조화 추출의 품질 점검, KSCO 매핑 오류 신고, 비식별이 누락된 판정서 신고 |
 | 문서 | 사용자 가이드 보완, 용어 설명, 오래된 문서 정리 |
 | 챗봇 | 엔티티 사전(동의어) 보강, 블록·발화 설계, 봇 테스트 시나리오 |
@@ -73,14 +73,10 @@ Ruby 3.4.9(`.tool-versions`), Rails 8.1, SQLite3와 FTS5 전문 검색, propshaf
 
 ```bash
 bin/setup --skip-server   # 의존성 설치(bundle install)와 DB 준비(db:prepare)
-bin/dev                   # 웹(3000)과 MCP(62770)를 함께 실행 (overmind 필요)
+bin/dev                   # 웹(3000) 실행 (overmind 필요)
 ```
 
-`bin/dev`는 `Procfile.dev`의 두 프로세스를 띄웁니다. `web`은 `http://localhost:3000`, `mcp`는 `62770` 포트입니다. overmind가 없으면 `bin/rails server`만 써도 웹 화면은 확인됩니다. MCP 서버만 따로 띄우려면 아래 명령을 씁니다.
-
-```bash
-bundle exec falcon serve --bind http://0.0.0.0:3001 --config mcp/config.ru
-```
+`bin/dev`는 `Procfile.dev`의 `web` 프로세스(`http://localhost:3000`)를 띄웁니다. overmind가 없으면 `bin/rails server`만 써도 같습니다. 마크다운 응답은 `curl localhost:3000/search.md?q=손목`으로 확인합니다.
 
 ### 데이터가 없을 때
 
@@ -113,28 +109,22 @@ app/
     concerns/disease_cases/
       searchable.rb               /search 용 전문 검색 (disease_cases_fts)
       main_searchable.rb          메인 검색·챗봇 공용 (disease_cases_extracted_fts + 구조화 필터)
+    disease_cases/markdown_renderer.rb   검색·상세의 마크다운 응답 (.md / Accept: text/markdown)
+    disease_cases/normalizer.rb 신청서 종류·근무 형태·고용 형태 정규화 (규칙: config/normalization/rules.yml)
     ksco_code.rb, disease_case_ksco_code.rb   표준직업분류 코드와 판정서 매핑(유사도 포함)
     chatbot/                      챗봇 전용: 요청 어댑터, 응답 빌더, 검색, 공개용 DTO, 엔티티 사전 읽기
-  mcp/
-    tools/                        search_disease_cases, compare_approval_factors,
-                                  suggest_evidence, get_procedure_guide
-    prompts/                      explain_determination, extract_search_keywords, search_disease_case
-    resource_templates/           disease-case://{case_no}
   views/, javascript/, assets/    oat CSS, Stimulus(체크박스 묶음·검색 폼 로딩 표시)
 config/
-  routes.rb                       / , /search , /about , /disease_cases/:case_no , /webhooks/kakao{,/jobs} , /up
+  routes.rb                       / , /index(.md) , /search(.md) , /about , /disease_cases/:case_no(.md) , /webhooks/kakao{,/jobs} , /up
   chatbot/entities/*.yml          카카오 엔티티 사전 6종(원본). docs/kakaotalk/entities/*.csv 는 여기서 생성
-  evidence_rules.yml              suggest_evidence 도구의 증거 자료 규칙
-  locales/                        화면 문구(ko.yml), 모델 속성·enum 라벨, procedure_guides.yml(절차 안내)
-  mcp.yml                         MCP 설정 (인증 없음)
+  locales/                        화면 문구(ko.yml), 모델 속성·enum 라벨
 db/
   structure.sql                   스키마의 기준. config.active_record.schema_format = :sql
   migrate/                        마이그레이션. FTS 가상 테이블과 트리거 포함
 lib/
   tasks/                          import:* , fts:rebuild , chatbot:entities:*
   chatbot/                        엔티티 사전 빌더·탐색기
-mcp/config.ru                     MCP를 별도 Rack 앱(Falcon)으로 실행
-test/                             controllers, lib, mcp, models (Minitest)
+test/                             controllers, lib, models (Minitest)
 docs/                             기획·설계 문서와 카카오 공식 문서 사본 (10장)
 wip/                              로컬 작업 폴더. 저장소에 없음 (5장)
 ```
@@ -166,7 +156,7 @@ wip/                              로컬 작업 폴더. 저장소에 없음 (5�
         │
 [5] DB 적재(rake)    import:disease_cases → import:ksco_codes → import:extracted_disease_cases (신청서 종류·근무 형태·고용 형태는 적재 때 정규화)
         │
-[6] 검증과 서비스    FTS 인덱스, 필터, 챗봇·MCP가 같은 DB를 읽음
+[6] 검증과 서비스    FTS 인덱스, 필터, 챗봇·마크다운 응답이 같은 DB를 읽음
 ```
 
 현재까지 확인한 건수는 다음과 같습니다. 원본 판정서 61,815건, LLM 추출 결과 55,377건(**6,438건은 추출 결과가 없습니다**), KSCO 세분류 코드 495개입니다.
@@ -294,7 +284,7 @@ bin/rails chatbot:entities:build                   # docs/kakaotalk/entities/*.c
 
 ### 브랜치
 
-기능 `feat/…`, 정리·문서 `chore/…`, 버그 `fix/…`를 씁니다. 기본 브랜치는 `main`입니다. 예: `feat/kakaotalk_chatbot`, `chore/user_guide`, `fix/mcp-stale-tests`.
+기능 `feat/…`, 정리·문서 `chore/…`, 버그 `fix/…`를 씁니다. 기본 브랜치는 `main`입니다. 예: `feat/kakaotalk_chatbot`, `chore/user_guide`, `fix/chatbot-stale-tests`.
 
 ### 커밋
 
@@ -330,7 +320,7 @@ bin/importmap audit                 # JS 패키지 취약점
 bin/ci                              # 위 단계를 config/ci.rb 순서대로 실행
 ```
 
-테스트는 Minitest이고 `test/controllers`, `test/lib`, `test/mcp`, `test/models`에 있습니다. 새 코드에는 테스트를 같이 추가합니다. 테스트 DB는 `storage/test.sqlite3`이며 개발 DB와 별개입니다.
+테스트는 Minitest이고 `test/controllers`, `test/lib`, `test/models`에 있습니다. 새 코드에는 테스트를 같이 추가합니다. 테스트 DB는 `storage/test.sqlite3`이며 개발 DB와 별개입니다.
 
 ### 현재 CI 상태 (2026-10-19)
 
@@ -339,13 +329,13 @@ bin/ci                              # 위 단계를 config/ci.rb 순서대로 �
 | 단계 | 상태 | 내용 |
 |---|---|---|
 | `bin/rails test` | 통과 | 284개 |
-| `bin/rubocop` | 실패 | 약 230건. 대부분 `wip/`의 스크립트가 검사 대상에 포함되어서 나옴. `wip/`를 제외하면 8개 파일에 57건(`Layout/SpaceInsideArrayLiteralBrackets` 56건, `Layout/EndAlignment` 1건): `app/mcp/tools/{compare_approval_factors,suggest_evidence}_tool.rb`, `lib/tasks/import_*.rake`, `test/mcp/tools/*`, `config/application.rb` |
+| `bin/rubocop` | 실패 | 약 230건. 대부분 `wip/`의 스크립트가 검사 대상에 포함되어서 나옴. `wip/`를 제외하면 `Layout/SpaceInsideArrayLiteralBrackets` 8건(2026-11-08 MCP 제거 후): `lib/tasks/import_*.rake`, `config/application.rb` |
 | `bin/brakeman` | 실패(경고 8건) | `wip/` 파일 2건과 `app/`·`lib/`의 Weak 신뢰도 경고. `app/views/disease_cases/*/_disease_case.html.erb`, `app/models/chatbot/job_candidates.rb`, `app/models/concerns/disease_cases/main_searchable.rb`, `lib/chatbot/entity_builder.rb`. 열거된 SQL 조각은 값이 아닌 고정 문자열에서 나온 것이라 오탐일 가능성이 있으나 검토가 필요합니다. |
 | `bin/bundler-audit` | 실패 | `puma` 7.2.0(→ 7.2.1 이상), `sqlite3` 2.9.2(→ 2.9.6 이상), `msgpack` 1.8.0(→ 1.8.2 이상) |
 | `bin/importmap audit` | 통과 | 취약 패키지 없음 |
 
 - **GitHub Actions는 꺼져 있습니다.** `.github/workflows/ci.yml_`과 `.github/dependabot.yml_`는 확장자 끝에 `_`가 붙어 비활성입니다. 켜기 전에 위 실패를 정리해야 합니다. 정리 작업(rubocop 설정에서 `wip/` 제외, gem 업데이트, brakeman 경고 검토)은 후속 작업입니다.
-- rubocop은 `wip/`를 제외하고 확인하려면 `bin/rubocop app lib test config db bin mcp`를 씁니다.
+- rubocop은 `wip/`를 제외하고 확인하려면 `bin/rubocop app lib test config db bin`를 씁니다.
 
 ---
 
@@ -368,10 +358,11 @@ bin/ci                              # 위 단계를 config/ci.rb 순서대로 �
 | 문서 | 용도 | 상태 |
 |---|---|---|
 | [README.md](README.md) | 프로젝트 소개, 실행, 배포 | 현재 |
-| [USERGUIDE.md](USERGUIDE.md) | 노동자·상담 활동가를 위한 사용 안내(웹, 챗봇, MCP) | 현재 |
+| [USERGUIDE.md](USERGUIDE.md) | 노동자·상담 활동가를 위한 사용 안내(웹, 챗봇, 마크다운 주소) | 현재 |
 | [docs/workercare.plan.md](docs/workercare.plan.md) | 검색 서비스, FTS5, enum, 초기 데이터 설계 | 설계(일부 구현과 다름) |
 | [docs/workercare-search.plan.md](docs/workercare-search.plan.md) | 직업·신체 부위·사망 여부 검색, KSCO 연동 설계 | 설계(구현됨, 세부는 코드 우선) |
-| [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) | MCP 도구·프롬프트 설계와 사용자 시나리오 | 설계 |
+| [docs/markdown-responses.md](docs/markdown-responses.md) | 검색·상세 마크다운 응답: 주소, 헤더, 파라미터, 이스케이프·비식별 | 현재 |
+| [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) | MCP 도구·프롬프트 설계와 사용자 시나리오 | 폐기(MCP 제거, 이력) |
 | [docs/disease-cases-normalization.md](docs/disease-cases-normalization.md) | 신청서 종류·근무 형태·고용 형태 정규화 분석과 변환 규칙, 운영 적용 순서 | 현재 |
 | [docs/server-setup-ubuntu.md](docs/server-setup-ubuntu.md) | Ubuntu 서버 기본 설치 | 현재 |
 | [docs/kakaotalk/project-plan.md](docs/kakaotalk/project-plan.md) | 챗봇 기획서: 배경, 목표, 공개·안전 기준 | 기획 |

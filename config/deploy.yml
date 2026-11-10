@@ -10,18 +10,7 @@ servers:
     hosts:
       - web01.workercare
 
-  mcp:
-    hosts:
-      - web01.workercare
-    cmd: bundle exec falcon serve --bind http://0.0.0.0:3000 --config mcp/config.ru
-    proxy:
-      host: t-13-67.xyz
-      path_prefix: /mcp
-      app_port: 3000
-      ssl: false
-
 # Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# SSL must be set on the root path (web role). The mcp role on the same host inherits TLS automatically.
 #
 # Using an SSL proxy like this requires turning on config.assume_ssl and config.force_ssl in production.rb!
 proxy:

@@ -1,6 +1,6 @@
 # AGENTS.md — 산재상담실 (workercare)
 
-근로복지공단 업무상질병 판정서(61,815건)를 검색하고, MCP와 카카오톡 챗봇으로 같은 DB를 제공하는 Rails 앱.
+근로복지공단 업무상질병 판정서(61,815건)를 검색하고, 카카오톡 챗봇과 마크다운 응답(`.md`)으로 같은 DB를 제공하는 Rails 앱.
 매 세션마다 읽어서 짧게 유지. 상세는 `docs/`, `CONTRIBUTING.md`에 링크하고 여기는 구조, 명령, 관례, 함정만 쓴다.
 
 ## 구조
@@ -13,7 +13,7 @@
 | `app/models/disease_case.rb` + `concerns/disease_cases/` | `searchable`(`/search`, 원문 FTS), `main_searchable`(메인 검색·챗봇 공용, 추출 컬럼 FTS + 구조화 필터) |
 | `app/models/disease_cases/normalizer.rb` | 신청서 종류·근무 형태·고용 형태 정규화(순수 Ruby). 규칙은 `config/normalization/rules.yml` |
 | `app/models/chatbot/` | 챗봇 전용(요청 어댑터, 응답 빌더, `PublicCase` 허용 필드 DTO, 엔티티 사전) |
-| `app/mcp/`, `mcp/config.ru` | MCP 도구 4개·프롬프트 3개·리소스. Falcon으로 별도 Rack 앱 실행(Kamal `mcp` 롤) |
+| `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
 | `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
@@ -24,9 +24,9 @@
 
 ```bash
 bin/setup --skip-server        # bundle install + db:prepare (개발 DB는 비어 있다)
-bin/dev                        # 웹 3000 + MCP 62770 (overmind 필요, 없으면 bin/rails server)
+bin/dev                        # 웹 3000 (overmind 필요, 없으면 bin/rails server)
 bin/rails test                 # Minitest. 단일: bin/rails test test/models/disease_cases/normalizer_test.rb
-bin/rubocop app lib test config db bin mcp   # wip/ 제외 (아래 함정 참고)
+bin/rubocop app lib test config db bin   # wip/ 제외 (아래 함정 참고)
 bin/ci                         # rubocop + audit + brakeman (현재 통과하지 못함)
 ```
 
@@ -36,9 +36,9 @@ bin/ci                         # rubocop + audit + brakeman (현재 통과하지
 
 ## 배포
 
-Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wagurano/workercare`, 볼륨 `/data/workercare/storage:/rails/storage`(SQLite 파일). `web`과 `mcp` 롤이 **같은 호스트**다. 비밀값은 `.kamal/secrets`, `RAILS_MASTER_KEY`. 절차는 `docs/server-setup-ubuntu.md`.
+Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wagurano/workercare`, 볼륨 `/data/workercare/storage:/rails/storage`(SQLite 파일). `web` 롤 하나다(MCP 롤은 제거). 이전 배포에서 `mcp` 컨테이너가 남았으면 `bin/kamal app stop --roles=mcp`로 정리한다. 비밀값은 `.kamal/secrets`, `RAILS_MASTER_KEY`. 절차는 `docs/server-setup-ubuntu.md`.
 
-운영 DB에 rake를 돌릴 때: `bin/kamal app exec --roles=web --reuse "bin/rails ..."`. **`--roles`를 빼면 web·mcp 컨테이너에서 동시에 실행돼 `SQLite3::BusyException: database is locked`가 난다.**
+운영 DB에 rake를 돌릴 때: `bin/kamal app exec --roles=web --reuse "bin/rails ..."`. `--roles=web`을 유지한다. 옛 `mcp` 컨테이너가 남아 있으면 `--roles`를 빼면 둘에서 동시에 실행돼 `SQLite3::BusyException: database is locked`가 난다.
 
 ## 알려진 함정
 
@@ -52,7 +52,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 8. **챗봇 응답은 `Chatbot::PublicCase` 허용 필드만** — 새 필드는 비식별 확인 후 추가한다. 엔티티 CSV(`docs/kakaotalk/entities/*.csv`)는 생성물이므로 `config/chatbot/entities/*.yml`을 고치고 `chatbot:entities:build`.
 9. **`업묵부담_가중요인_노출`(업묵) 철자** — 추출 CSV 헤더와 import 태스크가 같은 오타를 읽는다. 한쪽만 고치면 컬럼이 비어 들어간다.
 10. **CI가 꺼져 있다** — `.github/workflows/ci.yml_`(끝에 `_`)는 비활성. rubocop은 `wip/`까지 검사해 실패하고 brakeman·bundler-audit도 실패 중이다. 새 변경이 상태를 더 나쁘게 만들지 않는지 로컬에서 확인한다.
-11. **MCP는 인증이 없다** — `config/mcp.yml`. MCP 제거와 마크다운 응답(렌더링) 준비는 별도 PR로 검토 예정이다.
+11. **마크다운 응답은 `.md` 확장자와 `Accept`로만 결정** — User-Agent로 봇에게만 다르게 주지 않는다(cloaking). 모든 표현에 `Vary: Accept`와 서로를 가리키는 `Link` 헤더가 붙는다. 본문은 `PIIMasking`을 거치지만 웹 HTML 상세는 아직 아니다. 새 컬럼을 노출하면 `MarkdownRenderer`의 이스케이프(`cell`)와 비식별을 같이 본다. MCP는 제거됐다(`action_mcp_*` 테이블은 `DropMcpTables` 마이그레이션으로 삭제).
 
 ## 개인정보·보안
 
