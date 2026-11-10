@@ -62,16 +62,26 @@ class SelfCareForm::GoogleFormSubmitterTest < ActiveSupport::TestCase
     assert_equal "불인정", Submitter.values_for(SelfCareForm::Answers.new("decision" => "rejected"))["decision"]
   end
 
-  test "typed text is never sent: only the dictionary concept or the job button" do
-    typed = SelfCareForm::Answers.new("body_part_text" => "왼쪽 손목 비밀문장", "job_text" => "내 이름은 홍길동")
-    values = Submitter.values_for(typed)
-
-    assert_equal "손목", values["body_part"], "원문이 아니라 사전 개념 이름"
-    assert_equal "직접 입력", values["job"], "직접 입력한 직업은 원문 대신 고정 문구"
-    assert_no_match(/비밀문장|홍길동/, values.values.join)
+  test "typed body-part text is never sent: only the dictionary concept" do
+    typed = SelfCareForm::Answers.new("body_part_text" => "왼쪽 손목 비밀문장")
+    assert_equal "손목", Submitter.values_for(typed)["body_part"], "원문이 아니라 사전 개념 이름"
+    assert_no_match(/비밀문장/, Submitter.values_for(typed).values.join)
 
     unmatched = Submitter.values_for(SelfCareForm::Answers.new("body_part_text" => "등산 중 다침"))
     refute unmatched.key?("body_part")
+  end
+
+  test "job value: button, dictionary surface, typed text, masked text, cap, unknown" do
+    job = ->(attrs) { Submitter.values_for(SelfCareForm::Answers.new(attrs))["job"] }
+
+    assert_equal "택배기사", job.call("job" => "택배기사")
+    assert_equal "용접공", job.call("job_text" => "용접사"), "구어 표기는 개념 이름으로"
+    assert_equal "홀서빙", job.call("job_text" => "식당 서빙 일해요"), "표기를 포함하면 개념 이름으로"
+    assert_equal "특수 직업", job.call("job_text" => "  특수   직업 "), "못 찾으면 공백을 정리한 입력"
+    assert_equal "김씨 ***", job.call("job_text" => "김씨 010-1234-5678")
+    assert_equal "가" * 30, job.call("job_text" => "가" * 80)
+    assert_equal "모르겠어요", job.call("job_unknown" => "1")
+    assert_nil job.call("situation" => "ill")
   end
 
   test "relaxed and result_count are sent only when a result is given and they are configured" do

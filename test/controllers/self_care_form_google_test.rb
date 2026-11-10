@@ -59,8 +59,9 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_select "#stats-consent-detail", text: /서버의 IP를 봅니다/
     assert_select "#stats-consent-detail", text: /재식별 위험/
     assert_select "#stats-consent-detail", text: /답이 달라질 때마다 전송되며, 같은 답은 다시 보내지 않습니다/
-    assert_select "#stats-consent-detail", text: /직접 입력한 말은 보내지 않습니다/
-    assert_select "#stats-consent-detail", text: /직접 입력.*모르겠어요.*고정 문구만 보냅니다/
+    assert_select "#stats-consent-detail", text: /직접 입력했으면 사전에서 찾은 직종 이름이나 입력한 말\(30자 이내, 번호 형태는 가림\)을 보냅니다/
+    assert_select "#stats-consent-detail", text: /신체 부위는 직접 입력한 말을 보내지 않습니다/
+    assert_select "#stats-consent-detail", text: /이름이나 연락처는 입력하지 마세요/
     assert_no_match(/개인정보가 가지 않/, response.body)
     assert_every_input_labelled
   end
@@ -265,35 +266,71 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
   test "typed text and the statistics labels never go beyond the configured entries" do
     begin_session
     answer("body_part", free_text: "왼쪽 손목 비밀문장")
-    answer("job", free_text: "내 이름은 홍길동")
+    answer("job", free_text: "용접사")
     answer("profile", respondent: "유가족", application_experience: "불승인을 받음", age_band: "10대", region: "충남")
     fire_callbacks(submit)
 
     values = @sent.first.last.values
     assert_includes values, "손목", "원문이 아니라 사전 개념 이름"
-    assert_no_match(/비밀문장|홍길동/, values.join)
-    assert_equal 6, @sent.first.last.size, "손목 + 직업 고정 문구 + 프로필 4개(판정·상황은 건너뜀)"
+    assert_includes values, "용접공", "직업 직접 입력은 사전 직종 이름"
+    assert_no_match(/비밀문장/, values.join)
+    assert_equal 6, @sent.first.last.size, "손목 + 직업 + 프로필 4개(판정·상황은 건너뜀)"
   end
 
   test "unmatched body-part free text with a distinctive string is never in any submitted parameter" do
     begin_session
     answer("body_part", free_text: "zzqx유니크문자열")
-    answer("job", free_text: "yyqw유니크직업")
+    answer("job", value: "택배기사")
     fire_callbacks(submit)
 
     assert_equal 1, @sent.size
     all = @sent.flat_map { |uri, params| [ uri.to_s, *params.keys, *params.values ] }.join(" ")
-    assert_no_match(/zzqx|yyqw|유니크/, all)
+    assert_no_match(/zzqx|유니크/, all)
   end
 
-  test "an unmatched typed job sends the fixed placeholder and nothing from the typed text" do
+  def sent_job
+    @sent.first.last["entry.574759984"]
+  end
+
+  test "a job button sends the button's job name" do
     begin_session
-    answer("job", free_text: "비밀직업 홍길동")
+    answer("job", value: "택배기사")
     fire_callbacks(submit)
 
-    params = @sent.first.last
-    assert_equal "직접 입력", params["entry.574759984"]
-    assert_no_match(/비밀|직업|홍길동/, params.values.join)
+    assert_equal "택배기사", sent_job
+  end
+
+  test "a typed dictionary surface sends the concept name" do
+    begin_session
+    answer("job", free_text: "용접사")
+    fire_callbacks(submit)
+
+    assert_equal "용접공", sent_job
+  end
+
+  test "an unmatched typed job sends the typed text" do
+    begin_session
+    answer("job", free_text: "yyqw 유니크직업")
+    fire_callbacks(submit)
+
+    assert_equal "yyqw 유니크직업", sent_job
+  end
+
+  test "a typed job with a phone-like number is sent masked" do
+    begin_session
+    answer("job", free_text: "홍길동 010-1234-5678")
+    fire_callbacks(submit)
+
+    assert_equal "홍길동 ***", sent_job
+    assert_no_match(/1234/, @sent.first.last.values.join)
+  end
+
+  test "a long typed job is capped at the free-text limit" do
+    begin_session
+    answer("job", free_text: "가" * 80)
+    fire_callbacks(submit)
+
+    assert_equal "가" * SelfCareForm::Flow::FREE_TEXT_MAX, sent_job
   end
 
   test "the I-don't-know job choice sends its label" do

@@ -6,8 +6,8 @@ module SelfCareForm
   # 사용자가 선택 동의한 경우에만, 고른 옵션의 라벨을 구글 폼의 formResponse 주소로 한 번 보낸다.
   # 구글의 공식 API가 아니라 폼 제출 주소에 `entry.<id>=값`을 POST하는 방식이라 구글이 막을 수 있다(미확인).
   #
-  # - 서버가 호출하므로 구글은 우리 서버의 IP와 요청 메타데이터를 본다. 우리는 IP·User-Agent·세션 ID·자유 입력을
-  #   폼 필드로 보내지 않는다.
+  # - 서버가 호출하므로 구글은 우리 서버의 IP와 요청 메타데이터를 본다. 우리는 IP·User-Agent·세션 ID·신체부위 자유 입력을
+  #   폼 필드로 보내지 않는다. 직업 자유 입력은 사전 직종 이름 또는 가린 입력(30자)을 보낸다.
   # - 구글은 필수 문항이 빠져도 200을 주고 조용히 버린다. 그래서 200을 성공으로 단정하지 않고 "요청을 보냈다"로만
   #   취급한다. 폼의 모든 문항은 단답형·필수 아님이어야 한다.
   # - 실패(타임아웃·예외·비 2xx)는 사용자 화면에 영향을 주지 않고, 내용 없이 예외 클래스·상태 코드만 로그에 남긴다.
@@ -65,9 +65,10 @@ module SelfCareForm
       # 테스트에서 컨트롤러가 만드는 인스턴스의 전송을 바꿔 끼운다(nil이면 실제 Net::HTTP).
       attr_accessor :transport
 
-      # 답(Answers)에서 보낼 값을 만든다. 라벨 문자열이고, 직접 입력 원문은 넣지 않는다.
+      # 답(Answers)에서 보낼 값을 만든다. 신체부위의 직접 입력 원문은 넣지 않는다.
       #   body_part: 버튼으로 고른 개념 또는 직접 입력에서 사전이 찾은 개념 이름(원문 아님)
-      #   job: 버튼으로 고른 대표 직종 이름. 직접 입력은 원문 대신 고정 문구(job_free_text), "모르겠어요"는 그 라벨
+      #   job: 버튼으로 고른 직종 이름. 직접 입력은 사전 직종 이름, 못 찾으면 입력한 말(번호 형태 가림, 30자 이내).
+      #        "모르겠어요"는 그 라벨(2026-11-11 사용자 결정)
       #   decision: "모두 보기"를 눌렀으면 보내고 건너뛰었으면 보내지 않는다
       #   relaxed·result_count: result(CaseFinder::Result)가 있을 때만
       def values_for(answers, result: nil)
@@ -86,15 +87,22 @@ module SelfCareForm
         values.compact
       end
 
-      # 직업 값. 직접 입력(job_text)은 어떤 경우에도 원문을 보내지 않고 고정 문구만 보낸다.
+      # 직업 값. 직접 입력(job_text)은 사전 직종 이름을 우선 보내고, 못 찾으면 입력한 말을 가려서 보낸다.
       def job_value(answers)
         if answers["job_text"].present?
-          I18n.t("self_care_form.stats.job_free_text")
+          typed_job_value(answers["job_text"])
         elsif answers["job"].present?
           answers["job"]
         elsif answers["job_unknown"].present?
           I18n.t("self_care_form.unknown")
         end
+      end
+
+      def typed_job_value(text)
+        match = JobMatcher.call(text)
+        return match.concept if match
+
+        PIIMasking.mask(text.to_s.gsub(/[[:space:]]+/, " ").strip).to_s.strip.slice(0, Flow::FREE_TEXT_MAX).presence
       end
 
       # send_test용: 모든 값을 [테스트]로 시작하게 만든다.

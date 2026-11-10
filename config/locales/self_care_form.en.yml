@@ -7,8 +7,6 @@ en:
     skip: Skip
     none: None of these
     unknown: I don't know
-    stats:
-      job_free_text: Typed by user
     restart: Start over
     new_window: "(opens in a new window, external site)"
     progress: "Question %{n} of %{total}"
@@ -22,7 +20,7 @@ en:
       consent: I understand the notice above.
       consent_error: Please tick that you understand the notice above to start.
       stats_consent: "(Optional) I agree to save the options I chose in a Google Form (the team's Google Sheet) for statistics."
-      stats_detail: "Only the chosen options for the questions that exist in the survey are sent; text you typed is not sent. If you typed your occupation, only the fixed phrase \"직접 입력\" (typed in) is sent, and if you chose \"I don't know\", only the fixed phrase \"모르겠어요\" is sent. Because this service's server sends it, Google sees the server's IP. We ask you not to enter identifying details, but combinations of choices may still allow re-identification. You can use everything the same without agreeing."
+      stats_detail: "Only the chosen options for the questions that exist in the survey are sent. For your occupation, the occupation you chose is sent; if you typed it, either the matching occupation name from our dictionary or the text you typed (up to 30 characters, number patterns masked) is sent. Body-part text you typed is not sent. If you chose \"I don't know\", \"모르겠어요\" is sent. Please do not enter names or contact details. Because this service's server sends it, Google sees the server's IP. We ask you not to enter identifying details, but combinations of choices may still allow re-identification. You can use everything the same without agreeing."
       stats_once: "It is sent each time you press [See results] with different answers; the same answers are not sent again."
       stats_retention: "Retention: at most 3 years from the date saved, reviewed every year, and rows no longer needed are deleted. Deletion owner: the Industrial Accident Project team."
       begin: Start
