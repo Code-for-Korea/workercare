@@ -42,7 +42,8 @@ en:
       heading: Good to know about the data
       basis: "The numbers below count the 61,815 occupational disease rulings published by the Korea Workers' Compensation & Welfare Service, as of 2026-11-11. Ruling dates run from 2016-12-27 to 2021-12-30 (197 rulings have no date). Only 16 rulings are from 2016; most are from 2017 to 2021."
       overview_heading: The rulings at a glance
-      overview_caption: Rulings by result (out of 61,815, as of 2026-11-11)
+      overview_caption: Share of past rulings by result (as of 2026-11-11)
+      overview_note: This is not an estimate of an approval rate or a forecast of any future application.
       col_result: Result
       col_count: Count
       col_percent: Share
@@ -54,7 +55,7 @@ en:
       death_text: "Rulings involving a death (death status Y) number 4,587, or 7.42% of the total. 6,819 rulings with no death status recorded are not counted."
       caveat: These numbers only count past rulings. They do not predict whether an individual case would be approved, and they do not show approval rates by job or disease.
       groups_heading: Common disease groups and body parts
-      groups_basis: Disease groups and body parts are classifications extracted from the rulings. Rulings with no value are not counted, so the totals do not add up to 61,815 (no disease group 6,290; no body part 19,848). Shares are out of all 61,815.
+      groups_basis: Disease groups and body parts are classifications extracted from the rulings, and the tables show the main categories only (for disease groups, 1 pneumoconiosis ruling is left out; for body parts, the 5 with the most rulings). Rulings with no value are not counted, so the totals do not add up to 61,815 (no disease group 6,290; no body part 19,848). Shares are out of all 61,815.
       disease_groups_label: Disease group
       disease_groups:
         - { label: Musculoskeletal, count: "42,596", percent: "68.9%" }

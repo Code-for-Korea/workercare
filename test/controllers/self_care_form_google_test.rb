@@ -60,6 +60,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_select "#stats-consent-detail", text: /재식별 위험/
     assert_select "#stats-consent-detail", text: /답이 달라질 때마다 전송되며, 같은 답은 다시 보내지 않습니다/
     assert_select "#stats-consent-detail", text: /직접 입력한 말은 보내지 않습니다/
+    assert_select "#stats-consent-detail", text: /직접 입력.*모르겠어요.*고정 문구만 보냅니다/
     assert_no_match(/개인정보가 가지 않/, response.body)
     assert_every_input_labelled
   end
@@ -272,6 +273,17 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_includes values, "손목", "원문이 아니라 사전 개념 이름"
     assert_no_match(/비밀문장|홍길동/, values.join)
     assert_equal 6, @sent.first.last.size, "손목 + 직업 고정 문구 + 프로필 4개(판정·상황은 건너뜀)"
+  end
+
+  test "unmatched body-part free text with a distinctive string is never in any submitted parameter" do
+    begin_session
+    answer("body_part", free_text: "zzqx유니크문자열")
+    answer("job", free_text: "yyqw유니크직업")
+    fire_callbacks(submit)
+
+    assert_equal 1, @sent.size
+    all = @sent.flat_map { |uri, params| [ uri.to_s, *params.keys, *params.values ] }.join(" ")
+    assert_no_match(/zzqx|yyqw|유니크/, all)
   end
 
   test "an unmatched typed job sends the fixed placeholder and nothing from the typed text" do
