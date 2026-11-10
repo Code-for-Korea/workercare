@@ -80,8 +80,24 @@ class SelfCareForm::GoogleFormSubmitterTest < ActiveSupport::TestCase
     assert_equal "특수 직업", job.call("job_text" => "  특수   직업 "), "못 찾으면 공백을 정리한 입력"
     assert_equal "김씨 ***", job.call("job_text" => "김씨 010-1234-5678")
     assert_equal "가" * 30, job.call("job_text" => "가" * 80)
+    assert_equal "김씨 ***", job.call("job_text" => "김씨 01012345678"), "하이픈 없는 번호"
+    assert_equal "김씨 ***", job.call("job_text" => "김씨 010 1234 5678"), "공백으로 끊긴 번호"
+    assert_equal "청소년상담사", job.call("job_text" => "청소년상담사"), "낱말 속 표기는 사전 직종으로 바꾸지 않는다"
     assert_equal "모르겠어요", job.call("job_unknown" => "1")
     assert_nil job.call("situation" => "ill")
+  end
+
+  test "masking a typed job writes nothing from the input to the log" do
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    begin
+      Submitter.values_for(SelfCareForm::Answers.new("job_text" => "김씨 010-1234-5678"))
+    ensure
+      Rails.logger = original
+    end
+
+    assert_no_match(/010|1234|5678|김씨/, io.string)
   end
 
   test "relaxed and result_count are sent only when a result is given and they are configured" do

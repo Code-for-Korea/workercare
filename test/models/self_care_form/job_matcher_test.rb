@@ -17,6 +17,13 @@ class SelfCareForm::JobMatcherTest < ActiveSupport::TestCase
     assert_equal "환경미화원", Matcher.call("청소 일해요").concept
   end
 
+  test "matching is token based: a surface inside a longer word does not match" do
+    assert_nil Matcher.call("청소년상담사")
+    assert_equal "간호사", Matcher.call("나는 간호사").concept
+    assert_equal "용접공", Matcher.call("용접사").concept
+    assert_equal "용접공", Matcher.call("용접사예요").concept
+  end
+
   test "no match returns nil" do
     assert_nil Matcher.call("zzqx")
     assert_nil Matcher.call("   ")

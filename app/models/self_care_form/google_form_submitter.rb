@@ -102,8 +102,16 @@ module SelfCareForm
         match = JobMatcher.call(text)
         return match.concept if match
 
-        PIIMasking.mask(text.to_s.gsub(/[[:space:]]+/, " ").strip).to_s.strip.slice(0, Flow::FREE_TEXT_MAX).presence
+        collapsed = text.to_s.gsub(/[[:space:]]+/, " ").strip
+        mask_digit_runs(PIIMasking.mask(collapsed, log: false)).to_s.strip.slice(0, Flow::FREE_TEXT_MAX).presence
       end
+
+      # 하이픈 없는 번호("01012345678", "010 1234 5678")까지 가린다: 숫자 7개 이상이 이어진 덩어리(사이의 공백·점·하이픈 허용).
+      # 직업 값에만 쓰는 지역 규칙이라 공용 PIIMasking 패턴은 바꾸지 않는다.
+      def mask_digit_runs(text)
+        text.gsub(/\d(?:[\s.\-]*\d){6,}/, "***")
+      end
+      private :mask_digit_runs
 
       # send_test용: 모든 값을 [테스트]로 시작하게 만든다.
       def test_values(keys)
