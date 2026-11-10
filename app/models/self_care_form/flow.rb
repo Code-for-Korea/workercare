@@ -33,7 +33,7 @@ module SelfCareForm
     }.freeze
 
     # 구글 폼으로 보낼 수 있는 값의 전체 키. 실제로 보내는 것은 설정(config/self_care_form.yml)의 entries에 id가
-    # 있는 키뿐이다(전송 키 = SENDABLE_KEYS ∩ entries 키). 자유 입력 원문은 보내지 않는다.
+    # 있는 키뿐이다(전송 키 = SENDABLE_KEYS ∩ entries 키). 자유 입력 원문은 보내지 않는다(예외는 직종 직접 입력 한 칸뿐이고 가려서 30자까지).
     SENDABLE_KEYS = %w[body_part job decision age_band region application_experience respondent situation relaxed
                        result_count].freeze
 
