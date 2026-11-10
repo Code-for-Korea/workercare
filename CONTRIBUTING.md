@@ -220,12 +220,17 @@ bin/rails "import:ksco_codes[ksco-level-4-details.csv]"
 # 3) 추출 컬럼과 KSCO 매핑
 bin/rails "import:extracted_disease_cases[extract_disease_cases_details_cerebras-ksco.csv]"
 
+# (KSCO 매핑만 다시 맞출 때) 추출 컬럼은 건드리지 않는다. 기본은 dry-run, 두 번째 인자 apply로 반영
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv]"
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv,apply]"
+
 # (필요하면) 원문 전문 검색 인덱스만 다시 만들기
 bin/rails fts:rebuild
 ```
 
 - 1)은 `case_no`로 upsert하고 끝에서 `disease_cases_fts`를 rebuild합니다. 알 수 없는 심의결과가 있으면 그 행에서 멈춥니다.
 - 3)은 추출 컬럼을 덮어쓰고, 판정 결과가 원본과 다르면 **덮어쓰지 않고 경고만** 냅니다. KSCO 매핑은 CSV의 목록을 "전체 목표"로 보고 **목록에 없는 기존 매핑을 지웁니다.** 단, `ksco_codes_json`이 비었거나 파싱에 실패한 행은 기존 매핑을 건드리지 않습니다. 끝에서 `disease_cases_extracted_fts`를 rebuild합니다.
+- `import:ksco_mappings`는 3)의 KSCO 부분만 따로 하는 태스크입니다. 건수(추가·유사도 변경·삭제·그대로)를 먼저 보여 주고(dry-run), 같은 `case_no`가 여러 행이면 마지막 행을, 한 행에서 같은 코드가 겹치면 큰 유사도를 씁니다. 빈·깨진 JSON 행은 기존 매핑을 지키고, `ksco_codes`에 없는 코드는 건너뛰되 삭제 근거로는 세지 않습니다. 중간에 멈춰도 다시 실행하면 차이만 반영합니다. 운영 DB는 백업 뒤 사용자가 직접 실행합니다.
 - 3)에서 KSCO 코드가 없으면 경고만 내고 건너뜁니다. 먼저 2)를 실행했는지 확인하세요.
 - 3)은 신청서 종류·근무 형태·고용 형태를 `DiseaseCases::Normalizer`(규칙: `config/normalization/rules.yml`)로 정규화해 저장하고, 덮어쓰면 사라지는 부가 표기는 `application_type_detail`, `work_type_detail`, `employment_type_detail`에 남깁니다. 사망 여부·중량물 취급 여부·업무관련성 평가는 빈 값과 허용값 밖의 값을 NULL로 저장합니다.
 - 이미 적재된 데이터를 새 규칙으로 바꿀 때는 `bin/rails normalize:report[컬럼]`(미리보기)과 `bin/rails normalize:disease_cases`(dry-run) 뒤 `bin/rails "normalize:disease_cases[apply]"`를 씁니다. 원본 컬럼을 덮어쓰는 비가역 작업이라 먼저 `export:workercare_data`로 백업하세요. 배경과 규칙은 `docs/disease-cases-normalization.md`입니다.
