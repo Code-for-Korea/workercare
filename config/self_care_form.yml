@@ -1,14 +1,16 @@
 # 산재알아보기 통계를 구글 폼으로 보내는 설정. 문서: docs/self-care-form.md ("구글 폼 작성 방법")
 #
-# 기본은 꺼짐이다. 동의 문구·보관 기간·삭제 주체가 확정되고 법률·개인정보 검토를 마치기 전에는 켜지 않는다.
-# 꺼져 있으면 전송도, 시작 화면의 "통계용 저장" 선택 동의란도 나타나지 않는다.
+# 켜져 있다(사용자 결정 2026-11-11). 시작 화면에서 따로 동의한 사람의 선택지만 보낸다. 동의는 선택이고 동의하지 않아도
+# 모든 기능을 똑같이 쓸 수 있다. 보관은 저장한 날부터 최대 3년, 해마다 점검해 필요 없는 행을 지운다. 삭제 담당은 산업재해 프로젝트 팀.
+# 법률·개인정보 검토는 하지 않았다(권장 사항으로 남음, docs/self-care-form.md 10.2).
+# 끄려면 enabled: false로 바꾼다. 그러면 전송도, 시작 화면의 "통계용 저장" 선택 동의란도 나타나지 않는다.
 #
 # enabled: true 이고 아래 값이 모두 검증을 통과해야 켜진다.
 #   google_form_response_url  https://docs.google.com/forms/d/e/<폼 ID>/formResponse (viewform → formResponse)
 #   entries                   앱 키 → 구글 폼 문항의 entry id(숫자). 키는 Flow::SENDABLE_KEYS 중에서만.
-enabled: false
+enabled: true
 google_form_response_url: "https://docs.google.com/forms/d/e/1FAIpQLSce45KJEDDH4e2lgtegblriHZDzFL_tQ1UVndkq6Hn7FUmLJA/formResponse"
-# 샘플 폼의 entry id (미리 채워진 링크 usp=pp_url에서 확인). 운영 폼을 새로 만들면 id가 모두 바뀐다.
+# 샘플 폼의 entry id (미리 채워진 링크 usp=pp_url에서 확인, 8문항 모두 단답형·필수 아님 확인됨). 운영 폼을 새로 만들면 id가 모두 바뀐다.
 entries:
   body_part: 447515540              # 신체부위
   job: 574759984                    # 직종

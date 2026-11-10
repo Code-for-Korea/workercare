@@ -65,7 +65,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
   end
 
   test "when off, there is no statistics checkbox and no notice about it" do
-    SelfCareForm::Settings.reset!
+    SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: false, url: "", entries: {})
     get self_care_form_start_path
 
     assert_select "input#stats_consent", count: 0
@@ -80,7 +80,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{self_care_form_submit_result_path}'][method=post] button", text: "결과 보기"
     assert_select "a[href='#{self_care_form_result_path}']", count: 0
 
-    SelfCareForm::Settings.reset!
+    SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: false, url: "", entries: {})
     get self_care_form_review_path
     assert_select "a[role=button][href='#{self_care_form_result_path}']", text: "결과 보기"
   end
@@ -223,7 +223,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
   # ---- 꺼져 있을 때 ----
 
   test "when off, submitting just shows the result: no callback, no flag" do
-    SelfCareForm::Settings.reset!
+    SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: false, url: "", entries: {})
     begin_session
     answer_everything
     callbacks = submit
