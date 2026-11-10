@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# 산재알아보기 화면용 도우미. 문구는 config/locales/self_care_form.*.yml, 단계·허용값은 SelfCareForm::Flow.
+# 단계별 사례 찾기 화면용 도우미. 문구는 config/locales/self_care_form.*.yml, 단계·허용값은 SelfCareForm::Flow.
 module SelfCareFormHelper
   def self_care_title
     t("self_care_form.title")

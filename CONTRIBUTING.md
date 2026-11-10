@@ -33,7 +33,7 @@
 |---|---|---|
 | 웹 검색 | 메인 검색(`/`), 상세 검색(`/search`), 판정서 상세(`/disease_cases/:case_no`) | `app/controllers/disease_cases_controller.rb`, `app/views/disease_cases/` |
 | 마크다운 응답 | 같은 주소에 `.md`나 `Accept: text/markdown`을 보내면 검색·결과·상세를 마크다운으로 응답(LLM·스크립트용) | `app/models/disease_cases/markdown_renderer.rb`, `docs/markdown-responses.md` |
-| 산재알아보기 | 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`/self-care-form`)과 신청 방법 안내(`/apply-guide`). 답은 세션 쿠키에만 두고 DB에 쓰지 않는다 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/`, `app/models/apply_guide.rb`, `docs/self-care-form.md` |
+| 단계별 사례 찾기 | 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`/self-care-form`)과 신청 방법 안내(`/apply-guide`). 답은 세션 쿠키에만 두고 DB에 쓰지 않는다 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/`, `app/models/apply_guide.rb`, `docs/self-care-form.md` |
 | 카카오톡 챗봇 스킬 서버 | 카카오 챗봇 관리자센터가 호출하는 `POST /webhooks/kakao`, `POST /webhooks/kakao/jobs` | `app/controllers/webhooks/`, `app/models/chatbot/` |
 | 데이터 적재 도구 | CSV를 DB로 가져오는 rake 태스크, 챗봇 엔티티 사전 도구 | `lib/tasks/`, `lib/chatbot/` |
 
@@ -104,7 +104,7 @@ app/
   controllers/
     disease_cases_controller.rb   웹 검색·상세. MAX_SEARCH_RESULTS = 500, 한 쪽 12건
     pages_controller.rb           /about, /apply-guide(.md) (신청 방법 안내)
-    self_care_form_controller.rb  산재알아보기(단계별 자가진단). 답은 세션 쿠키에만 둔다
+    self_care_form_controller.rb  단계별 사례 찾기(단계별 자가진단). 답은 세션 쿠키에만 둔다
     concerns/representation_headers.rb   HTML·마크다운 두 표현의 Vary·Link 헤더
     webhooks/                     카카오 스킬 엔드포인트 (kakao_base, kakao, kakao_jobs)
   models/
@@ -115,7 +115,7 @@ app/
     disease_cases/markdown_renderer.rb   검색·상세의 마크다운 응답 (.md / Accept: text/markdown)
     disease_cases/normalizer.rb 신청서 종류·근무 형태·고용 형태 정규화 (규칙: config/normalization/rules.yml)
     disease_cases/carried_filters.rb   /·/search에 입력칸이 없는 조건(직종 핵심어·목록 밖 신체부위)을 보여 주고 유지
-    self_care_form/               산재알아보기: flow(단계·허용값), answers(세션 답), case_finder, body_part_matcher
+    self_care_form/               단계별 사례 찾기: flow(단계·허용값), answers(세션 답), case_finder, body_part_matcher
     apply_guide.rb, apply_guide/html_renderer.rb   신청 가이드(config/apply_guide/procedure_guides.yml)
     ksco_code.rb, disease_case_ksco_code.rb   표준직업분류 코드와 판정서 매핑(유사도 포함)
     chatbot/                      챗봇 전용: 요청 어댑터, 응답 빌더, 검색, 공개용 DTO, 엔티티 사전 읽기

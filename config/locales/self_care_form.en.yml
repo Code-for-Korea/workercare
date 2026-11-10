@@ -1,8 +1,8 @@
 ---
 en:
   self_care_form:
-    title: Check industrial accident cases
-    nav: Check cases
+    title: Step-by-step case finder
+    nav: Case finder
     back: Back
     skip: Skip
     none: None of these

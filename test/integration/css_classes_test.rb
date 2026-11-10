@@ -61,7 +61,7 @@ class CssClassesTest < ActionDispatch::IntegrationTest
     visit search_path, job_name_any: %w[택배 배송], burden_body_part: Chatbot::BodyPartExpansion.tokens_for("손목")
     visit disease_case_path("CSS-00")
 
-    # 산재알아보기: 오류 요약, 질문 5단계, 확인, 결과
+    # 단계별 사례 찾기: 오류 요약, 질문 5단계, 확인, 결과
     post self_care_form_agree_path
     collect :unprocessable_entity
     visit self_care_form_start_path

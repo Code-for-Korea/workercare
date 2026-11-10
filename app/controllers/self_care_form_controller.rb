@@ -1,4 +1,4 @@
-# 산재알아보기: 단계별로 고르고(세션 쿠키에만 보관) 고른 조건으로 비슷한 판정 사례를 보여 준다.
+# 단계별 사례 찾기: 단계별로 고르고(세션 쿠키에만 보관) 고른 조건으로 비슷한 판정 사례를 보여 준다.
 # 문서: docs/self-care-form.md. 서버 DB에는 아무것도 저장하지 않는다.
 class SelfCareFormController < ApplicationController
   before_action :require_consent, except: %i[start agree]

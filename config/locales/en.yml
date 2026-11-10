@@ -24,7 +24,7 @@ en:
       search: Search
       search_text: Find rulings by conditions such as occupation, application type or body part, and by keywords. Advanced search can also search the full text of a ruling.
       advanced: Advanced search
-      self_care_form: Check your situation
+      self_care_form: Step-by-step case finder
       self_care_form_text: Answer a few questions and see similar rulings.
       apply_guide: How to apply
       apply_guide_text: A guide to the application procedure, required documents and what to do if a claim is rejected.
@@ -39,8 +39,8 @@ en:
     privacy:
       heading: Privacy
       lead: This site uses cookies for separate purposes.
-      self_care_heading: Your answers in the self-check
-      self_care_text: Kept in an encrypted session cookie and not stored in the server database. The cookie has no expiry time, so it usually disappears when you close the browser, but it may remain if the browser restores the previous session. Choosing "Start over" in the self-check clears your answers.
+      self_care_heading: Your answers in the step-by-step case finder
+      self_care_text: Kept in an encrypted session cookie and not stored in the server database. The cookie has no expiry time, so it usually disappears when you close the browser, but it may remain if the browser restores the previous session. Choosing "Start over" in the case finder clears your answers.
       display_heading: Display settings
       display_text: The large text and high contrast settings are kept in a separate cookie for one year. The cookie holds only the setting value and no personal information.
       stats_heading: Saving statistics

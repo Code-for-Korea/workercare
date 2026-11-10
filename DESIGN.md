@@ -152,22 +152,22 @@
 |---|---|
 | 버튼 `button`, `[type=submit]` | 채운 강조색. 화면의 주된 동작 하나에 쓴다. 높이는 `--control-h` 하나뿐이다. |
 | `.btn-secondary` | 테두리만 있는 버튼. 되돌리기, 초기화 같은 보조 동작이다. |
-| 선택 버튼 `ul.choices` | 산재알아보기의 보기 선택. 흰 바탕 2px 테두리, 왼쪽 정렬, 높이 3rem, 최소 10rem 칸 auto-fill. hover·focus-visible은 테두리와 배경을 함께 바꾼다. `.btn-secondary`(해당 없음·모르겠어요·건너뛰기)는 같은 모양에 점선 테두리라 색 없이도 구분된다. forced-colors에서도 테두리가 보인다. |
+| 선택 버튼 `ul.choices` | 단계별 사례 찾기의 보기 선택. 흰 바탕 2px 테두리, 왼쪽 정렬, 높이 3rem, 최소 10rem 칸 auto-fill. hover·focus-visible은 테두리와 배경을 함께 바꾼다. `.btn-secondary`(해당 없음·모르겠어요·건너뛰기)는 같은 모양에 점선 테두리라 색 없이도 구분된다. forced-colors에서도 테두리가 보인다. |
 | 입력, `.field` | 라벨 위, 입력 아래. 오류는 `[aria-invalid=true]`에 빨간 테두리와 **문구**를 함께 둔다. 라벨 전체를 클릭 영역으로 쓴다. |
-| `.search-row` | 검색창 한 줄(산재알아보기 직접 입력도 같은 줄을 쓴다). 입력은 `flex: 1 1 12rem; min-width: 0`, 버튼은 줄어들지 않는다. 좁거나 글씨가 크면 버튼이 다음 줄로 내려간다. |
+| `.search-row` | 검색창 한 줄(단계별 사례 찾기 직접 입력도 같은 줄을 쓴다). 입력은 `flex: 1 1 12rem; min-width: 0`, 버튼은 줄어들지 않는다. 좁거나 글씨가 크면 버튼이 다음 줄로 내려간다. |
 | `.notice` | 정보 안내. 왼쪽 굵은 테두리. 상태 알림은 `role="status"`를 붙인다. |
 | `.error-summary` | 폼 오류 요약. `role="alert"`. 각 오류 항목은 해당 입력으로 연결한다. |
 | `.table-scroll` | 표를 감싸는 가로 스크롤 영역. `role="region"`, `tabindex="0"`, `aria-label`이 반드시 있다. 가로로만 스크롤한다(세로 스크롤 영역을 중첩하지 않는다). 행 구분선만 쓴다. |
 | 외부 링크 | 새 창으로 열리는 원문 링크. 아이콘 옆에 `<span class="sr-only">(새 창, 외부 사이트)</span>`를 둔다. `rel="noopener noreferrer"`. |
 | `.guide-topic` | 신청 가이드의 주제 하나(`details`). 안의 표는 좁은 화면에서 가로로 스크롤한다. 본문 HTML은 `ApplyGuide::HtmlRenderer`가 만든다. |
-| `.case-list` | 사례 목록(검색 결과 아님, 산재알아보기 결과). 질병명이 제목(상세 링크)이고 나머지는 `text-muted` 한 줄 메타 정보다. 판정 결과를 색으로 구분하지 않는다. |
+| `.case-list` | 사례 목록(검색 결과 아님, 단계별 사례 찾기 결과). 질병명이 제목(상세 링크)이고 나머지는 `text-muted` 한 줄 메타 정보다. 판정 결과를 색으로 구분하지 않는다. |
 | `details`/`summary` 아코디언 | 가이드·필터처럼 길고 선택적인 내용. `summary` 안의 `h2`·`h3`는 인라인이고 펼침 표시는 CSS로 만든다. |
-| `progress` | 산재알아보기 진행 표시. 높이 0.5rem. 옆에 "질문 5개 중 3번째" 같은 글자를 함께 둔다. |
+| `progress` | 단계별 사례 찾기 진행 표시. 높이 0.5rem. 옆에 "질문 5개 중 3번째" 같은 글자를 함께 둔다. |
 | 로딩 오버레이 | 오래 걸리는 요청 중 표시. `prefers-reduced-motion`이면 스피너를 멈춘다. |
 | 건너뛰기 링크 | 페이지 맨 앞. 포커스를 받을 때만 보이고 `main#main`으로 간다. |
-| `.carried-filters` | `/`·`/search`에서 화면 필터에 입력칸이 없는 조건(직종 핵심어 `job_name_any`, 체크박스 목록 밖 신체부위 토큰)을 보여 주고, hidden 필드로 다시 검색해도 유지하며, [빼기] 링크를 둔다. 주로 산재알아보기의 '더 자세히 찾기'에서 넘어온다. |
+| `.carried-filters` | `/`·`/search`에서 화면 필터에 입력칸이 없는 조건(직종 핵심어 `job_name_any`, 체크박스 목록 밖 신체부위 토큰)을 보여 주고, hidden 필드로 다시 검색해도 유지하며, [빼기] 링크를 둔다. 주로 단계별 사례 찾기의 '더 자세히 찾기'에서 넘어온다. |
 | `.filters` | `/`·`/search`의 필터 묶음 `<details>`. 검색어·정렬·쪽 말고 값이 있는 조건이 있으면 `open`(`search_filters_open?`), 없으면 접어 둔다. 정렬은 이 안에 넣지 않고 바로 아래에 둔다. |
-| `.case-meta` | 항목·값 `dl`(상세 머리 정보, 산재알아보기 확인 화면의 답과 [바꾸기]). 좁은 화면 1열, 40rem 이상 2열. |
+| `.case-meta` | 항목·값 `dl`(상세 머리 정보, 단계별 사례 찾기 확인 화면의 답과 [바꾸기]). 좁은 화면 1열, 40rem 이상 2열. |
 | `.check-row` | 동의 체크박스 한 줄. 라벨 전체가 44px 이상 클릭 영역이고, 뒤따르는 안내와 버튼과 간격을 둔다. |
 | `.case-text` | 상세 원문 문단. 읽기 폭 70ch, 줄바꿈 보존(`pre-wrap`), `overflow-wrap: anywhere`. |
 | 페이지네이션 | Pagy `series_nav` 출력을 토큰으로 스타일한다. 현재 쪽은 `aria-current="page"`와 굵은 밑줄로 표시한다. |
@@ -176,7 +176,7 @@
 | `.site-name` | 헤더의 사이트명 링크. 굵게, 밑줄 없음. 홈에서는 `aria-current="page"`가 붙는다. |
 | `.checkbox-grid` | 체크박스·라디오 격자. 최소 8rem 칸으로 자동 채운다(auto-fill). 라벨 전체가 클릭 영역이다. |
 | `.cell-wide` | 표에서 글이 긴 칸(직무 설명, 질병명). 최소 10rem, 최대 12rem이고 단어 중간에서 줄바꿈한다. |
-| 컨테이너 | `.container`(최대 72rem), `.container-narrow`(40rem; 산재알아보기·가이드·소개). 좌우 여백 `--space-4`. |
+| 컨테이너 | `.container`(최대 72rem), `.container-narrow`(40rem; 단계별 사례 찾기·가이드·소개). 좌우 여백 `--space-4`. |
 
 ## 5. 접근성 규칙
 
@@ -198,7 +198,7 @@ WCAG 2.2 AA를 바탕으로 하고 본문 대비만 AAA(7:1)를 목표로 한다
   | `/` | 사이트명 링크 |
   | `/search` | [검색] |
   | `/disease_cases/:case_no` | 없음 |
-  | `/self-care-form` 및 하위 단계·확인·결과 | [산재알아보기] |
+  | `/self-care-form` 및 하위 단계·확인·결과 | [단계별 사례 찾기] |
   | `/apply-guide` | [산재 신청 방법 안내] |
   | `/about` | [소개] |
   | `.md` 응답, 오류 페이지 | 없음 |
@@ -211,7 +211,7 @@ WCAG 2.2 AA를 바탕으로 하고 본문 대비만 AAA(7:1)를 목표로 한다
   - 눌린 버튼은 `aria-pressed="true"`에 더해 "✓" 표시와 굵은 테두리로 구분한다.
   - 헤더 `role="group" aria-label="화면 설정"` 안에 `POST /display-settings` 폼 둘. 버튼 이름은 고정이고 상태는 `aria-pressed`로 알린다.
   - 폼은 `data-turbo="false"`다. Turbo Drive가 `<html>` 속성을 바꾸지 않기 때문이다.
-  - 이 쿠키는 산재알아보기 세션 쿠키와 별개다. 답은 여기에 두지 않는다. 폼은 `button_to`라서 `form.button_to`가 붙는다. `.display-settings .button_to`로 스타일한다.
+  - 이 쿠키는 단계별 사례 찾기 세션 쿠키와 별개다. 답은 여기에 두지 않는다. 폼은 `button_to`라서 `form.button_to`가 붙는다. `.display-settings .button_to`로 스타일한다.
 
 ## 6. 글꼴(Pretendard)
 
@@ -221,7 +221,7 @@ WCAG 2.2 AA를 바탕으로 하고 본문 대비만 AAA(7:1)를 목표로 한다
 - **글꼴 스택:** `"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif`. 동적 서브셋이라 화면에 쓰인 글자의 woff2 조각만 받는다.
 - **버전 올리기:** 주소의 `v1.3.9`를 바꾸고 화면을 확인한다. `latest`나 범위 표기는 쓰지 않는다.
 - **CSP:** 지금 `config/initializers/content_security_policy.rb`는 전부 주석이다. 켜면 `style_src`와 `font_src` **둘 다**에 `https://cdn.jsdelivr.net`을 넣는다. 하나만 넣으면 글꼴이 막힌다.
-- **개인정보·가용성 trade-off:** 방문자 브라우저가 jsDelivr에 IP, User-Agent, Referer를 보낸다. 산재알아보기 단계 주소에는 답이 실리지 않으므로(답은 세션) 주소로 답이 새지 않는다. Referer는 경로를 보내지 않는 `strict-origin-when-cross-origin`이다(Rails 기본과 같다). CDN이 막히면 글꼴만 시스템 글꼴로 바뀌고 기능은 그대로다.
+- **개인정보·가용성 trade-off:** 방문자 브라우저가 jsDelivr에 IP, User-Agent, Referer를 보낸다. 단계별 사례 찾기 단계 주소에는 답이 실리지 않으므로(답은 세션) 주소로 답이 새지 않는다. Referer는 경로를 보내지 않는 `strict-origin-when-cross-origin`이다(Rails 기본과 같다). CDN이 막히면 글꼴만 시스템 글꼴로 바뀌고 기능은 그대로다.
 - **자체 호스팅으로 바꾸려면:**
   1. Pretendard 패키지의 `packages/pretendard/dist/web/variable` 아래 `pretendardvariable-dynamic-subset.min.css`와 `woff2-dynamic-subset/`를 `app/assets/`에 둔다.
   2. CSS 안의 `url()` 경로를 propshaft 경로에 맞춘다.

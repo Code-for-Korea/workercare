@@ -7,7 +7,7 @@ Rails.application.routes.draw do
   get "/about", to: "pages#about", as: :about
   get "/apply-guide", to: "pages#apply_guide", as: :apply_guide
 
-  # 산재알아보기(단계형 자가진단). 정적 경로를 먼저 두고 /:step은 Flow의 질문 단계 이름으로만 받는다.
+  # 단계별 사례 찾기(단계형 자가진단). 정적 경로를 먼저 두고 /:step은 Flow의 질문 단계 이름으로만 받는다.
   # resource :self_care_form(단수 리소스)은 복수 SelfCareFormsController로 연결되므로 controller를 명시한다.
   scope "self-care-form", controller: :self_care_form, as: :self_care_form do
     get  "",       action: :start,  as: :start

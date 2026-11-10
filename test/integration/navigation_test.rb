@@ -33,7 +33,7 @@ class NavigationTest < ActionDispatch::IntegrationTest
 
   test "self care form start marks its link" do
     get self_care_form_start_path
-    assert_current "산재알아보기"
+    assert_current "단계별 사례 찾기"
   end
 
   test "a self care form step marks the same link" do
@@ -41,7 +41,7 @@ class NavigationTest < ActionDispatch::IntegrationTest
     get self_care_form_step_path("situation")
 
     assert_response :success
-    assert_current "산재알아보기"
+    assert_current "단계별 사례 찾기"
   end
 
   test "case detail marks nothing" do

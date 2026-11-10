@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SelfCareForm
-  # 산재알아보기(단계형 자가진단)의 단계·허용값·순서를 한 곳에 둔다. 문서: docs/self-care-form.md
+  # 단계별 사례 찾기(단계형 자가진단)의 단계·허용값·순서를 한 곳에 둔다. 문서: docs/self-care-form.md
   #
   # 흐름: 시작(동의) → situation → body_part → job → decision → profile(통계 한 페이지) → 확인(review) → 결과(result)
   # 시작·확인·결과는 정적 경로이고, 질문 화면 5개만 STEP_KEYS(`/self-care-form/:step`)다.

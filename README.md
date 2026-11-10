@@ -69,7 +69,7 @@ rails "import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras
 | `GET /` | 메인 검색 (직업·부담 신체 부위·신청서 종류·고용 형태·근무 형태·업무관련성·사망 여부 필터 + 전문 검색) — 간단한 검색 화면 |
 | `GET /search` | 상세 검색 (메인 화면의 모든 필터 + 심의결과·심의연도·질병분류·신체부위·판정일 필터 + 판정서 본문 전문 검색) |
 | `GET /disease_cases/:case_no` | 판정서 상세 |
-| `GET /self-care-form` | **산재알아보기**: 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`docs/self-care-form.md`) |
+| `GET /self-care-form` | **단계별 사례 찾기**: 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`docs/self-care-form.md`) |
 | `GET /apply-guide` | 산재 신청 방법 안내(`.md`도 제공) |
 
 두 화면은 같은 구조화 필터(신청서 종류·고용 형태·근무 형태·업무관련성·사망 여부)를 씁니다. 이 값들은 표기 흔들림을 정리한 정규화 값입니다(`docs/disease-cases-normalization.md`). 신청서 종류는 체크박스(여러 개를 고르면 하나라도 포함된 사례), 고용 형태·근무 형태는 범주 목록에서 고릅니다. KSCO 코드는 숫자 코드라 입력 필드가 없고, 쿼리스트링으로 필터링할 수 있습니다.

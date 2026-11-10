@@ -31,8 +31,8 @@ class SelfCareFormControllerTest < ActionDispatch::IntegrationTest
     get self_care_form_start_path
 
     assert_response :success
-    assert_select "title", text: /산재알아보기/
-    assert_select "h1[tabindex='-1'][autofocus]", text: "산재알아보기"
+    assert_select "title", text: /단계별 사례 찾기/
+    assert_select "h1[tabindex='-1'][autofocus]", text: "단계별 사례 찾기"
     assert_select "input#consent[type=checkbox]"
     assert_select "label[for=consent]", text: /이해했습니다/
     assert_select "button[type=submit]", text: "시작하기"
@@ -42,7 +42,7 @@ class SelfCareFormControllerTest < ActionDispatch::IntegrationTest
 
   test "the nav links to the form and to the apply guide on every page" do
     get root_path
-    assert_select "nav a[href='#{self_care_form_start_path}']", text: "산재알아보기"
+    assert_select "nav a[href='#{self_care_form_start_path}']", text: "단계별 사례 찾기"
     assert_select "nav a[href='#{apply_guide_path}']"
   end
 
@@ -91,7 +91,7 @@ class SelfCareFormControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_equal titles.uniq.size, titles.size
-    assert titles.all? { |t| t.start_with?("질문 ") && t.end_with?("산재알아보기") }
+    assert titles.all? { |t| t.start_with?("질문 ") && t.end_with?("단계별 사례 찾기") }
   end
 
   test "the situation page offers the three situations and a skip button" do
