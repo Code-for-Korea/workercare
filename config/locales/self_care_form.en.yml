@@ -7,6 +7,8 @@ en:
     skip: Skip
     none: None of these
     unknown: I don't know
+    stats:
+      job_free_text: Typed by user
     restart: Start over
     new_window: "(opens in a new window, external site)"
     progress: "Question %{n} of %{total}"

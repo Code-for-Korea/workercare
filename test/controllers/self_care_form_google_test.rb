@@ -124,7 +124,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     answer("profile", skip_to_review: "1")
     fire_callbacks(submit)
 
-    assert_equal 1, @sent.first.last.size, "상황 하나만"
+    assert_equal 2, @sent.first.last.size, "상황 + 직업 \"모르겠어요\" 라벨"
     assert_equal SelfCareForm::Flow.situation_label("no_time"), @sent.first.last["entry.1830980629"]
   end
 
@@ -205,7 +205,42 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     values = @sent.first.last.values
     assert_includes values, "손목", "원문이 아니라 사전 개념 이름"
     assert_no_match(/비밀문장|홍길동/, values.join)
-    assert_equal 5, @sent.first.last.size, "손목 + 프로필 4개(직업 직접 입력과 판정·상황은 건너뜀)"
+    assert_equal 6, @sent.first.last.size, "손목 + 직업 고정 문구 + 프로필 4개(판정·상황은 건너뜀)"
+  end
+
+  test "an unmatched typed job sends the fixed placeholder and nothing from the typed text" do
+    begin_session
+    answer("job", free_text: "비밀직업 홍길동")
+    fire_callbacks(submit)
+
+    params = @sent.first.last
+    assert_equal "직접 입력", params["entry.574759984"]
+    assert_no_match(/비밀|직업|홍길동/, params.values.join)
+  end
+
+  test "the I-don't-know job choice sends its label" do
+    begin_session
+    answer("job", value: "none")
+    fire_callbacks(submit)
+
+    assert_equal "모르겠어요", @sent.first.last["entry.574759984"]
+  end
+
+  test "choosing none for body_part stores no extra key" do
+    begin_session
+    answer("body_part", value: "none")
+
+    assert_empty session[:self_care_form].keys - SelfCareForm::Answers::KEYS
+    assert_nil session[:self_care_form]["body_part_unknown"]
+  end
+
+  test "a matched job is sent unchanged and a later typed answer replaces the unknown mark" do
+    begin_session
+    answer("job", value: "none")
+    answer("job", value: "택배기사")
+    fire_callbacks(submit)
+
+    assert_equal "택배기사", @sent.first.last["entry.574759984"]
   end
 
   test "relaxed and result_count are computed and sent only when the form has those questions" do

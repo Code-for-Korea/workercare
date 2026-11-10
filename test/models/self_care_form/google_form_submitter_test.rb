@@ -67,7 +67,7 @@ class SelfCareForm::GoogleFormSubmitterTest < ActiveSupport::TestCase
     values = Submitter.values_for(typed)
 
     assert_equal "손목", values["body_part"], "원문이 아니라 사전 개념 이름"
-    refute values.key?("job"), "직접 입력한 직업은 보내지 않는다"
+    assert_equal "직접 입력", values["job"], "직접 입력한 직업은 원문 대신 고정 문구"
     assert_no_match(/비밀문장|홍길동/, values.values.join)
 
     unmatched = Submitter.values_for(SelfCareForm::Answers.new("body_part_text" => "등산 중 다침"))

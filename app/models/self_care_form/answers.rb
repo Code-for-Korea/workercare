@@ -6,7 +6,7 @@ module SelfCareForm
   # 자유 입력(신체부위·직업)은 검색에만 쓰고 FREE_TEXT_MAX자로 자른다(쿠키 4KB 제한, 구글 폼으로 보내지 않음).
   class Answers
     PROFILE_KEYS = Flow::PROFILE_FIELDS.keys.freeze
-    KEYS = (%w[situation body_part body_part_text job job_text decision] + PROFILE_KEYS).freeze
+    KEYS = (%w[situation body_part body_part_text job job_text job_unknown decision] + PROFILE_KEYS).freeze
     SKIP = "skip"
     NONE = "none"
 
@@ -94,15 +94,19 @@ module SelfCareForm
       text_key = "#{key}_text"
       value = params[:value].to_s
       free = params[:free_text].to_s.gsub(/[[:space:]]+/, " ").strip.slice(0, Flow::FREE_TEXT_MAX)
+      unknown_key = "job_unknown" if key == "job" # body_part와 공용이므로 직종만 표시를 둔다
       if free.present?
         @data[text_key] = free
         @data.delete(key)
+        @data.delete(unknown_key) if unknown_key
       elsif [ NONE, SKIP ].include?(value)
         @data.delete(key)
         @data.delete(text_key)
+        @data[unknown_key] = "1" if unknown_key && value == NONE # "모르겠어요"를 골랐다는 표시(구글 폼에 라벨을 보내기 위함, 검색에는 쓰지 않음)
       elsif names.include?(value)
         @data[key] = value
         @data.delete(text_key)
+        @data.delete(unknown_key) if unknown_key
       end
     end
 

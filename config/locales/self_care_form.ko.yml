@@ -7,6 +7,8 @@ ko:
     skip: 건너뛰기
     none: 해당 없음
     unknown: 모르겠어요
+    stats:
+      job_free_text: 직접 입력 # 구글 폼 직종 칸에 직접 입력 원문 대신 보내는 고정 문구
     restart: 처음부터 다시
     new_window: "(새 창, 외부 사이트)"
     progress: "질문 %{total}개 중 %{n}번째"

@@ -67,14 +67,14 @@ module SelfCareForm
 
       # 답(Answers)에서 보낼 값을 만든다. 라벨 문자열이고, 직접 입력 원문은 넣지 않는다.
       #   body_part: 버튼으로 고른 개념 또는 직접 입력에서 사전이 찾은 개념 이름(원문 아님)
-      #   job: 버튼으로 고른 대표 직종 이름만(직접 입력은 보내지 않음)
+      #   job: 버튼으로 고른 대표 직종 이름. 직접 입력은 원문 대신 고정 문구(job_free_text), "모르겠어요"는 그 라벨
       #   decision: "모두 보기"를 눌렀으면 보내고 건너뛰었으면 보내지 않는다
       #   relaxed·result_count: result(CaseFinder::Result)가 있을 때만
       def values_for(answers, result: nil)
         conditions = answers.search_conditions
         values = {
           "body_part" => answers["body_part"].presence || (conditions.body_concept if answers["body_part_text"].present?),
-          "job" => answers["job"].presence,
+          "job" => job_value(answers),
           "decision" => (Flow.decision_label(answers["decision"]) if answers["decision"].present?),
           "situation" => Flow.situation_label(answers["situation"])
         }
@@ -84,6 +84,17 @@ module SelfCareForm
           values["result_count"] = result.over_cap ? "500 이상" : result.total_count.to_s
         end
         values.compact
+      end
+
+      # 직업 값. 직접 입력(job_text)은 어떤 경우에도 원문을 보내지 않고 고정 문구만 보낸다.
+      def job_value(answers)
+        if answers["job_text"].present?
+          I18n.t("self_care_form.stats.job_free_text")
+        elsif answers["job"].present?
+          answers["job"]
+        elsif answers["job_unknown"].present?
+          I18n.t("self_care_form.unknown")
+        end
       end
 
       # send_test용: 모든 값을 [테스트]로 시작하게 만든다.
