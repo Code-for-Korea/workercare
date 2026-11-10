@@ -168,7 +168,7 @@ entries:                # 앱 키 → entry id(숫자)
 
 - 앱 키는 `body_part`, `job`, `decision`, `age_band`, `region`, `application_experience`, `respondent`, `situation`, `relaxed`, `result_count` 10개 중에서만 쓴다(`SelfCareForm::Flow::SENDABLE_KEYS`). **`entries`에 id가 있는 키만 전송**하므로 폼에 문항을 더하거나 빼도 코드는 바뀌지 않는다.
 - 서버가 이 URL을 호출하므로 **검증을 모두 통과해야 켜진다**: https, 호스트가 정확히 `docs.google.com`, 경로 `/forms/d/e/<ID>/formResponse`, 쿼리·프래그먼트 없음, entries의 키는 위 10개 안에서만, 값은 숫자만. 어긋나면 전송을 끄고 부팅 로그에 이유를 남긴다(값은 적지 않는다). 리다이렉트는 따라가지 않고 3xx도 실패로 취급한다. URL과 id는 요청 파라미터로 바꿀 수 없다.
-- 저장소에는 **`enabled: false`와 빈 `entries`**만 커밋한다. 실제 폼 값은 아래 샘플 표를 참고한다. 켜는 결정은 항상 별도다.
+- 저장소에는 **`enabled: false`**로 커밋하고, `google_form_response_url`과 `entries`에는 **샘플 폼**의 값(아래 샘플 표와 같음)이 들어 있다. 운영 폼을 새로 만들면 폼 ID와 id가 모두 바뀌므로 함께 고친다. 켜는 결정은 항상 별도다.
 
 ### 10.5 시험 (필수)
 

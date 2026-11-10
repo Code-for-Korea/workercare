@@ -46,7 +46,7 @@ class SelfCareFormTasksTest < ActiveSupport::TestCase
   end
 
   test "send_test refuses to send with an invalid or empty config" do
-    SelfCareForm::Settings.current = SelfCareForm::Settings.load(SelfCareForm::Settings::PATH)
+    SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: true, url: "http://bad", entries: {})
     ENV["CONFIRM"] = "1"
 
     _, err = capture { assert_raises(SystemExit) { Rake::Task["self_care_form:send_test"].invoke } }

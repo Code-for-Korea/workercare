@@ -15,9 +15,9 @@ class SelfCareForm::GoogleFormSpecTest < ActiveSupport::TestCase
     assert_includes table, "인정 / 불인정 / 일부인정 / 변경인정 / 모두 보기"
   end
 
-  test "the spec with the committed empty config says none of the keys are configured" do
+  test "the spec with the committed config marks only relaxed and result_count as missing" do
     table = SelfCareForm::GoogleFormSpec.render(SelfCareForm::Settings.load(SelfCareForm::Settings::PATH))
-    assert_equal 10, table.scan("| 없음 |").size
+    assert_equal 2, table.scan("| 없음 |").size
   end
 
   test "every sendable key has a title and a description of its values" do

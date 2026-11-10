@@ -10,13 +10,14 @@ class SelfCareForm::SettingsTest < ActiveSupport::TestCase
     Settings.new(enabled: enabled, url: url, entries: entries)
   end
 
-  test "the committed config is off, empty and not an error" do
+  test "the committed config is off but valid, with the eight sample-form entries" do
     committed = Settings.load(Settings::PATH)
 
     refute committed.enabled?
-    refute committed.valid?
+    assert committed.valid?, "꺼져 있어도 send_test가 쓸 수 있도록 올바른 값이어야 한다"
     assert_empty committed.errors
-    assert_empty committed.entries
+    assert_equal 8, committed.entries.size
+    assert_empty committed.entries.keys - SelfCareForm::Flow::SENDABLE_KEYS
     refute SelfCareForm.google_enabled?, "기본은 꺼짐: 시작 화면에 통계용 동의란도 없다"
   end
 

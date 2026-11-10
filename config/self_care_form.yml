@@ -7,5 +7,14 @@
 #   google_form_response_url  https://docs.google.com/forms/d/e/<폼 ID>/formResponse (viewform → formResponse)
 #   entries                   앱 키 → 구글 폼 문항의 entry id(숫자). 키는 Flow::SENDABLE_KEYS 중에서만.
 enabled: false
-google_form_response_url: ""
-entries: {}
+google_form_response_url: "https://docs.google.com/forms/d/e/1FAIpQLSce45KJEDDH4e2lgtegblriHZDzFL_tQ1UVndkq6Hn7FUmLJA/formResponse"
+# 샘플 폼의 entry id (미리 채워진 링크 usp=pp_url에서 확인). 운영 폼을 새로 만들면 id가 모두 바뀐다.
+entries:
+  body_part: 447515540              # 신체부위
+  job: 574759984                    # 직종
+  decision: 44280323                # 판정결과
+  age_band: 1913665441              # 연령대
+  region: 1602965800                # 지역
+  application_experience: 1496037600 # 산재신청경험
+  respondent: 1305751224            # 누구의 일
+  situation: 1830980629             # 상황
