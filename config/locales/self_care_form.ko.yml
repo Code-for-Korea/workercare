@@ -55,6 +55,7 @@ ko:
       title: 고른 내용을 확인하세요
       change: 바꾸기
       show_result: 결과 보기
+      loading: 결과를 찾는 중입니다…
       situation: 상황
       body_part: 신체 부위
       job: 직업

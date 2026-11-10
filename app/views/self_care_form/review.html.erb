@@ -34,7 +34,11 @@
   </dl>
 
   <% if SelfCareForm.google_enabled? %>
-    <%= button_to t("self_care_form.review.show_result"), self_care_form_submit_result_path, method: :post %>
+    <div data-controller="loading-form">
+      <%= button_to t("self_care_form.review.show_result"), self_care_form_submit_result_path, method: :post,
+            data: { "loading-form-target": "button", "loading-text": t("self_care_form.review.loading") } %>
+      <%= render "shared/loading_overlay", text: t("self_care_form.review.loading") %>
+    </div>
   <% else %>
     <p><%= link_to t("self_care_form.review.show_result"), self_care_form_result_path, role: "button" %></p>
   <% end %>

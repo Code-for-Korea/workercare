@@ -11,7 +11,8 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
   test "GET / and GET /search render the loading overlay hidden from assistive tech" do
     [ root_path, search_path ].each do |path|
       get path
-      assert_select ".loading-overlay[aria-hidden='true'] p.loading-text[role='status']"
+      assert_select "form[data-controller='loading-form'] .loading-overlay[aria-hidden='true'][data-loading-form-target='overlay'] p.loading-text[role='status']"
+      assert_select "input[type=submit][data-loading-form-target='button']"
     end
   end
 

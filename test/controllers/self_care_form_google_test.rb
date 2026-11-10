@@ -66,6 +66,18 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_every_input_labelled
   end
 
+  test "when on, the review page wraps the result form in the loading-form controller with a hidden status overlay" do
+    begin_session
+    answer("situation", value: "ill")
+    get self_care_form_review_path
+
+    assert_select "div[data-controller='loading-form']", count: 1 do
+      assert_select "form[action='#{self_care_form_submit_result_path}'] button[data-loading-form-target='button'][data-loading-text='결과를 찾는 중입니다…']", text: "결과 보기"
+      assert_select ".loading-overlay[aria-hidden='true'][data-loading-form-target='overlay'] p.loading-text[role='status']", text: "결과를 찾는 중입니다…"
+    end
+    assert_select "[data-controller='loading-form'] form[action='#{self_care_form_reset_path}']", count: 0
+  end
+
   test "when off, there is no statistics checkbox and no notice about it" do
     SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: false, url: "", entries: {})
     get self_care_form_start_path

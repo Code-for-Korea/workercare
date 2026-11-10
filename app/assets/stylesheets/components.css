@@ -214,7 +214,7 @@
     border-style: dashed;
   }
 
-  /* 로딩 오버레이: 검색 중 화면을 덮는다. search_form_controller.js가 .is-active를 붙인다. */
+  /* 로딩 오버레이: 검색 중 화면을 덮는다. loading_form_controller.js가 .is-active를 붙인다. */
   .loading-overlay {
     position: fixed;
     inset: 0;

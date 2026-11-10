@@ -55,6 +55,7 @@ en:
       title: Check your choices
       change: Change
       show_result: Show results
+      loading: Finding results…
       situation: Situation
       body_part: Body part
       job: Job

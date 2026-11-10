@@ -1,15 +1,12 @@
 <% content_for :title, t("search.title") %>
 <div class="container">
   <h1><%= t("search.advanced") %></h1>
-  <%= form_with url: search_path, method: :get, local: true, data: { controller: "search-form" } do |form| %>
+  <%= form_with url: search_path, method: :get, local: true, data: { controller: "loading-form" } do |form| %>
     <div role="search" class="search-row">
       <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder") %>
-      <%= form.submit t("helpers.submit.search"), name: "search", data: { "search-form-target": "button", "loading-text": t("search.loading") } %>
+      <%= form.submit t("helpers.submit.search"), name: "search", data: { "loading-form-target": "button", "loading-text": t("search.loading") } %>
     </div>
-    <div class="loading-overlay" aria-hidden="true" data-search-form-target="overlay">
-      <div class="loading-spinner"></div>
-      <p class="loading-text" role="status"><%= t("search.loading") %></p>
-    </div>
+    <%= render "shared/loading_overlay", text: t("search.loading") %>
     <%= render "carried_filters" %>
     <details class="filters" <%= "open" if search_filters_open? %>>
       <summary><%= t("search.filters") %></summary>
