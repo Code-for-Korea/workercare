@@ -104,7 +104,7 @@ app/
   controllers/
     disease_cases_controller.rb   웹 검색·상세. MAX_SEARCH_RESULTS = 500, 한 쪽 12건
     pages_controller.rb           /about, /apply-guide(.md) (신청 방법 안내)
-    self_care_form_controller.rb  단계별 사례 찾기(단계별 자가진단). 답은 세션 쿠키에만 둔다
+    self_care_form_controller.rb  단계별 사례 찾기. 답은 세션 쿠키에만 둔다
     concerns/representation_headers.rb   HTML·마크다운 두 표현의 Vary·Link 헤더
     webhooks/                     카카오 스킬 엔드포인트 (kakao_base, kakao, kakao_jobs)
   models/

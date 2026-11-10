@@ -52,7 +52,7 @@ en:
         - { label: Revised approval, count: "1,030", percent: "1.67%" }
         - { label: Rejected, count: "23,602", percent: "38.18%" }
       death_text: "Rulings involving a death (death status Y) number 4,587, or 7.42% of the total. 6,819 rulings with no death status recorded are not counted."
-      caveat: These numbers only count past rulings. They do not tell you whether your own case would be approved, and they do not show approval rates by job or disease.
+      caveat: These numbers only count past rulings. They do not predict whether an individual case would be approved, and they do not show approval rates by job or disease.
       groups_heading: Common disease groups and body parts
       groups_basis: Disease groups and body parts are classifications extracted from the rulings. Rulings with no value are not counted, so the totals do not add up to 61,815 (no disease group 6,290; no body part 19,848). Shares are out of all 61,815.
       disease_groups_label: Disease group

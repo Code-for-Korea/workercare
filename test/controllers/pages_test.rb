@@ -27,7 +27,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_select "h3", text: "판정서에 자주 나오는 확인 항목"
     assert_select "main", text: /61,815건.*기준일은 2026-11-11/m
     assert_select "tr", text: /인정\s*30,357건\s*49\.11%/
-    assert_select "p", text: /예측|알려 주지 않고/
+    assert_select "p", text: /개인의 사건이 인정될지 예측하지 않고/
     assert_select "p", text: /직업이나 질병별 인정 비율도 보여 주지 않습니다/
     assert_select "main", text: /직종별 인정률|직업별 인정률/, count: 0
     assert_select ".table-scroll table", minimum: 3
