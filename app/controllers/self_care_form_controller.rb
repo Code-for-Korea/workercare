@@ -53,17 +53,16 @@ class SelfCareFormController < ApplicationController
     @search_link_params = search_link_params(@result.conditions)
   end
 
-  # POST /self-care-form/result — [결과 보기]. 선택 동의한 사람의 선택을 구글 폼으로 보내고(켜진 배포에서만, 브라우저
-  # 세션당 한 번) 결과 화면으로 간다. 구글 요청은 응답을 보낸 뒤에 실행해 결과 화면이 구글 지연에 묶이지 않는다.
+  # POST /self-care-form/result — [결과 보기]. 선택 동의한 사람의 선택을 구글 폼으로 보내고(켜진 배포에서만, 마지막으로
+  # 보낸 값과 다를 때만) 결과 화면으로 간다. GET /result(새로고침·뒤로 가기)는 보내지 않는다. 구글 요청은 응답을 보낸
+  # 뒤에 실행해 결과 화면이 구글 지연에 묶이지 않는다.
   def submit_result
-    if SelfCareForm.google_enabled? && session[:self_care_form_stats_consent] && !session[:self_care_form_submitted]
-      submit_stats
-    end
+    submit_stats if SelfCareForm.google_enabled? && session[:self_care_form_stats_consent]
     redirect_to self_care_form_result_path
   end
 
-  # POST /self-care-form/reset — 답을 비우고 처음부터 다시 시작한다. 구글 제출 표시(:self_care_form_submitted)는
-  # 일부러 지우지 않는다("브라우저 세션당 한 번" 정책).
+  # POST /self-care-form/reset — 답을 비우고 처음부터 다시 시작한다. 마지막으로 보낸 값의 해시
+  # (:self_care_form_last_digest)는 일부러 지우지 않아, 같은 답으로 다시 해도 중복 전송하지 않는다.
   def reset
     session.delete(:self_care_form)
     session.delete(:self_care_form_consent)
@@ -77,16 +76,33 @@ class SelfCareFormController < ApplicationController
     SelfCareForm::Answers.from_session(session[:self_care_form])
   end
 
-  # 제출 표시를 응답을 만들기 전에 같은 요청 안에서 먼저 켠다(중복 방지를 재시도보다 우선). 콜백은 응답을 보낸 뒤에
-  # 돌기 때문에 거기서는 세션을 쓸 수 없다. 그래서 구글 요청이 실패해도 같은 브라우저 세션에서 재시도하지 않는다.
+  # 보낼 값(설정에 문항이 있는 키만)의 해시가 마지막으로 보낸 것과 다를 때만 보낸다. 쿠키에는 해시(hex)만 둔다.
+  # 해시를 응답을 만들기 전에 같은 요청 안에서 먼저 켠다(중복 방지를 재시도보다 우선). 콜백은 응답을 보낸 뒤에
+  # 돌기 때문에 거기서는 세션을 쓸 수 없다. 그래서 구글 요청이 실패해도 같은 답으로는 재시도하지 않는다.
   def submit_stats
     settings = SelfCareForm::Settings.current
     needs_result = (settings.entries.keys & %w[relaxed result_count]).any?
     result = needs_result ? SelfCareForm::CaseFinder.new(answers.search_conditions).call : nil
     values = SelfCareForm::GoogleFormSubmitter.values_for(answers, result: result)
+    digest = stats_digest(values, settings)
+    return if digest.nil? || digest == session[:self_care_form_last_digest]
 
     registered = after_response { SelfCareForm::GoogleFormSubmitter.new(settings: settings).submit(values) }
-    session[:self_care_form_submitted] = true if registered
+    return unless registered
+
+    session[:self_care_form_last_digest] = digest
+    flash[:stats_sent] = true
+  end
+
+  # 사용자 답에서 나온 보낼 값(키 정렬)의 SHA-256. 보낼 값이 없으면 nil.
+  def stats_digest(values, settings)
+    # relaxed·result_count는 데이터에 따라 바뀌므로 해시에서 뺀다(답이 같으면 다시 보내지 않는다).
+    sendable = values.select do |key, value|
+      settings.entries[key.to_s].present? && value.present? && !%w[relaxed result_count].include?(key.to_s)
+    end
+    return if sendable.empty?
+
+    Digest::SHA256.hexdigest(sendable.sort.to_h.to_json)
   end
 
   # Rack 3 표준 rack.response_finished에 콜백을 단다. 달았으면 true, 배열이 없어 건너뛰었으면 false(이때는 제출 표시도

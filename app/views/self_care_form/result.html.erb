@@ -2,7 +2,7 @@
 <div class="container-narrow">
   <h1 tabindex="-1" autofocus><%= result_title(@answers) %></h1>
 
-  <% if session[:self_care_form_submitted] %>
+  <% if flash[:stats_sent] %>
     <p class="notice" role="status"><%= t("self_care_form.result.stats_sent") %></p>
   <% end %>
   <% if @result.dropped.any? %>

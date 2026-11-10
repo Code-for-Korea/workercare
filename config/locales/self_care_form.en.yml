@@ -23,7 +23,7 @@ en:
       consent_error: Please tick that you understand the notice above to start.
       stats_consent: "(Optional) I agree to save the options I chose in a Google Form (the team's Google Sheet) for statistics."
       stats_detail: "Only the chosen options for the questions that exist in the survey are sent; text you typed is not sent. Because this service's server sends it, Google sees the server's IP. We ask you not to enter identifying details, but combinations of choices may still allow re-identification. You can use everything the same without agreeing."
-      stats_once: Even if you start over, the statistics answer is sent only once from this browser.
+      stats_once: "It is sent each time you press [See results] with different answers; the same answers are not sent again."
       stats_retention: "Retention: at most 3 years from the date saved, reviewed every year, and rows no longer needed are deleted. Deletion owner: the Industrial Accident Project team."
       begin: Start
       session_lost: Your progress was lost. You may have closed the browser or turned cookies off. Please start again.
@@ -68,7 +68,7 @@ en:
     result:
       title: Similar rulings (for reference)
       title_prevention: Rulings for people doing the same work (for reference)
-      stats_sent: The statistics answer has already been sent from this browser.
+      stats_sent: This selection was sent as a statistics answer.
       count: "Found %{count} rulings."
       count_capped: "Found 500 or more. Showing the first 10."
       none: No rulings found. That only means none were found, not a judgement about approval. Try changing your choices.

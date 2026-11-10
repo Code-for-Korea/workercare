@@ -58,7 +58,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_select "label[for=stats_consent]", text: /\(선택\)/
     assert_select "#stats-consent-detail", text: /서버의 IP를 봅니다/
     assert_select "#stats-consent-detail", text: /재식별 위험/
-    assert_select "#stats-consent-detail", text: /한 번만 전송됩니다/
+    assert_select "#stats-consent-detail", text: /답이 달라질 때마다 전송되며, 같은 답은 다시 보내지 않습니다/
     assert_select "#stats-consent-detail", text: /직접 입력한 말은 보내지 않습니다/
     assert_no_match(/개인정보가 가지 않/, response.body)
     assert_every_input_labelled
@@ -70,7 +70,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
 
     assert_select "input#stats_consent", count: 0
     assert_select "#stats-consent-detail", count: 0
-    assert_no_match(/통계 응답은 이 브라우저에서 한 번만/, response.body)
+    assert_no_match(/답이 달라질 때마다 전송/, response.body)
   end
 
   test "when on, the review page shows a POST button instead of a plain link" do
@@ -128,7 +128,7 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_equal SelfCareForm::Flow.situation_label("no_time"), @sent.first.last["entry.1830980629"]
   end
 
-  test "users who did not consent send nothing and are not marked as submitted" do
+  test "users who did not consent send nothing and are never get a digest" do
     begin_session(stats: false)
     answer_everything
     callbacks = submit
@@ -136,33 +136,98 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
 
     assert_empty callbacks
     assert_empty @sent
-    assert_select ".notice", text: /이미 보냈습니다/, count: 0
+    assert_nil session[:self_care_form_last_digest]
+    assert_select ".notice", text: /통계 응답으로 보냈습니다/, count: 0
   end
 
-  test "the same browser session sends only once, even after starting over" do
+  test "pressing show-results again with the same answers sends only once and the notice says it was sent this time" do
     begin_session
     answer_everything
     assert_equal 1, submit.size
     follow_redirect!
-    assert_select ".notice[role=status]", text: /이 브라우저에서는 통계 응답을 이미 보냈습니다/
+    assert_select ".notice[role=status]", text: /이번 선택을 통계 응답으로 보냈습니다/
 
-    assert_empty submit, "같은 세션의 두 번째 [결과 보기]"
+    assert_empty submit, "같은 답으로 두 번째 [결과 보기]"
+    follow_redirect!
+    assert_select ".notice", text: /통계 응답으로 보냈습니다/, count: 0
+  end
+
+  test "changing an answer and pressing show-results again sends a second time" do
+    begin_session
+    answer_everything
+    fire_callbacks(submit)
+    answer("body_part", value: "무릎")
+    fire_callbacks(submit)
+
+    assert_equal 2, @sent.size
+    assert_equal "무릎", @sent.last.last["entry.447515540"]
+  end
+
+  test "reloading the result page never sends" do
+    begin_session
+    answer_everything
+    get self_care_form_result_path
+    get self_care_form_result_path
+
+    assert_empty @sent
+    assert_nil session[:self_care_form_last_digest]
+  end
+
+  test "starting over with identical answers does not resend, with different answers it does" do
+    begin_session
+    answer_everything
+    fire_callbacks(submit)
 
     post self_care_form_reset_path
     begin_session
     answer_everything
-    assert_empty submit, "[처음부터 다시] 뒤에도 제출 표시는 남는다"
+    assert_empty submit, "같은 답은 다시 보내지 않는다"
+
+    post self_care_form_reset_path
+    begin_session
+    answer_everything
+    answer("job", value: "용접공")
+    fire_callbacks(submit)
+    assert_equal 2, @sent.size
   end
 
-  test "the submitted flag is set in the request itself so a failing google request is not retried" do
+  test "a different result_count with the same answers does not resend, but relaxed and result_count are still sent" do
+    SelfCareForm::Settings.current = SelfCareForm::Settings.new(enabled: true, url: SelfCareForm::Settings.current.url,
+      entries: SelfCareForm::Settings.current.entries.merge("relaxed" => "111", "result_count" => "222"))
+    begin_session
+    answer_everything
+    fire_callbacks(submit)
+    assert_match(/\A\d+\z/, @sent.first.last["entry.222"])
+
+    fake = Struct.new(:call).new(SelfCareForm::CaseFinder::Result.new(records: [], more: false, total_count: 99_999,
+      over_cap: false, dropped: [], conditions: nil))
+    SelfCareForm::CaseFinder.singleton_class.alias_method :__orig_new, :new
+    SelfCareForm::CaseFinder.define_singleton_method(:new) { |*| fake }
+    begin
+      assert_empty submit, "데이터가 달라져도 답이 같으면 보내지 않는다"
+    ensure
+      SelfCareForm::CaseFinder.singleton_class.alias_method :new, :__orig_new
+      SelfCareForm::CaseFinder.singleton_class.remove_method :__orig_new
+    end
+    assert_equal 1, @sent.size
+  end
+
+  test "the session keeps only the hex digest, never the answers" do
+    begin_session
+    answer_everything
+    submit
+    assert_match(/\A\h{64}\z/, session[:self_care_form_last_digest])
+  end
+
+  test "the digest is set in the request itself so a failing google request is not retried for the same answers" do
     SelfCareForm::GoogleFormSubmitter.transport = ->(_uri, _params) { raise Net::OpenTimeout }
     begin_session
     answer_everything
     callbacks = submit
-    assert_includes response.headers["Set-Cookie"].to_s, "_session", "표시는 응답의 세션 쿠키에 실린다"
+    assert_includes response.headers["Set-Cookie"].to_s, "_session", "해시는 응답의 세션 쿠키에 실린다"
 
     assert_nothing_raised { fire_callbacks(callbacks) }
-    assert_empty submit, "실패해도 같은 세션에서 재시도하지 않는다"
+    assert_empty submit, "실패해도 같은 답으로는 재시도하지 않는다"
   end
 
   test "a callback never lets an exception escape" do
@@ -184,15 +249,16 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_empty @sent
   end
 
-  test "without the rack.response_finished array nothing is sent synchronously and the flag stays off for a later try" do
+  test "without the rack.response_finished array nothing is sent synchronously and the digest stays unset for a later try" do
     begin_session
     answer_everything
     post self_care_form_submit_result_path
     assert_redirected_to self_care_form_result_path
     assert_empty @sent, "요청 처리 중 동기로 구글을 부르지 않는다"
+    assert_nil session[:self_care_form_last_digest]
 
     callbacks = submit
-    assert_equal 1, callbacks.size, "제출 표시가 켜지지 않았으므로 다시 시도할 수 있다"
+    assert_equal 1, callbacks.size, "해시가 켜지지 않았으므로 다시 시도할 수 있다"
   end
 
   test "typed text and the statistics labels never go beyond the configured entries" do
@@ -267,6 +333,6 @@ class SelfCareFormGoogleTest < ActionDispatch::IntegrationTest
     assert_empty callbacks
     assert_empty @sent
     follow_redirect!
-    assert_select ".notice", text: /이미 보냈습니다/, count: 0
+    assert_select ".notice", text: /통계 응답으로 보냈습니다/, count: 0
   end
 end
