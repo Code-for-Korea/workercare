@@ -6,9 +6,9 @@
       <%= form.search_field :q, value: params[:q], placeholder: t("search.placeholder") %>
       <%= form.submit t("helpers.submit.search"), name: "search", data: { "search-form-target": "button", "loading-text": t("search.loading") } %>
     </div>
-    <div class="loading-overlay" data-search-form-target="overlay">
+    <div class="loading-overlay" aria-hidden="true" data-search-form-target="overlay">
       <div class="loading-spinner"></div>
-      <p class="loading-text"><%= t("search.loading") %></p>
+      <p class="loading-text" role="status"><%= t("search.loading") %></p>
     </div>
     <%= render "carried_filters" %>
     <details class="filters" <%= "open" if search_filters_open? %>>

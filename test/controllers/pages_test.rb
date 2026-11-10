@@ -22,7 +22,7 @@ class PagesTest < ActionDispatch::IntegrationTest
     get about_path
 
     assert_select "h3", text: "통계 저장"
-    assert_select "p", text: /구글 폼\(팀의 구글 시트\)에 저장합니다.*IP, 세션 ID는 보내지 않습니다.*최대 3년/
+    assert_select "p", text: /구글 폼\(팀의 구글 시트\)에 저장합니다.*IP, 세션 ID는 폼 항목으로 보내지 않습니다.*서버의 IP를 봅니다.*최대 3년/
     assert_select "p", text: /지금은 꺼져 있어/, count: 0
   ensure
     SelfCareForm::Settings.reset!

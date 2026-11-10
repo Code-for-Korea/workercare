@@ -14,6 +14,7 @@ export default class extends Controller {
   showLoading(event) {
     if (this.hasOverlayTarget) {
       this.overlayTarget.classList.add("is-active")
+      this.overlayTarget.setAttribute("aria-hidden", "false")
     }
     if (this.hasButtonTarget) {
       this.buttonTarget.disabled = true

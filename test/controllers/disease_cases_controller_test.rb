@@ -8,6 +8,13 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "GET / and GET /search render the loading overlay hidden from assistive tech" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select ".loading-overlay[aria-hidden='true'] p.loading-text[role='status']"
+    end
+  end
+
   test "GET / applies structured filters without a query" do
     get root_path, params: { death_status: "Y" }
     assert_response :success
