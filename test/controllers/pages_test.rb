@@ -43,4 +43,17 @@ class PagesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, ".md"
   end
+
+  test "GET /llms.txt declares UTF-8 so Korean text is not garbled" do
+    get "/llms.txt"
+    assert_response :success
+    assert_includes response.headers["Content-Type"], "charset=utf-8"
+    assert_includes response.body.dup.force_encoding("UTF-8"), "산재상담실"
+  end
+
+  test "GET /robots.txt declares UTF-8" do
+    get "/robots.txt"
+    assert_response :success
+    assert_includes response.headers["Content-Type"], "charset=utf-8"
+  end
 end
