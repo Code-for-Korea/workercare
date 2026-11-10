@@ -37,6 +37,9 @@ en:
         main_reasoning: Main Reasoning
         death_status: Death
         application_type: Application Type
+        application_type_detail: Application Type Detail
+        work_type_detail: Work Type Detail
+        employment_type_detail: Employment Type Detail
         disease_case/result_enum:
           approved:           "Approved"
           rejected:           "Rejected"

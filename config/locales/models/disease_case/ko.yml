@@ -37,6 +37,9 @@ ko:
         main_reasoning: 판단 주요 근거
         death_status: 사망 여부
         application_type: 신청서 종류
+        application_type_detail: 신청서 종류 상세
+        work_type_detail: 근무 형태 상세
+        employment_type_detail: 고용 형태 상세
       disease_case/result_enum:
         approved: 인정
         rejected: 불인정

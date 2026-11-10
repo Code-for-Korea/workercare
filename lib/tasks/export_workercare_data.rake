@@ -3,11 +3,11 @@
 require "csv"
 
 namespace :export do
-  desc "Export disease cases and KSCO code data with a data dictionary"
+  desc "판정서·KSCO 데이터를 CSV로 내보내고 데이터 사전을 만든다. 사용법: rails 'export:workercare_data[YYYYMMDD]' (날짜 생략 시 오늘). 정규화 백필 전 백업에도 쓴다."
   task :workercare_data, [ :date ] => :environment do |_, args|
-    export_date = (args[:date].presence || "20261103").to_s
-    unless export_date.match?(/\A\d{8}\z/)
-      abort "날짜는 YYYYMMDD 형식이어야 합니다: #{export_date}"
+    export_date = (args[:date].presence || Date.current.strftime("%Y%m%d")).to_s
+    unless export_date.match?(/\A\d{8}\z/) && Date.valid_date?(export_date[0, 4].to_i, export_date[4, 2].to_i, export_date[6, 2].to_i)
+      abort "날짜는 유효한 YYYYMMDD 형식이어야 합니다: #{export_date}"
     end
 
     output_dir = Rails.root.join("tmp")
@@ -82,15 +82,15 @@ namespace :export do
       "daily_work_hours" => "일일 근로시간 추출값",
       "burden_body_part" => "업무 부담이 발생한 신체 부위 추출값",
       "bad_posture" => "부담 자세·부적절한 작업 자세 추출값",
-      "heavy_lifting" => "중량물 취급 여부 또는 관련 추출값",
+      "heavy_lifting" => "중량물 취급 여부. Y·N 중 하나, 값이 없으면 NULL",
       "max_item_weight" => "취급 물품 최대 중량 추출값",
       "daily_total_weight" => "일일 총 취급 중량 추출값",
       "other_harmful_factors" => "기타 유해·위험 요인 추출값",
-      "work_relevance_eval" => "업무와 질병의 관련성 평가 추출값",
+      "work_relevance_eval" => "업무와 질병의 관련성 평가. 매우_높음·높음·보통·낮음·매우_낮음·미흡 중 하나, 값이 없으면 NULL",
       "aggravating_factors" => "질병을 악화시킨 요인 추출값",
       "main_reasoning" => "판정의 주요 근거 요약 추출값",
-      "death_status" => "사망 관련 여부 추출값",
-      "application_type" => "신청 유형(정규화). 요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청·기타를 `|`로 결합",
+      "death_status" => "사망 여부. Y·N 중 하나, 값이 없으면 NULL",
+      "application_type" => "신청 유형(정규화). 요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청·기타를 `\\|`로 결합",
       "application_type_detail" => "신청 유형을 정규화하며 따로 보존한 괄호 수식어·원문",
       "work_type_detail" => "근무 형태를 범주로 정규화하며 따로 보존한 시간·근무일수 등 세부 표기",
       "employment_type_detail" => "고용 형태를 범주로 정규화하며 따로 보존한 괄호 수식어·세부 표기"
@@ -113,6 +113,8 @@ namespace :export do
       "similarity" => "사례와 KSCO 직업의 매칭 유사도. 산출 방법과 기준은 별도 처리 문서 참조"
     }
 
+    job_filled = DiseaseCase.where.not(job_name: [ nil, "" ]).count
+    job_rate = DiseaseCase.count.zero? ? 0.0 : job_filled.fdiv(DiseaseCase.count) * 100
     counts = {
       disease_cases: DiseaseCase.count,
       ksco_codes: KscoCode.count,
@@ -127,8 +129,8 @@ namespace :export do
     end
     table_purposes = {
       "disease_cases" => "산재 질병 심의 사례 본체 데이터 — 추출 대상",
-      "ksco_codes" => "한국표준직업분류 마스터 — 연결 데이터가 없어 이번 추출에서 제외",
-      "disease_case_ksco_codes" => "사례-KSCO 연결 데이터 — 0건이라 이번 추출에서 제외",
+      "ksco_codes" => ksco_available ? "한국표준직업분류 마스터 — 추출 대상" : "한국표준직업분류 마스터 — 연결 데이터가 없어 이번 추출에서 제외",
+      "disease_case_ksco_codes" => ksco_available ? "사례-KSCO 연결 데이터 — 추출 대상" : "사례-KSCO 연결 데이터 — 0건이라 이번 추출에서 제외",
       "action_mcp_sessions" => "MCP 세션 상태·능력·registry 저장 테이블 — 운영 데이터",
       "action_mcp_session_messages" => "MCP 세션 메시지 저장 테이블 — 운영 데이터",
       "action_mcp_session_subscriptions" => "MCP Resource 구독 상태 테이블 — 운영 데이터",
@@ -150,10 +152,10 @@ namespace :export do
     lines << "- 기준일: `#{export_date[0, 4]}-#{export_date[4, 2]}-#{export_date[6, 2]}`"
     lines << "- 생성 환경: `#{Rails.env}`"
     lines << "- 추출 명령: `bin/rails export:workercare_data[#{export_date}]`"
-    lines << "- 추출 원칙: 데이터베이스 값을 변환·마스킹하지 않고 CSV로 내보냄"
+    lines << "- 추출 원칙: 데이터베이스 값을 변환·마스킹하지 않고 CSV로 내보냄. 단 `application_type`, `work_type`, `employment_type`은 DB에 저장된 시점에 이미 정규화된 값이며, 정규화 전 표기는 `*_detail` 컬럼에만 일부 남아 있음(규칙: `docs/disease-cases-normalization.md`)"
     lines << "- 문자 인코딩: UTF-8. 셀 안의 쉼표, 줄바꿈, 큰따옴표는 CSV 규칙에 따라 인용 처리됨"
     lines << "- 개인정보 주의: `disease_cases`의 판정서 관련 컬럼에는 원문 또는 개인정보가 포함될 수 있으므로 외부 공유 전 별도 비식별 검수가 필요함"
-    lines << "- 직업 데이터 판단: `disease_cases` 내부의 직업·업무 추출 컬럼은 주요 컬럼이 약 89.1% 채워져 있어 유지함. 별도 KSCO 데이터는 연결 행이 0건이라 CSV에서 제외함"
+    lines << "- 직업 데이터 판단: `disease_cases` 내부의 직업·업무 추출 컬럼은 주요 컬럼이 약 #{format('%.1f', job_rate)}% 채워져 있어 유지함. #{ksco_available ? 'KSCO 마스터와 사례 연결 데이터도 함께 추출함' : '별도 KSCO 데이터는 연결 행이 0건이라 CSV에서 제외함'}"
     lines << ""
     lines << "## 2. DB 전체 점검 결과"
     lines << ""
@@ -177,9 +179,13 @@ namespace :export do
     lines << ""
     lines << "### 직업 데이터 포함·제외 판단"
     lines << ""
-    lines << "- 포함: `disease_cases`의 `job_name`, `job_description`, `employment_type`, `work_type`, 근로시간·중량·유해요인·업무 관련성 등 추출 컬럼. `job_name` 등 핵심 필드는 61,815건 중 55,060건(89.1%)에 값이 있어 ‘거의 비어 있음’으로 보지 않았다."
-    lines << "- 제외: `ksco_codes`는 3건뿐이고 분류 상세 컬럼이 모두 NULL이며, `disease_case_ksco_codes` 연결 행은 0건이다. 따라서 현재 스냅샷에서는 KSCO별 사례 분석이 불가능하다."
-    lines << "- 재추출 시 연결 데이터가 1건 이상 생기면 Rake 작업이 KSCO 마스터와 연결 CSV를 자동으로 다시 포함한다."
+    lines << "- 포함: `disease_cases`의 `job_name`, `job_description`, `employment_type`, `work_type`, 근로시간·중량·유해요인·업무 관련성 등 추출 컬럼. `job_name` 등 핵심 필드는 #{counts[:disease_cases].to_fs(:delimited)}건 중 #{job_filled.to_fs(:delimited)}건(#{format('%.1f', job_rate)}%)에 값이 있어 ‘거의 비어 있음’으로 보지 않았다."
+    if ksco_available
+      lines << "- 포함: `ksco_codes` #{counts[:ksco_codes].to_fs(:delimited)}건과 `disease_case_ksco_codes` 연결 #{counts[:disease_case_ksco_codes].to_fs(:delimited)}건. 연결은 자동 추정(임베딩 유사도 상위 5개)이며 사람이 검증하지 않았다."
+    else
+      lines << "- 제외: `ksco_codes`는 #{counts[:ksco_codes].to_fs(:delimited)}건뿐이고, `disease_case_ksco_codes` 연결 행은 0건이다. 따라서 현재 스냅샷에서는 KSCO별 사례 분석이 불가능하다."
+      lines << "- 재추출 시 연결 데이터가 1건 이상 생기면 Rake 작업이 KSCO 마스터와 연결 CSV를 자동으로 다시 포함한다."
+    end
     lines << ""
     lines << "### 분석 단위(grain)"
     lines << ""
@@ -191,7 +197,11 @@ namespace :export do
       lines << "| `disease_case_ksco_codes_#{export_date}.csv` | 사례 1건과 KSCO 코드 1개의 연결 1건 | `id`; 조합 `disease_case_id` + `ksco_code_id` | #{counts[:disease_case_ksco_codes].to_fs(:delimited)} |"
     end
     lines << ""
-    lines << "현재 추출 시점에는 사례-KSCO 연결 행이 `#{counts[:disease_case_ksco_codes]}`건이므로, 사례 CSV와 KSCO CSV를 조인해도 연결된 직업분류 결과는 나오지 않는다. 이는 CSV 추출 누락이 아니라 현재 연결 테이블의 상태다."
+    if counts[:disease_case_ksco_codes].zero?
+      lines << "현재 추출 시점에는 사례-KSCO 연결 행이 `0`건이므로, 사례 CSV와 KSCO CSV를 조인해도 연결된 직업분류 결과는 나오지 않는다. 이는 CSV 추출 누락이 아니라 현재 연결 테이블의 상태다."
+    else
+      lines << "사례 1건에 KSCO 후보가 여러 개 연결될 수 있으므로, 조인하면 사례 행이 늘어난다. 사례 수를 셀 때는 `DISTINCT case_no`를 쓴다."
+    end
     lines << ""
     lines << "## 3. 테이블 관계와 조인 방법"
     lines << ""
@@ -235,7 +245,7 @@ namespace :export do
     lines << "1. 먼저 `disease_cases`에서 `case_no`, `disease_name`, `result`, `year`, `decided_on`으로 사례 수와 기간을 확인한다."
     lines << "2. `result`의 값별 건수와 결측률을 확인한다. 결과값이 비어 있는 사례를 승인/불인정 그룹에 임의로 포함하지 않는다."
     lines << "3. 원문 필드와 추출 필드를 구분한다. 원문은 근거 확인용이고, `job_*`, `main_reasoning` 등은 검색·요약을 위한 분석 보조값이다."
-    lines << "4. 직업별 분석이 필요할 때만 연결 테이블을 사용한다. 현재 스냅샷은 연결 행이 0건이므로 KSCO별 분석은 수행할 수 없다."
+    lines << "4. 직업별 분석이 필요할 때만 연결 테이블을 사용한다. #{counts[:disease_case_ksco_codes].zero? ? '현재 스냅샷은 연결 행이 0건이므로 KSCO별 분석은 수행할 수 없다.' : '연결은 자동 추정이므로 유사도를 함께 확인한다.'}"
     lines << "5. 결론을 보고할 때는 분석 대상 기간, 결과 결측 제외 여부, 원문/추출 필드 사용 여부를 함께 기록한다."
     lines << ""
     lines << "## `disease_cases_#{export_date}.csv`"
@@ -261,7 +271,9 @@ namespace :export do
     lines << "## 5. 값 해석 시 유의사항"
     lines << ""
     lines << "- 빈 값은 원본 데이터베이스의 `NULL` 또는 빈 문자열을 의미하며, 추출 과정에서 임의의 기본값을 넣지 않았다."
-    lines << "- 빈 문자열은 NULL과 다를 수 있다. 결측률을 계산할 때는 NULL과 공백/빈 문자열을 별도로 확인한다."
+    lines << "- `death_status`, `heavy_lifting`, `work_relevance_eval`, `application_type`, `work_type`, `employment_type`은 정규화로 빈 문자열·공백을 `NULL`로 바꿨다. 이 컬럼들에서는 NULL만 결측이고 ‘추출하지 않음’과 ‘추출했으나 값 없음’은 구분되지 않는다. 그 밖의 추출 컬럼은 NULL과 빈 문자열을 함께 확인한다."
+    lines << "- `application_type`은 `|`로 결합한 다중값(예: `유족급여|장의비`)이다. 토큰별로 세려면 `|`로 나누어 센다. `기타`는 8개 신청서 토큰에 해당하지 않는 값이며 원문은 `application_type_detail`에 있다."
+    lines << "- `work_type`·`employment_type`의 `기타`는 분류하지 못한 값으로 원문 표기는 `*_detail`에 있다. 정규직과 상용직은 별개 범주이고, 비정규직 등은 `기타`다."
     lines << "- `result`, `disease_category`, `body_part` 등 enum 성격의 값은 현재 애플리케이션 내부 코드값이다. 표시용 한글명은 애플리케이션의 번역/enum 정의를 기준으로 변환한다."
     lines << "- `result`는 행정적 심의 결과의 분류값이지 질병 발생 확률, 업무 관련성의 연속 점수, 개인에 대한 예측값이 아니다."
     lines << "- `year`는 심의 연도이고 `decided_on`은 심의 결정일이다. `created_at`·`updated_at`은 데이터베이스 적재·수정 시각이므로 사건 발생일이나 심의일로 사용하지 않는다."
@@ -277,9 +289,9 @@ namespace :export do
     lines << "| 식별·시점 | `id`, `case_no`, `year`, `decided_on`, `created_at`, `updated_at` | 사례 중복 제거, 기간 필터, 추출 이력 확인 | 내부 ID와 사건 시점을 혼동하지 않음 |"
     lines << "| 판정 결과 | `result`, `disease_category`, `body_part` | 결과 분포, 질병·부위별 교차표 | 인과관계나 승인 확률로 해석하지 않음 |"
     lines << "| 원문 근거 | `statement`, `claim_purpose`, `application_content`, `applicant_claim`, `medical_records`, `recognized_facts`, `related_laws`, `committee_decision` | 사례 맥락 확인, 질적 분석, 근거 인용 | 긴 텍스트·개인정보 가능성·표현 차이 검토 |"
-    lines << "| 업무 추출값 | `job_name`, `job_description`, `employment_type`, `work_type`, `job_tenure_months`, `weekly_work_hours`, `daily_work_hours` | 직업·근로조건별 분포와 탐색 | 추출 누락·단위·자유 서술의 표기 차이 확인 |"
+    lines << "| 업무 추출값 | `job_name`, `job_description`, `employment_type`, `work_type`, `job_tenure_months`, `weekly_work_hours`, `daily_work_hours` | 직업·근로조건별 분포와 탐색 | `job_name`은 표기가 정규화되지 않았음. `employment_type`·`work_type`은 범주값이고 세부는 `*_detail` |"
     lines << "| 유해요인 추출값 | `burden_body_part`, `bad_posture`, `heavy_lifting`, `max_item_weight`, `daily_total_weight`, `other_harmful_factors`, `aggravating_factors` | 업무 부담 요인 탐색 | 텍스트/수치 혼합 가능, 결측이 곧 ‘없음’을 뜻하지 않음 |"
-    lines << "| 판정 근거 추출값 | `work_relevance_eval`, `main_reasoning`, `death_status`, `application_type` | 검색·요약·분류 보조 | 원문 판정의 법적 해석을 대체하지 않음 |"
+    lines << "| 판정 근거 추출값 | `work_relevance_eval`, `main_reasoning`, `death_status`, `application_type`, `application_type_detail` | 검색·요약·분류 보조 | 원문 판정의 법적 해석을 대체하지 않음. `application_type`은 `\\|` 결합 다중값 |"
     lines << ""
     lines << "## 7. 기본 품질 점검 예시"
     lines << ""
@@ -294,6 +306,13 @@ namespace :export do
     lines << ""
     lines << "-- 동일 사례 번호 중복 확인"
     lines << "SELECT case_no, COUNT(*) AS n FROM disease_cases GROUP BY case_no HAVING COUNT(*) > 1;"
+    lines << ""
+    lines << "-- 정규화 컬럼의 범주 분포 (application_type은 `|` 결합 값 그대로 집계)"
+    lines << "SELECT employment_type, COUNT(*) AS n FROM disease_cases GROUP BY employment_type ORDER BY n DESC;"
+    lines << "SELECT work_type, COUNT(*) AS n FROM disease_cases GROUP BY work_type ORDER BY n DESC;"
+    lines << ""
+    lines << "-- 특정 신청서 토큰을 포함한 사례 (파이프 경계 매칭)"
+    lines << "SELECT COUNT(*) FROM disease_cases WHERE '|' || application_type || '|' LIKE '%|유족급여|%';"
     lines << ""
     lines << "-- NULL과 빈 문자열을 함께 고려한 추출값 결측 확인"
     lines << "SELECT SUM(CASE WHEN job_name IS NULL OR TRIM(job_name) = '' THEN 1 ELSE 0 END) AS missing_job_name, SUM(CASE WHEN main_reasoning IS NULL OR TRIM(main_reasoning) = '' THEN 1 ELSE 0 END) AS missing_main_reasoning FROM disease_cases;"
