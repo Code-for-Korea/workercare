@@ -14,7 +14,7 @@
 | `app/models/disease_cases/normalizer.rb` | 신청서 종류·근무 형태·고용 형태 정규화(순수 Ruby). 규칙은 `config/normalization/rules.yml` |
 | `app/models/chatbot/` | 챗봇 전용(요청 어댑터, 응답 빌더, `PublicCase` 허용 필드 DTO, 엔티티 사전) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
+| `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본) |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
 

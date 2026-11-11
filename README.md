@@ -120,6 +120,7 @@ Access Token(비밀번호)이 비어 있으면 스크립트를 멈춥니다.
 - [docs/kakaotalk/chatbot.md](docs/kakaotalk/chatbot.md) — 카카오톡 챗봇 작업 기록과 관리자센터 가이드
 - [docs/workercare.plan.md](docs/workercare.plan.md) — 검색 서비스, FTS5, enum, 데이터 설계
 - [docs/markdown-responses.md](docs/markdown-responses.md) — 검색·상세 마크다운 응답(주소, 헤더, 파라미터)
+- [docs/analysis-report.md](docs/analysis-report.md) — 분석 통계표를 DB 질의로 다시 만드는 `analysis:report`와 재현 가능 범위
 - [docs/workercare-mcp.plan.md](docs/workercare-mcp.plan.md) — (폐기) MCP 설계 이력
 - [docs/workercare-search.plan.md](docs/workercare-search.plan.md) — 직업·신체부위·사망여부 기반 메인 검색 화면, KSCO 직업분류 연동 설계
 
