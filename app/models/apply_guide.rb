@@ -8,7 +8,7 @@
 module ApplyGuide
   PATH = Rails.root.join("config/apply_guide/procedure_guides.yml")
   TOPIC_KEYS = %w[application required_documents rejection_appeal compensation_types timeline].freeze
-  DISCLAIMER = "이 안내는 참고용이며 최종 판단은 상담사와 법원이 합니다. 의료·법률 판단을 대신하지 않습니다."
+  DISCLAIMER = "이 안내는 참고용이며 최종 판단은 산업재해보상보험재심사위원회와 법원이 합니다. 의료·법률 판단을 대신하지 않습니다."
 
   # markdown: 제목 줄(`## …`)을 뺀 본문
   Topic = Data.define(:key, :title, :markdown)
