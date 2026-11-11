@@ -9,8 +9,8 @@ class ApplyGuideTest < ActiveSupport::TestCase
     ApplyGuide.topics.each { |t| refute t.markdown.start_with?("##"), "#{t.key}: 제목 줄은 본문에서 뗀다" }
   end
 
-  test "source and last updated date come from the header comments of the guide file" do
-    assert_match %r{\Ahttps://}, ApplyGuide.source
+  test "the last updated date comes from the header comment; a source is shown only when the file names a live one" do
+    assert_nil ApplyGuide.source, "죽은 출처 링크를 지웠으므로 출처 줄은 없다(출처를 다시 적으면 https여야 한다)"
     assert_match(/\A\d{4}-\d{2}-\d{2}\z/, ApplyGuide.last_updated)
   end
 
@@ -20,7 +20,7 @@ class ApplyGuideTest < ActiveSupport::TestCase
     assert_includes md, "# 산재 신청 방법 안내"
     ApplyGuide.topics.each { |t| assert_includes md, "## #{t.title}" }
     assert_includes md, ApplyGuide::DISCLAIMER
-    assert_includes md, ApplyGuide.source
+    refute_includes md, "- 출처:"
     assert_includes md, ApplyGuide.last_updated
   end
 

@@ -15,7 +15,7 @@ class ApplyGuideControllerTest < ActionDispatch::IntegrationTest
     assert_select "details#rejection_appeal summary h2", text: "불인정 시 대응 절차"
     assert_select "table th[scope=col]"
     assert_match ApplyGuide.last_updated, response.body
-    assert_select "a[href='#{ApplyGuide.source}'][rel='noopener noreferrer']"
+    assert_select "a[href^='http'][rel='noopener noreferrer']", count: 0, text: /easylaw/
     assert_select "link[rel=alternate][type='text/markdown'][href='/apply-guide.md']"
   end
 
