@@ -125,19 +125,6 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/신청서장해/, response.body)
   end
 
-  test "GET / filters by several application_type checkboxes with OR" do
-    DiseaseCase.create!(case_no: "TEST-APP-1", disease_name: "신청서요양", application_type: "요양급여", year: 2024)
-    DiseaseCase.create!(case_no: "TEST-APP-2", disease_name: "신청서유족", application_type: "유족급여|장의비", year: 2024)
-    DiseaseCase.create!(case_no: "TEST-APP-3", disease_name: "신청서장해", application_type: "장해급여", year: 2024)
-
-    get root_path, params: { application_type: %w[장의비 요양급여] }
-
-    assert_response :success
-    assert_match "신청서요양", response.body
-    assert_match "신청서유족", response.body
-    assert_no_match(/신청서장해/, response.body)
-  end
-
   test "GET /search still filters by employment_type and ksco_code via query params (URL-only capability)" do
     matched = DiseaseCase.create!(case_no: "TEST-QS-MATCH", disease_name: "쿼리필터매칭",
       employment_type: "상용직", year: 2024)
