@@ -14,7 +14,7 @@
 | `app/models/disease_cases/normalizer.rb` | 신청서 종류·근무 형태·고용 형태 정규화(순수 Ruby). 규칙은 `config/normalization/rules.yml` |
 | `app/models/chatbot/` | 챗봇 전용(요청 어댑터, 응답 빌더, `PublicCase` 허용 필드 DTO, 엔티티 사전) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
+| `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `db:backup`(SQLite 백업), `export:workercare_data`(분석용 CSV), `chatbot:entities:*` |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
 
@@ -43,7 +43,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 ## 알려진 함정
 
 1. **정규화 컬럼은 원본을 덮어썼다** — `application_type`(`|` 결합 토큰: 요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청·기타), `work_type`, `employment_type`은 범주만 남고 부가 표기는 `*_detail`에 있다. 필터는 `application_type`을 파이프 경계 매칭, 나머지를 exact match로 쓴다. 옛 표기 입력(MCP)은 `Normalizer`로 변환해 매칭한다. 재임포트도 Normalizer를 거치므로 원본 표기로 돌아가지 않는다. 규칙을 바꾸면 `docs/disease-cases-normalization.md`도 고친다.
-2. **정규화 백필은 되돌릴 수 없다** — `normalize:disease_cases`는 dry-run이 기본이고 `[apply]`가 덮어쓴다. 먼저 `export:workercare_data`로 CSV를 백업한다. 운영 반영은 사용자가 직접 한다.
+2. **정규화 백필은 되돌릴 수 없다** — `normalize:disease_cases`는 dry-run이 기본이고 `[apply]`가 덮어쓴다. 먼저 `bin/rails db:backup`으로 DB 파일(`VACUUM INTO`)을 백업한다. 복구는 이 파일로 바꿔 끼운다(`CONTRIBUTING.md` 5.6.1). `export:workercare_data` CSV는 분석·공유용 스냅숏이지 복구 수단이 아니다. 운영 반영은 사용자가 직접 한다.
 3. **`death_status`·`heavy_lifting`·`work_relevance_eval`의 빈값은 NULL** — `''`와 NULL의 구분은 없다.
 4. **application_type 다중 선택은 OR** — "둘 다 있는 건(AND)"은 보류 상태다. `burden_body_part`·`job_name` 정규화(태그/연결 테이블 검토 포함)도 후속이고 챗봇에 영향을 준다.
 5. **FTS 인덱스 두 개** — `disease_cases_fts`(원문, `/search`), `disease_cases_extracted_fts`(추출, 메인·챗봇). 트리거로 갱신되지만 대량 적재·`update_all`은 트리거를 거치므로 필요하면 rebuild한다.
@@ -58,7 +58,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 
 - 판정서는 비식별 처리본이지만 완전하다고 믿지 않는다. `PIIMasking`은 번호 형태만 가린다. 이름·주소는 못 거른다.
 - 사용자 발화 원문을 저장·로그하지 않는다. 테스트에 실제 개인정보를 넣지 않는다.
-- 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `tmp/`의 CSV 백업은 커밋하지 않는다.
+- 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `storage/backups`·`storage/exports`의 백업·CSV는 커밋하지 않는다(`/storage/*`가 gitignore). 내보내기 기본은 판정서 본문 제외이고 `FULL_TEXT=1` 결과는 외부에 공유하지 않는다.
 - 외부 LLM·임베딩 서비스로 판정서 본문을 보내는 작업은 팀 합의가 먼저다.
 - **승인 가능성을 예측하지 않는다.** "당신의 사건은 인정됩니다" 류의 응답을 만들지 않는다. 제도 안내는 출처와 확인일을 함께 적는다(`config/locales/procedure_guides.yml`).
 

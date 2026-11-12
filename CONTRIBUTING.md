@@ -222,8 +222,39 @@ bin/rails fts:rebuild
 - 3)은 추출 컬럼을 덮어쓰고, 판정 결과가 원본과 다르면 **덮어쓰지 않고 경고만** 냅니다. KSCO 매핑은 CSV의 목록을 "전체 목표"로 보고 **목록에 없는 기존 매핑을 지웁니다.** 단, `ksco_codes_json`이 비었거나 파싱에 실패한 행은 기존 매핑을 건드리지 않습니다. 끝에서 `disease_cases_extracted_fts`를 rebuild합니다.
 - 3)에서 KSCO 코드가 없으면 경고만 내고 건너뜁니다. 먼저 2)를 실행했는지 확인하세요.
 - 3)은 신청서 종류·근무 형태·고용 형태를 `DiseaseCases::Normalizer`(규칙: `config/normalization/rules.yml`)로 정규화해 저장하고, 덮어쓰면 사라지는 부가 표기는 `application_type_detail`, `work_type_detail`, `employment_type_detail`에 남깁니다. 사망 여부·중량물 취급 여부·업무관련성 평가는 빈 값과 허용값 밖의 값을 NULL로 저장합니다.
-- 이미 적재된 데이터를 새 규칙으로 바꿀 때는 `bin/rails normalize:report[컬럼]`(미리보기)과 `bin/rails normalize:disease_cases`(dry-run) 뒤 `bin/rails "normalize:disease_cases[apply]"`를 씁니다. 원본 컬럼을 덮어쓰는 비가역 작업이라 먼저 `export:workercare_data`로 백업하세요. 배경과 규칙은 `docs/disease-cases-normalization.md`입니다.
+- 이미 적재된 데이터를 새 규칙으로 바꿀 때는 `bin/rails normalize:report[컬럼]`(미리보기)과 `bin/rails normalize:disease_cases`(dry-run) 뒤 `bin/rails "normalize:disease_cases[apply]"`를 씁니다. 원본 컬럼을 덮어쓰는 비가역 작업이라 먼저 `bin/rails db:backup`으로 DB 파일을 백업하세요(5.6.1). CSV 내보내기(`export:workercare_data`)는 복구 수단이 아닙니다. 배경과 규칙은 `docs/disease-cases-normalization.md`입니다.
 - 필터 옵션 캐시가 있어 적재 뒤 화면 반영은 최대 하루 걸립니다(3장).
+
+### 5.6.1 백업과 데이터 내보내기
+
+두 작업은 목적이 다릅니다.
+
+| | `db:backup` | `export:workercare_data` |
+|---|---|---|
+| 목적 | 복구용 백업 | 분석·공유용 CSV 스냅숏 |
+| 결과 | SQLite 파일 하나(`VACUUM INTO`) | CSV 3개 + 데이터 사전 `.md` + `manifest_<날짜>.json` |
+| 기본 출력 | `storage/backups/workercare_<YYYYMMDD_HHMMSS>.sqlite3` | `storage/exports/` |
+| 환경변수 | `OUT_DIR` | `OUT_DIR`, `FULL_TEXT=1`, `EXCEL=1`, `GZIP=1`, `FORCE=1`, `DRY_RUN=1` |
+
+`db:backup`은 `config/database.yml`의 primary DB를 읽어 실행 중에도 일관된 단일 파일로 복사합니다. 같은 이름의 파일이 있으면 덮어쓰지 않고, 끝에 크기와 SHA-256, `integrity_check` 결과를 출력합니다. 복구는 서비스를 멈추고 DB 파일(`storage/production.sqlite3`와 `-wal`·`-shm`)을 치운 뒤 백업 파일을 그 이름으로 복사하는 파일 교체입니다. 복사 전후로 다음을 확인합니다.
+
+```bash
+sqlite3 storage/backups/workercare_<시각>.sqlite3 'PRAGMA integrity_check'   # ok 이어야 함
+shasum -a 256 storage/backups/workercare_<시각>.sqlite3                      # 출력된 SHA-256과 같은지
+```
+
+`export:workercare_data`는 기본으로 판정서 본문 8개 컬럼(`statement`, `claim_purpose`, `application_content`, `applicant_claim`, `medical_records`, `recognized_facts`, `related_laws`, `committee_decision`)을 **뺍니다.** `FULL_TEXT=1`이면 포함합니다. 본문은 비식별 처리본이지만 완전하지 않으므로 `FULL_TEXT=1` 결과는 외부에 공유하지 않습니다. `EXCEL=1`은 UTF-8 BOM, `GZIP=1`은 `.csv.gz`입니다. 읽기는 한 트랜잭션에서 하고, `*.tmp`에 쓴 뒤 쓰는 중 센 행 수와 다시 읽은 행 수가 DB 건수와 같을 때만 이름을 바꿉니다(다르면 중단). 같은 날짜 파일이 있으면 `FORCE=1`이 없는 한 거부합니다. manifest에는 스키마 버전, git SHA, 모드, 파일별 행 수·컬럼·바이트·SHA-256이 기록되고, KSCO 테이블이 비어 있으면 경고를 출력하고 `ksco_empty: true`로 표시합니다. 먼저 `DRY_RUN=1`로 계획과 건수를 볼 수 있습니다.
+
+운영에서 돌릴 때(서버의 `/data/workercare/storage`가 볼륨입니다). 디스크 여유를 먼저 확인하세요. DB 백업은 DB 파일만큼, 본문 포함 CSV는 수 GB까지 쓸 수 있습니다.
+
+```bash
+bin/kamal app exec --roles=web --reuse "bin/rails db:backup"
+bin/kamal app exec --roles=web --reuse "bin/rails export:workercare_data"     # 본문 제외 기본
+scp web01.workercare:/data/workercare/storage/backups/<파일> .
+scp web01.workercare:/data/workercare/storage/exports/<파일> .
+# 내려받고 SHA-256·행 수를 확인한 뒤 서버의 파일을 지운다
+ssh web01.workercare 'rm /data/workercare/storage/exports/*_<날짜>.* /data/workercare/storage/backups/<파일>'
+```
 
 ### 5.7 단계 6. 검증
 
