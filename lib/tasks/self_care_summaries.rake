@@ -1,7 +1,7 @@
 namespace :self_care_summaries do
   # 버튼으로 고를 수 있는 조건(신체부위 × 직종, 판정 결과는 "모두 보기") 중 판정서가 많은 순서로 N개의 요약을 미리 만든다.
   # 판정 결과를 고른 조합과 조건 완화가 걸리는 조합은 첫 방문자가 열 때 만들어진다(주문형).
-  desc "신체부위가 있는 많이 찾는 조건 조합 N개의 쉬운 요약을 EXAONE으로 미리 만든다(ANY_BODY=1이면 직종만 있는 조합도). DRY_RUN=1이면 조합만 출력. 하루 요청 예산(EXAONE_DAILY_REQUEST_CAP, 기본 90)에서 멈춘다. 문서: docs/self-care-form.md"
+  desc "신체부위가 있는 많이 찾는 조건 조합 N개의 쉬운 요약을 EXAONE으로 미리 만든다(ANY_BODY=1이면 직종만 있는 조합도). DRY_RUN=1이면 조합만 출력. 하루 요청 예산(EXAONE_DAILY_REQUEST_CAP, 기본 28800)에서 멈춘다. 문서: docs/self-care-form.md"
   task :warm, [ :limit ] => :environment do |_, args|
     limit = Integer(args[:limit] || 50)
     dry = ENV["DRY_RUN"].present?

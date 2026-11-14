@@ -464,10 +464,10 @@ class SelfCareForm::SummaryGeneratorTest < ActiveSupport::TestCase
     ENV.delete("EXAONE_DAILY_REQUEST_CAP")
   end
 
-  test "the cap defaults to 90 and an invalid value falls back to it" do
-    assert_equal 90, SelfCareForm::ExaoneBudget.cap
+  test "the cap defaults to 28,800 and an invalid value falls back to it" do
+    assert_equal 28_800, SelfCareForm::ExaoneBudget.cap
     ENV["EXAONE_DAILY_REQUEST_CAP"] = "abc"
-    assert_equal 90, SelfCareForm::ExaoneBudget.cap
+    assert_equal 28_800, SelfCareForm::ExaoneBudget.cap
     ENV["EXAONE_DAILY_REQUEST_CAP"] = "40"
     assert_equal 40, SelfCareForm::ExaoneBudget.cap
   ensure

@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 module SelfCareForm
-  # EXAONE API의 하루 요청 한도(100회, 429와 재시도 포함)를 지키는 카운터. 모든 HTTP 요청을 센다.
-  # 한도는 EXAONE_DAILY_REQUEST_CAP(기본 90, 여유 10)이고, 응답 헤더 x-day-rate-limit-remaining이 REMAINING_FLOOR 이하로
+  # EXAONE API의 하루 요청 한도(계정 한도 86,400회, 429와 재시도 포함)를 지키는 카운터. 모든 HTTP 요청을 센다.
+  # 한도는 EXAONE_DAILY_REQUEST_CAP(기본 28,800 = 계정 한도의 1/3)이고, 응답 헤더 x-day-rate-limit-remaining이 REMAINING_FLOOR 이하로
   # 내려오면 그 날은 더 부르지 않는다. 카운터는 Rails.cache에 둔다(프로세스를 넘어 유지하려면 운영의 solid_cache처럼
   # 공유 저장소여야 한다. 개발의 memory_store는 프로세스마다 따로 센다).
   module ExaoneBudget
-    DEFAULT_CAP = 90
+    # 계정 일일 한도 86,400회(이용 기록 분석 동의 후, 응답 헤더 기준)의 1/3. 초당 1회·분당 60회 한도는 따로 지킨다.
+    DEFAULT_CAP = 28_800
     REMAINING_FLOOR = 5
 
     class << self
