@@ -41,6 +41,9 @@ gem "kamal", require: false
 gem "thruster", require: false
 
 group :development, :test do
+  # 로컬에서 .env의 EXAONE_API_KEY 등을 읽는다(.env는 커밋하지 않는다. 예시는 .env.example)
+  gem "dotenv", require: "dotenv/load"
+
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
