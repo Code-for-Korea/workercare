@@ -4,13 +4,13 @@
 
 - 결정: 정규직과 상용직은 별개 범주로 둔다. 비정규직·4대보험 등 고용형태가 아닌 값은 `기타`, work_type의 근무 형태 없는 일정 값도 `기타`로 두고 상세 분류는 후속 작업으로 한다. detail과 범주의 중복은 허용한다.
 - 구현: `config/normalization/rules.yml`(규칙), `DiseaseCases::Normalizer`, `rails normalize:report[컬럼]`(미리보기), `rails normalize:disease_cases[apply]`(백필, 기본은 dry-run, 재실행해도 결과 동일), 임포트 rake 연결, 검색 필터(application_type 파이프 경계 매칭, work_type·employment_type 범주 exact match, 옛 표기는 Normalizer로 변환).
-- 운영 적용 순서: CSV 백업(`rails export:workercare_data`) → `db:migrate` → `normalize:disease_cases`(dry-run 확인) → `normalize:disease_cases[apply]`.
+- 운영 적용 순서: DB 파일 백업(`rails db:backup`, 복구용) → `db:migrate` → `normalize:disease_cases`(dry-run 확인) → `normalize:disease_cases[apply]`.
 
 ## 범위
 
 - 대상: `application_type`, `work_type`, `employment_type`, 그리고 빈값 정리(`death_status`, `heavy_lifting`, `work_relevance_eval` 등).
 - 보류(후속 작업): `burden_body_part`(동의어·다중값 순서), `job_name`(공백·표기), 근무 시작·종료 시각 구조화.
-- 방식: 현재 데이터를 CSV로 백업한 뒤 원본 컬럼을 덮어쓴다(`normalized_*` 컬럼은 만들지 않는다). 덮어쓰면 사라지는 정보는 `*_detail` 컬럼 3개를 새로 만들어 보존한다.
+- 방식: 현재 DB를 `db:backup`(SQLite 파일, 복구 수단)으로 백업한 뒤 원본 컬럼을 덮어쓴다(`normalized_*` 컬럼은 만들지 않는다). 덮어쓰면 사라지는 정보는 `*_detail` 컬럼 3개를 새로 만들어 보존한다.
 
 ## 1. 분석 결과
 
@@ -105,7 +105,7 @@ NULL, `''`, 공백만 있는 값은 모두 NULL로 바꾼다. 허용값 목록 �
 ## 3. 진행 순서
 
 1. 이 문서 확인.
-2. `rake export:workercare_data`로 CSV 백업(`tmp/`, git 제외). 건수 61,815와 대상 컬럼 값을 확인한다. (완료: `tmp/disease_cases_20261107.csv`, 61,815행, 745MB. DB 건수와 일치.)
+2. `rake db:backup`으로 DB 파일을 백업하고(`storage/backups/`, git 제외) 출력된 SHA-256과 `integrity_check`를 확인한다. 분석용 CSV(`export:workercare_data`)는 복구 수단이 아니다. (개발 DB 적용 당시에는 CSV로 백업했다. 완료: `tmp/disease_cases_20261107.csv`, 61,815행, 745MB. DB 건수와 일치.)
 3. 군집 탐색 rake(읽기 전용)로 유사 표기 후보를 뽑아 사전 YAML을 만들고 검토한다. 자동 병합 결과를 검토 없이 덮어쓰지 않는다.
 4. `Normalizer` + 마이그레이션(`application_type_detail`, `work_type_detail`, `employment_type_detail` 추가) + 백필 rake. dry-run을 먼저 하고, 고유값 단위 `update_all`로 처리하며 여러 번 돌려도 결과가 같게 한다.
 5. 재임포트 rake(`import_extracted_disease_cases.rake`)에 Normalizer를 연결해 재임포트해도 원본 표기로 돌아가지 않게 한다.
@@ -114,5 +114,5 @@ NULL, `''`, 공백만 있는 값은 모두 NULL로 바꾼다. 허용값 목록 �
 
 ## 4. 주의
 
-- 덮어쓰기는 되돌릴 수 없다. CSV 백업 검증 → 사전 검토 → dry-run → 실행 순서를 지킨다. 운영 DB 반영 전에는 다시 확인받는다.
+- 덮어쓰기는 되돌릴 수 없다. DB 백업(`db:backup`) 검증 → 사전 검토 → dry-run → 실행 순서를 지킨다. 운영 DB 반영 전에는 다시 확인받는다.
 - 재추출·재임포트 파이프라인(`wip/`)이 원본 표기를 다시 만들 수 있으므로 5번 연결이 필수다.

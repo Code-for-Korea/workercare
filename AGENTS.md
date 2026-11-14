@@ -16,7 +16,7 @@
 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/` | 단계별 사례 찾기. 답은 세션 쿠키에만 두고 DB에 쓰지 않는다. 문서 `docs/self-care-form.md` |
 | `app/models/apply_guide.rb`, `config/apply_guide/procedure_guides.yml` | 신청 가이드(`/apply-guide`, `.md`). 마크다운→HTML은 `ApplyGuide::HtmlRenderer`(sanitize·https 링크만) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본) |
+| `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `db:backup`(SQLite 백업), `export:workercare_data`(분석용 CSV), `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본) |
 | `DESIGN.md`, `app/assets/stylesheets/` | 디자인 규칙·토큰·컴포넌트와 CSS(`tokens`·`base`·`layout`·`components`·`utilities`). CSS 클래스·대비 검사는 `test/integration/css_classes_test.rb`, `test/design/contrast_test.rb`. 내용은 `DESIGN.md`를 본다 |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
@@ -46,7 +46,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 ## 알려진 함정
 
 1. **정규화 컬럼은 원본을 덮어썼다** — `application_type`(`|` 결합 토큰: 요양급여·휴업급여·유족급여·장의비·추가상병·장해급여·미지급보험급여·재신청·기타), `work_type`, `employment_type`은 범주만 남고 부가 표기는 `*_detail`에 있다. 필터는 `application_type`을 파이프 경계 매칭, 나머지를 exact match로 쓴다. 옛 표기 입력(MCP)은 `Normalizer`로 변환해 매칭한다. 재임포트도 Normalizer를 거치므로 원본 표기로 돌아가지 않는다. 규칙을 바꾸면 `docs/disease-cases-normalization.md`도 고친다.
-2. **정규화 백필은 되돌릴 수 없다** — `normalize:disease_cases`는 dry-run이 기본이고 `[apply]`가 덮어쓴다. 먼저 `export:workercare_data`로 CSV를 백업한다. 운영 반영은 사용자가 직접 한다.
+2. **정규화 백필은 되돌릴 수 없다** — `normalize:disease_cases`는 dry-run이 기본이고 `[apply]`가 덮어쓴다. 먼저 `bin/rails db:backup`으로 DB 파일(`VACUUM INTO`)을 백업한다. 복구는 이 파일로 바꿔 끼운다(`CONTRIBUTING.md` 5.6.1). `export:workercare_data` CSV는 분석·공유용 스냅숏이지 복구 수단이 아니다. 운영 반영은 사용자가 직접 한다.
 3. **`death_status`·`heavy_lifting`·`work_relevance_eval`의 빈값은 NULL** — `''`와 NULL의 구분은 없다.
 4. **application_type 다중 선택은 OR** — "둘 다 있는 건(AND)"은 보류 상태다. `burden_body_part`·`job_name` 정규화(태그/연결 테이블 검토 포함)도 후속이고 챗봇에 영향을 준다.
 5. **FTS 인덱스 두 개** — `disease_cases_fts`(원문, `/search`), `disease_cases_extracted_fts`(추출, 메인·챗봇). 트리거로 갱신되지만 대량 적재·`update_all`은 트리거를 거치므로 필요하면 rebuild한다.
@@ -63,7 +63,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 
 - 판정서는 비식별 처리본이지만 완전하다고 믿지 않는다. `PIIMasking`은 번호 형태만 가린다. 이름·주소는 못 거른다.
 - 사용자 발화 원문을 저장·로그하지 않는다. **예외는 단계별 사례 찾기의 직종 직접 입력 한 칸뿐이다**: 선택 동의한 경우에만 가려서(번호 형태, 30자 이내) 구글 폼으로 보낸다(함정 12, 사용자 결정 2026-11-11). 신체부위 직접 입력, 검색어(`q` 등), 챗봇 발화, 로그에는 이 예외를 적용하지 않는다. 테스트에 실제 개인정보를 넣지 않는다.
-- 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `tmp/`의 CSV 백업은 커밋하지 않는다.
+- 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `storage/backups`·`storage/exports`의 백업·CSV는 커밋하지 않는다(`/storage/*`가 gitignore). 내보내기 기본은 판정서 본문 제외이고 `FULL_TEXT=1` 결과는 외부에 공유하지 않는다.
 - 외부 LLM·임베딩 서비스로 판정서 본문을 보내는 작업은 팀 합의가 먼저다.
 - **승인 가능성을 예측하지 않는다.** "당신의 사건은 인정됩니다" 류의 응답을 만들지 않는다. 제도 안내는 출처와 확인일을 함께 적는다(`config/locales/procedure_guides.yml`).
 
