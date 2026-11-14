@@ -41,3 +41,7 @@
 .omc/
 .omo/
 /wip
+
+# 외부 서비스 원문 문서(로컬 사본, 저장소에 두지 않음)
+/docs/ext/*
+!/docs/ext/.keep

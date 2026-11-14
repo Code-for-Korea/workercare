@@ -21,6 +21,7 @@
 | `DESIGN.md`, `app/assets/stylesheets/` | 디자인 규칙·토큰·컴포넌트와 CSS(`tokens`·`base`·`layout`·`components`·`utilities`). CSS 클래스·대비 검사는 `test/integration/css_classes_test.rb`, `test/design/contrast_test.rb`. 내용은 `DESIGN.md`를 본다 |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
+| `docs/ext/` | 외부 서비스 원문 문서의 로컬 사본(카카오 오픈빌더, EXAONE 등). gitignore, .keep만 저장소에 있다 |
 
 데이터: 한 건 = `disease_cases` 한 행. 원문 컬럼 + LLM 추출 컬럼 + KSCO 매핑(`disease_case_ksco_codes`). 스키마 기준은 `db/structure.sql`(`db/schema.rb`는 실제와 다름).
 

@@ -2,7 +2,7 @@
 
 - 작성일: 2026-10-17 / 갱신일: 2026-10-17
 - 브랜치: `feat/kakaotalk_chatbot`
-- 연계 문서: [`project-plan.md`](project-plan.md)(기획), [`development-plan.md`](development-plan.md)(개발 계획), [`chatbot/`](chatbot/)(카카오 챗봇 관리자센터 참고 자료)
+- 연계 문서: [`project-plan.md`](project-plan.md)(기획), [`development-plan.md`](development-plan.md)(개발 계획), [`chatbot/`](../ext/kakaotalk/chatbot/)(카카오 챗봇 관리자센터 참고 자료, 로컬 사본이라 저장소에 없음)
 - 이 문서의 역할: 기획·개발 계획을 **작업 단위**로 나누고, 각 작업의 진행 상태와 실제 코드 계약을 기록한다. 블록 구성, 발화 패턴, 봇 테스트 시나리오도 별도 `kakao-*` 파일 없이 이 문서에 둔다. 계획과 코드가 다르면 이 문서와 코드를 기준으로 계획서를 고친다.
 
 ## 목차
