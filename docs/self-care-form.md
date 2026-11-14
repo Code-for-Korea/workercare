@@ -246,21 +246,24 @@ entries:                # 앱 키 → entry id(숫자)
 
 1. 결과 화면에 `<turbo-frame id="case_summary" src="/self-care-form/summary" loading="lazy">`가 있다(기능이 켜져 있을 때만. JS가 없으면 `noscript` 안내만 보이고 사례 목록은 그대로).
 2. `GET /self-care-form/summary`가 세션 답으로 `CaseFinder`를 돌려 **실제로 결과를 낸 조건**(완화 뒤)에서 조건 키를 만든다: `body_concept`(사전 신체부위 개념), `job`(사전 직종), `decision`(판정 결과 값). 없는 조건은 빈 문자열이다. **직접 입력한 글은 키에 들어가지 않는다.** 직접 입력한 직업은 `JobMatcher`가 사전 직종을 찾으면 그 개념 이름으로, 못 찾으면 요약하지 않고 "이 조건의 요약은 없습니다"를 보여 준다.
-3. 같은 키로 다시 검색해 사실(건수, 판정 분포, 최신 20건의 요인 컬럼)을 만들고 SHA-256 지문(`data_digest`, 프롬프트 버전 포함)을 낸다. `self_care_summaries`의 (키, 지문) 행이 `ready`면 바로 보여 주고, `pending`이면 "만드는 중", `failed`면 짧은 안내다. 행이 없으면 `pending`으로 만들고(유일 인덱스가 동시 요청의 중복을 막는다) `SelfCareSummaryJob`을 한 번만 큐에 넣는다. 10분 넘게 pending이면 다시 맡긴다. 처음 요청은 행 id와 답의 SHA-256을 세션(`session[:self_care_summary]`)에 남기고, 폴링은 답이 그대로이고 행이 아직 pending이면 이 id로 행만 찾는다(`CaseFinder`·사실 쿼리를 다시 돌리지 않는다). 답이 바뀌거나 [처음부터 다시]를 누르면 쓰지 않고 지운다.
-4. "만드는 중" 프레임의 Stimulus `summary-poll`이 2.5초마다 프레임을 다시 불러오고(ActionCable 없음), 60초가 지나면 실패 문구를 보인다. 타이머는 disconnect와 `turbo:before-cache`에서 지운다.
+3. 같은 키로 다시 검색해 사실(건수, 판정 분포, 질병군 분포·질병명 종류 수, 최신 6건의 요인 컬럼)을 만들고 SHA-256 지문(`data_digest`, 프롬프트 버전 포함)을 낸다. `self_care_summaries`의 (키, 지문) 행이 `ready`면 바로 보여 주고, `pending`이면 "만드는 중", `failed`면 짧은 안내다. 행이 없으면 `pending`으로 만들고(유일 인덱스가 동시 요청의 중복을 막는다) `SelfCareSummaryJob`을 한 번만 큐에 넣는다. 10분 넘게 pending이면 다시 맡긴다. 처음 요청은 행 id와 답의 SHA-256을 세션(`session[:self_care_summary]`)에 남기고, 폴링은 답이 그대로이고 행이 아직 pending이면 이 id로 행만 찾는다(`CaseFinder`·사실 쿼리를 다시 돌리지 않는다). 답이 바뀌거나 [처음부터 다시]를 누르면 쓰지 않고 지운다.
+4. "만드는 중" 프레임의 Stimulus `summary-poll`이 처음 1분은 2.5초마다, 그 뒤는 10초마다 프레임을 다시 불러온다(ActionCable 없음). **처음 만드는 조건은 생성이 몇 분 걸린다**(11.3)는 점을 안내문에 적고("처음 만드는 조건은 몇 분 걸릴 수 있어요. 아래 판정서를 먼저 보셔도 됩니다." 사례 목록은 이미 아래에 보인다), 6분이 지나면 "아직 만드는 중입니다. 잠시 뒤 이 화면을 다시 열면 보입니다."로 바꾼다. 작업은 계속 돌아 나중 방문은 완성된 행을 본다. 타이머는 disconnect와 `turbo:before-cache`에서 지운다. 오늘 요청 예산이 없고 새로 만들어야 하면 "오늘은 요약을 더 만들 수 없습니다. 판정서 목록을 직접 확인해 주세요."(`:budget` 상태, 행·작업을 만들지 않는다. 이미 만든 요약은 그대로 보인다).
+   질병명은 표기가 제각각(예: 목 조건에 질병명 491종)이라 이름 목록은 보내지 않고 질병군(`disease_category`) 분포와 질병명 종류 수만 보낸다. 종류 수가 건수의 절반을 넘으면 요약은 "여러 질병이 섞여 있습니다"라고 쓴다(프롬프트 v3).
 5. 데이터를 다시 적재해 지문이 바뀐 조건은 다음 방문 때 새 행으로 다시 만든다. 프롬프트를 바꾸면 `SummaryGenerator::PROMPT_VERSION`을 올린다.
 
 ### 11.2 입력과 출력
 
-- 입력(JSON): 조건, 찾은 건수(500 상한), 판정 결과 분포, 사례 최대 20건의 `main_reasoning`·`work_relevance_eval`·`aggravating_factors`(DB 컬럼은 `업묵부담_가중요인_노출` 추출값)·`heavy_lifting`·`bad_posture`·`max_item_weight`·`work_type`·`job_tenure_months`·`result`·`disease_name`·`job_name`·`burden_body_part`. 요인 컬럼이 모두 비어 있는 사례만 `committee_decision`을 300자 안으로 발췌한다. 모든 글은 `PIIMasking`을 거쳐 길이를 자른다. 신청인 주장·직무 설명 전문은 보내지 않는다.
-- 출력(JSON): `recognized_reasons`, `rejected_reasons`, `check_items`(각 `{text, case_nos 1~3개}`, 최대 5개), `glossary`(`{term, meaning}`, 최대 5개). 화면은 여기에 `meta`(건수·분포)를 붙여 저장한 것을 그린다.
+- 입력(JSON): 조건, 찾은 건수(500 상한), 판정 결과 분포, 사례 최대 6건의 `main_reasoning`·`work_relevance_eval`·`aggravating_factors`(DB 컬럼은 `업묵부담_가중요인_노출` 추출값)·`heavy_lifting`·`bad_posture`·`max_item_weight`·`work_type`·`job_tenure_months`·`result`·`disease_name`·`job_name`·`burden_body_part`. 요인 컬럼이 모두 비어 있는 사례만 `committee_decision`을 300자 안으로 발췌한다. 모든 글은 `PIIMasking`을 거쳐 길이를 자른다. 신청인 주장·직무 설명 전문은 보내지 않는다.
+- 출력(JSON): `overview`(건수·질병 구성 두세 문장, 선택), `recognized_reasons`, `rejected_reasons`, `check_items`(각 `{text, case_nos 1~3개}`, 최대 3개), `glossary`(`{term, meaning}`, 최대 5개). 화면은 여기에 `meta`(건수·분포)를 붙여 저장한 것을 그린다.
 - 저장 전 검사(`SummaryGenerator.validate!`): JSON 모양, **인용한 사건번호가 모두 입력 묶음 안에 있는지**, **금지 표현**(`FORBIDDEN_PHRASES` 한 곳: 인정될·가능성·유리하/불리하·신청하세요·승소 등). 실패하면 한 번 더 부르고, 그래도 실패하면 `failed`와 오류를 기록한다(요약은 저장하지 않는다).
 - `reviewed_at`은 사람이 검토한 시각을 기록만 하며 화면 노출 조건이 아니다(검사를 통과하면 바로 보인다).
 
 ### 11.3 호출 방식
 
-- `POST https://api.exaone.ai/v1/chat/completions`, `Authorization: Bearer $EXAONE_API_KEY`, 모델 `k-exaone_v2.5`, `stream: false`. 문서(`docs/ext/exaone/k-exaone-2.5.md`, 로컬 사본, 저장소에 없음)에 구조화 출력(`response_format`) 파라미터가 없어 보내지 않는다. 대신 프롬프트로 JSON 하나만 요구하고 코드 펜스를 걷어 읽은 뒤 위 검사를 한다. 추론 토큰이 `max_tokens`에 포함되므로 8000, `reasoning_effort: low`, `temperature: 0.3`.
-- 타임아웃: 열기 5초, 읽기 120초(`Net::HTTP`, `GoogleFormSubmitter` 패턴). 429는 `retry-after-ms`/`retry-after`만큼 기다려 최대 3번, 5xx는 한 번 더. 그 밖의 오류와 한도 초과는 `failed`로 기록한다. 키 값은 로그·오류 메시지에 쓰지 않는다.
+- `POST https://api.exaone.ai/v1/chat/completions`, `Authorization: Bearer $EXAONE_API_KEY`, 모델 `k-exaone_v2.5`, **`stream: true`**(SSE). 구조화 출력(`response_format`) 파라미터가 없어 보내지 않고 프롬프트로 JSON 하나만 요구한 뒤 코드 펜스를 걷어 읽고 위 검사를 한다. `reasoning_effort`는 `low`(문서에 있는 가장 낮은 값 — `low`/`high`/`max`)가 최소인데도 추론 토큰이 2500개 안팎을 먹는다(파일럿 실측). 그래서 `max_tokens` 7000, `temperature: 0.3`이다. 스트림에서는 `delta.content`만 모으고 `reasoning_content`는 버리며, 마지막 `usage` 조각의 토큰 수(prompt·completion·reasoning)와 호출 시간·`finish_reason`을 `summary_json.meta.generation`과 로그에 남긴다(내용은 로그에 쓰지 않는다).
+- **생성은 분 단위로 느리다**(추론 때문. 파일럿에서 3000토큰짜리 호출이 4분을 넘겼다). 스트리밍이라 조각 사이 120초(`EXAONE_CHUNK_TIMEOUT`), 요청 전체 600초(`EXAONE_TOTAL_TIMEOUT`)를 기다리고 열기는 5초다. `EXAONE_MAX_TOKENS`(기본 7000)와 함께 환경 변수로 덮어쓴다(코드 상수가 기본값, 잘못된 값은 무시).
+- **재시도 규칙**: 429 중 `retry-after`가 없는 "service is busy"는 15·30·60초 뒤 최대 3번, `retry-after`가 있으면 그만큼 기다린다. 5xx는 최대 3번 시도한다. 이 재시도는 출력 검사 재시도와 따로 센다. **답이 `max_tokens`에 잘렸거나(`finish_reason: length`, "응답이 잘림") 시간 초과면 다시 부르지 않고** 바로 `failed`로 기록한다(같은 요청은 같은 결과이고 요청 예산만 쓴다). 완전한 답이 검사에 실패했을 때만 한 번 더 부른다. 그 밖의 오류도 `failed`다. 키 값은 로그·오류 메시지에 쓰지 않는다.
+- **하루 요청 예산**: EXAONE 일일 한도는 100회다(더 높은 한도는 "서비스 개선을 위한 이용 기록 분석"에 동의해야 하는데 동의하지 않았다). **429와 재시도를 포함한 모든 요청**을 `Rails.cache`의 `exaone:requests:<날짜>`에 세고, `EXAONE_DAILY_REQUEST_CAP`(기본 90, 여유 10)에 이르거나 응답 헤더 `x-day-rate-limit-remaining`이 5 이하면 더 부르지 않는다(`SelfCareForm::ExaoneBudget`). 한도에 이른 작업은 `BudgetExhausted`로 `failed`가 되고, 새로 만들어야 하는 방문은 행을 만들지 않고 "오늘은 요약을 더 만들 수 없습니다"를 보이며, 예산이 돌아오면 그 행을 다시 맡긴다. rake `warm`은 한도에서 멈춘다. 개발의 memory_store에서는 카운터가 프로세스마다 따로라 헤더 값이 실제 보호 장치다(운영은 solid_cache로 공유). 그래서 수천 개 조합을 미리 만드는 것은 불가능하고 **주문형 생성과 캐시**(같은 조건은 한 번)가 실제 방식이다.
 - **초당 1회 한도**: 전용 큐 `exaone`(`config/queue.yml`의 워커, 스레드 1개·프로세스 1개)이 한 번에 한 건만 돌리고, 생성기가 프로세스 안에서 요청 사이 1.1초를 지킨다(개발 환경의 async 어댑터·rake 대비). `Rails.cache` 카운터는 쓰지 않는다: 이 앱은 단일 서버·단일 프로세스라 동시성 1 큐가 더 단순하고, 캐시 원자 증가는 대기·재시도를 따로 짜야 한다. 다른 큐 워커는 `queues: default`로 이름을 나열해 `exaone`을 잡지 않는다.
 - 로컬 키: 저장소 루트 `.env`의 `EXAONE_API_KEY`(`dotenv` gem이 개발·테스트에서 읽는다, `.env.example` 참고). 테스트는 키·플래그를 비우고 HTTP를 막은 채 스텁 전송으로 돌린다.
 - 켜는 조건: `EXAONE_SUMMARY_ENABLED=1`(또는 true)이고 `EXAONE_API_KEY`가 있을 때. 둘 중 하나라도 없으면 결과 화면에 프레임이 없다.
@@ -269,7 +272,7 @@ entries:                # 앱 키 → entry id(숫자)
 
 ### 11.4 미리 만들기
 
-`bin/rails "self_care_summaries:warm[50]"`: 신체부위(없음 포함) × 사전 직종(없음 포함)에서 판정서가 많은 순서로 N개를 만든다(판정 결과는 "모두 보기"만. 판정 결과를 고른 조합과 조건 완화가 걸리는 조합은 첫 방문 때 만들어진다). `DRY_RUN=1`이면 조합과 예상 시간만 출력한다. 이미 만든 조합은 건너뛰어 이어 받을 수 있고, `failed`는 다시 시도한다. 조합을 고르려고 조합마다 사실을 만들므로 운영 DB에서는 시간이 걸린다(로컬 파일럿 권장).
+`bin/rails "self_care_summaries:warm[N]"`: **신체부위가 있는** 조합(신체부위 × 사전 직종, 신체부위만 포함)에서 판정서가 많은 순서로 N개를 만든다(직종만 있는 조합은 여러 질병이 섞여 덜 일관되므로 `ANY_BODY=1`일 때만. 판정 결과는 "모두 보기"만. 판정 결과를 고른 조합과 조건 완화가 걸리는 조합은 첫 방문 때 만들어진다). `DRY_RUN=1`이면 조합만 출력한다. 시작할 때 오늘 요청 수를 보이고 하루 예산(11.3)에 이르면 멈추며, 건당 걸린 시간을 출력한다(건당 몇 분). 하루 100회 한도 때문에 50개를 한꺼번에 만드는 일은 현실적이지 않다(재시도·실패도 센다). 이미 만든 조합은 건너뛰어 이어 받을 수 있고, `failed`는 다시 시도한다. 조합을 고르려고 조합마다 사실을 만들므로 운영 DB에서는 시간이 걸린다(로컬 파일럿 권장).
 
 ### 11.5 위험과 결정 (2026-11-14 사용자 결정)
 
