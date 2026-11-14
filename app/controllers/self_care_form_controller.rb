@@ -82,7 +82,7 @@ class SelfCareFormController < ApplicationController
   private
 
   # @return [Array(Symbol, SelfCareSummary|nil)] :off(동의 없음·기능 꺼짐), :none(결과 없음), :unavailable(이 조건은 요약 없음),
-  #   :ready, :pending, :failed
+  #   :ready, :pending, :failed, :budget(오늘 EXAONE 요청 한도)
   def resolve_summary
     return [ :off, nil ] unless session[:self_care_form_consent] && SelfCareForm::SummaryGenerator.enabled?
 
@@ -98,8 +98,16 @@ class SelfCareFormController < ApplicationController
     facts = key && SelfCareForm::SummaryGenerator.facts_for(key)
     return [ :unavailable, nil ] unless facts
 
+    # 이미 만든 요약은 예산과 상관없이 보여 준다. 새로 만들려면 오늘 EXAONE 요청 예산이 남아 있어야 한다.
+    return [ :budget, nil ] if SelfCareSummary.lookup(key, facts.digest).nil? && !SelfCareForm::ExaoneBudget.available?
+
     row, created = SelfCareSummary.claim(key, facts.digest)
-    if row.stale? # 작업이 사라진 채 오래 pending이면 다시 맡긴다
+    if row.budget_failure?
+      return [ :budget, nil ] unless SelfCareForm::ExaoneBudget.available?
+
+      row.update!(status: "pending", error_message: nil)
+      created = true
+    elsif row.stale? # 작업이 사라진 채 오래 pending이면 다시 맡긴다
       row.touch
       created = true
     end

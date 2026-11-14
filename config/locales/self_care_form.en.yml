@@ -66,8 +66,10 @@ en:
       no_answer: Prefer not to answer
     summary:
       heading: Plain-language summary of rulings (written by AI, for reference)
-      loading: Preparing the plain-language summary…
+      loading: Preparing the plain-language summary. A condition made for the first time can take a few minutes. You can read the rulings below in the meantime.
+      still_pending: Still being made. Please open this page again in a little while.
       failed: The summary could not be made. Please read the rulings below directly.
+      budget: No more summaries can be made today. Please read the rulings listed below directly.
       unavailable: There is no summary for these conditions.
       noscript: The plain-language summary is shown only when JavaScript is on.
       notice: LG AI Research's EXAONE (artificial intelligence) read some fields of the published rulings and wrote this in plain language. It may be wrong or incomplete, so be sure to check the original ruling. It does not predict whether a claim will be approved or advise you to apply.

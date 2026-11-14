@@ -75,9 +75,9 @@ class SelfCareSummaryTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_select "turbo-frame#case_summary [data-controller=summary-poll][data-summary-poll-interval-value='2500'][data-summary-poll-timeout-value='60000']"
-    assert_select "[data-summary-poll-target=waiting]", text: /만드는 중/
-    assert_select "[data-summary-poll-target=timeout][hidden]"
+    assert_select "turbo-frame#case_summary [data-controller=summary-poll][data-summary-poll-interval-value='2500'][data-summary-poll-slow-interval-value='10000'][data-summary-poll-slow-after-value='60000'][data-summary-poll-timeout-value='360000']"
+    assert_select "[data-summary-poll-target=waiting]", text: /처음 만드는 조건은 몇 분 걸릴 수 있어요. 아래 판정서를 먼저 보셔도 됩니다/
+    assert_select "[data-summary-poll-target=timeout][hidden]", text: "아직 만드는 중입니다. 잠시 뒤 이 화면을 다시 열면 보입니다."
     row = SelfCareSummary.last
     assert row.pending?
     assert_equal [ "손목", "택배기사", "" ], [ row.body_concept, row.job, row.decision ]
@@ -237,5 +237,52 @@ class SelfCareSummaryTest < ActionDispatch::IntegrationTest
     frame_request
 
     assert_match(/no-store/, response.headers["Cache-Control"])
+  end
+
+  test "a new summary is not queued when today's EXAONE budget is used up, and the frame says so" do
+    with_exaone
+    saved = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    ENV["EXAONE_DAILY_REQUEST_CAP"] = "1"
+    SelfCareForm::ExaoneBudget.record_request!
+    begin_session
+
+    assert_no_enqueued_jobs { frame_request }
+
+    assert_response :success
+    assert_select "p[role=status]", text: "오늘은 요약을 더 만들 수 없습니다. 판정서 목록을 직접 확인해 주세요."
+    assert_equal 0, SelfCareSummary.count
+  ensure
+    ENV.delete("EXAONE_DAILY_REQUEST_CAP")
+    Rails.cache = saved
+  end
+
+  test "an already ready summary is still shown when the budget is used up" do
+    with_exaone
+    saved = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    ENV["EXAONE_DAILY_REQUEST_CAP"] = "1"
+    SelfCareForm::ExaoneBudget.record_request!
+    row = SelfCareSummary.claim(@key, digest).first
+    row.update!(status: "ready", summary_json: summary_json, model: "m", prompt_version: "v2", generated_at: Time.current)
+    begin_session
+
+    frame_request
+
+    assert_select ".case-summary li", minimum: 1
+  ensure
+    ENV.delete("EXAONE_DAILY_REQUEST_CAP")
+    Rails.cache = saved
+  end
+
+  test "a row that failed only for budget is queued again once budget is available" do
+    with_exaone
+    row = SelfCareSummary.claim(@key, digest).first
+    row.update!(status: "failed", error_message: "SelfCareForm::SummaryGenerator::BudgetExhausted: x")
+    begin_session
+
+    assert_enqueued_with(job: SelfCareSummaryJob, args: [ row.id ]) { frame_request }
+
+    assert row.reload.pending?
   end
 end

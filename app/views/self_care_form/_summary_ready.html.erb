@@ -13,7 +13,17 @@
     <% end %>
   </p>
 
-  <% { "recognized_reasons" => :recognized, "rejected_reasons" => :rejected, "check_items" => :check }.each do |section, name| %>
+  <% if data["overview"].present? %>
+    <p><%= data["overview"] %></p>
+  <% end %>
+
+  <%# 사례가 더 많은 쪽(인정 계열 vs 불인정)의 이유를 먼저 보인다. %>
+  <% distribution = meta["distribution"] || {} %>
+  <% rejected_count = distribution["불인정"].to_i %>
+  <% recognized_count = distribution.except("불인정").values.sum %>
+  <% sections = { "recognized_reasons" => :recognized, "rejected_reasons" => :rejected, "check_items" => :check } %>
+  <% sections = sections.slice("rejected_reasons", "recognized_reasons", "check_items") if rejected_count > recognized_count %>
+  <% sections.each do |section, name| %>
     <% items = Array(data[section]) %>
     <% next if items.empty? %>
     <h3><%= t("self_care_form.summary.sections.#{name}") %></h3>

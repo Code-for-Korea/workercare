@@ -1,14 +1,17 @@
 import { Controller } from "@hotwired/stimulus"
 
 // "쉬운 요약을 만드는 중" 프레임(turbo-frame#case_summary)을 일정 간격으로 다시 불러와 완성된 요약으로 바꾼다.
-// ActionCable이 없어 폴링을 쓴다. 최대 timeout 값(기본 60초)까지만 기다리고, 넘기면 실패 문구를 보인다(점진적 향상: JS가 없으면
+// ActionCable이 없어 폴링을 쓴다. 처음 만드는 조건은 몇 분 걸리므로 최대 timeout 값(기본 6분)까지 기다린다. 처음 slowAfter(기본 1분) 동안은 interval(2.5초)마다, 그 뒤에는 slowInterval(10초)마다 불러온다. 넘기면 "아직 만드는 중" 문구를 보인다(점진적 향상: JS가 없으면
 // 프레임 자체가 열리지 않는다).
 // - 다시 불러오면 응답이 프레임 내용을 갈아 끼워 이 컨트롤러가 새로 connect된다. 그래서 시작 시각은 프레임 요소의
 //   data-summary-poll-started-at에 둔다(컨트롤러 요소가 아니라).
 // - disconnect와 turbo:before-cache에서 타이머를 지운다. before-cache에서는 시작 시각도 지워, 캐시에서 되돌아왔을 때 새로 센다.
 export default class extends Controller {
   static targets = ["waiting", "timeout"]
-  static values = { interval: { type: Number, default: 2500 }, timeout: { type: Number, default: 60000 } }
+  static values = {
+    interval: { type: Number, default: 2500 }, slowInterval: { type: Number, default: 10000 },
+    slowAfter: { type: Number, default: 60000 }, timeout: { type: Number, default: 360000 }
+  }
 
   connect() {
     this.frame = this.element.closest("turbo-frame")
@@ -29,7 +32,8 @@ export default class extends Controller {
     this.stop()
     if (this.elapsed() >= this.timeoutValue) return this.giveUp()
 
-    this.timer = setTimeout(() => this.poll(), this.intervalValue)
+    const wait = this.elapsed() >= this.slowAfterValue ? this.slowIntervalValue : this.intervalValue
+    this.timer = setTimeout(() => this.poll(), wait)
   }
 
   poll() {
