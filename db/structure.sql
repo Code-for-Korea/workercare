@@ -171,7 +171,11 @@ AFTER UPDATE ON disease_cases BEGIN
 END;
 CREATE INDEX "index_disease_cases_on_burden_body_part" ON "disease_cases" ("burden_body_part") /*application='Workercare'*/;
 CREATE INDEX "idx_disease_cases_case_finder" ON "disease_cases" ("year" DESC, "job_name", "burden_body_part", "result") /*application='Workercare'*/;
+CREATE TABLE IF NOT EXISTS "self_care_summaries" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "body_concept" varchar DEFAULT '' NOT NULL, "job" varchar DEFAULT '' NOT NULL, "decision" varchar DEFAULT '' NOT NULL, "data_digest" varchar NOT NULL, "status" varchar DEFAULT 'pending' NOT NULL, "model" varchar, "prompt_version" varchar, "generated_at" datetime(6), "summary_json" json, "error_message" text, "reviewed_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+CREATE UNIQUE INDEX "idx_self_care_summaries_unique" ON "self_care_summaries" ("body_concept", "job", "decision", "data_digest") /*application='Workercare'*/;
+CREATE INDEX "index_self_care_summaries_on_status" ON "self_care_summaries" ("status") /*application='Workercare'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20261114000001'),
 ('20261111000001'),
 ('20261108000001'),
 ('20261107000001'),
