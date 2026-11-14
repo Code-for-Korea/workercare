@@ -426,7 +426,7 @@ bin/ci                              # 위 단계를 config/ci.rb 순서대로 �
 | [docs/kakaotalk/development-plan.md](docs/kakaotalk/development-plan.md) | 챗봇 개발 계획 | 계획(진행은 `chatbot.md`) |
 | [docs/kakaotalk/chatbot.md](docs/kakaotalk/chatbot.md) | **챗봇 작업 기록과 관리자센터 가이드**, 봇 테스트 시나리오 | 현재, 가장 최신 |
 | `docs/kakaotalk/entities/*.csv` | 카카오 엔티티 업로드 파일(사전에서 생성) | 생성물 |
-| `docs/kakaotalk/chatbot/*`, `docs/kakaotalk/knowledge/*` | 카카오 공식 문서 사본 | 외부 자료 |
+| `docs/ext/kakaotalk/chatbot/*`, `docs/ext/kakaotalk/knowledge/*` | 카카오 공식 문서 사본(로컬 사본, 저장소에 없음) | 외부 자료 |
 
 문서끼리 내용이 다르면 **코드가 기준**입니다. 설계 문서는 구현 전의 계획이라 실제와 다를 수 있습니다.
 
