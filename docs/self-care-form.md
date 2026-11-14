@@ -56,7 +56,7 @@
 
 ## 4. 결과와 조건 완화
 
-- 사례 목록은 10건: **질병명, 직업명, 신체 부위, 판정 결과, 심의 연도, 원문 링크, 상세 보기**만 보여 준다. 신청인 주장·판단 근거 같은 **서술형 요약은 노출하지 않는다**(이름·주소를 완전히 거르지 못하기 때문).
+- 사례 목록은 10건: **질병명, 직업명, 신체 부위, 판정 결과, 심의 연도, 원문 링크, 상세 보기**만 보여 준다. 신청인 주장·판단 근거 같은 **서술형 요약은 목록에 노출하지 않는다**(이름·주소를 완전히 거르지 못하기 때문). 목록 위에 AI 쉬운 요약만 따로 둘 수 있다(11장, 기본 꺼짐).
 - 0건이면 약한 조건부터 뺀다: ① 모든 조건 → ② 판정 결과 조건 제거 → ③ 직업 조건 제거. 신체부위는 끝까지 유지한다. 뺐다면 "조건을 줄여서 찾았습니다: 판정 결과, 직업"을 보여 준다.
 - SQL은 시도 수(최대 3) + 건수 1회 이하다. `q`(전문 검색)는 쓰지 않는다.
 
@@ -113,7 +113,10 @@
 | `app/models/self_care_form/case_finder.rb` | 사례 찾기와 조건 완화 |
 | `app/models/self_care_form/body_part_matcher.rb` | 신체부위 직접 입력 매칭 |
 | `app/models/self_care_form/job_matcher.rb` | 직업 직접 입력 → 사전 직종 이름(구글 폼 전송값 전용) |
-| `app/views/self_care_form/` | 화면 |
+| `app/views/self_care_form/` | 화면(`summary.html.erb`, `_summary_ready.html.erb`: 쉬운 요약 프레임) |
+| `app/models/self_care_form/summary_generator.rb`, `app/models/self_care_summary.rb`, `app/jobs/self_care_summary_job.rb` | 쉬운 요약 생성·저장·작업(11장) |
+| `app/models/self_care_summaries/warm.rb`, `lib/tasks/self_care_summaries.rake` | 쉬운 요약 미리 만들기(`self_care_summaries:warm`) |
+| `app/javascript/controllers/summary_poll_controller.js` | "만드는 중" 프레임 폴링 |
 | `app/models/disease_cases/carried_filters.rb`, `app/views/disease_cases/_carried_filters.html.erb` | `/`·`/search`의 넘어온 조건 |
 | `app/models/apply_guide.rb`, `app/models/apply_guide/html_renderer.rb` | 신청 가이드 |
 
@@ -234,3 +237,43 @@ entries:                # 앱 키 → entry id(숫자)
 | `situation` | 상황 | `1830980629` |
 
 `relaxed`(조건 완화 여부)와 `result_count`(결과 건수)는 이 폼에 문항이 없어 저장되지 않는다. 필요하면 폼에 단답형·필수 아님 문항을 더하고 `entries`에 id를 넣는다.
+
+## 11. 판정서 쉬운 요약 (AI 작성, 참고용. 기본 꺼짐)
+
+결과 화면의 사례 목록 위에, 고른 조건의 공개 판정서를 쉬운 말로 정리한 글을 보여 준다. 의료·법률 자문이 아니고 챗봇도 아니다(대화·질문 입력이 없다). 판정하거나 예측하지 않고 사례를 참고하게 한다.
+
+### 11.1 동작
+
+1. 결과 화면에 `<turbo-frame id="case_summary" src="/self-care-form/summary" loading="lazy">`가 있다(기능이 켜져 있을 때만. JS가 없으면 `noscript` 안내만 보이고 사례 목록은 그대로).
+2. `GET /self-care-form/summary`가 세션 답으로 `CaseFinder`를 돌려 **실제로 결과를 낸 조건**(완화 뒤)에서 조건 키를 만든다: `body_concept`(사전 신체부위 개념), `job`(사전 직종), `decision`(판정 결과 값). 없는 조건은 빈 문자열이다. **직접 입력한 글은 키에 들어가지 않는다.** 직접 입력한 직업은 `JobMatcher`가 사전 직종을 찾으면 그 개념 이름으로, 못 찾으면 요약하지 않고 "이 조건의 요약은 없습니다"를 보여 준다.
+3. 같은 키로 다시 검색해 사실(건수, 판정 분포, 최신 20건의 요인 컬럼)을 만들고 SHA-256 지문(`data_digest`, 프롬프트 버전 포함)을 낸다. `self_care_summaries`의 (키, 지문) 행이 `ready`면 바로 보여 주고, `pending`이면 "만드는 중", `failed`면 짧은 안내다. 행이 없으면 `pending`으로 만들고(유일 인덱스가 동시 요청의 중복을 막는다) `SelfCareSummaryJob`을 한 번만 큐에 넣는다. 10분 넘게 pending이면 다시 맡긴다. 처음 요청은 행 id와 답의 SHA-256을 세션(`session[:self_care_summary]`)에 남기고, 폴링은 답이 그대로이고 행이 아직 pending이면 이 id로 행만 찾는다(`CaseFinder`·사실 쿼리를 다시 돌리지 않는다). 답이 바뀌거나 [처음부터 다시]를 누르면 쓰지 않고 지운다.
+4. "만드는 중" 프레임의 Stimulus `summary-poll`이 2.5초마다 프레임을 다시 불러오고(ActionCable 없음), 60초가 지나면 실패 문구를 보인다. 타이머는 disconnect와 `turbo:before-cache`에서 지운다.
+5. 데이터를 다시 적재해 지문이 바뀐 조건은 다음 방문 때 새 행으로 다시 만든다. 프롬프트를 바꾸면 `SummaryGenerator::PROMPT_VERSION`을 올린다.
+
+### 11.2 입력과 출력
+
+- 입력(JSON): 조건, 찾은 건수(500 상한), 판정 결과 분포, 사례 최대 20건의 `main_reasoning`·`work_relevance_eval`·`aggravating_factors`(DB 컬럼은 `업묵부담_가중요인_노출` 추출값)·`heavy_lifting`·`bad_posture`·`max_item_weight`·`work_type`·`job_tenure_months`·`result`·`disease_name`·`job_name`·`burden_body_part`. 요인 컬럼이 모두 비어 있는 사례만 `committee_decision`을 300자 안으로 발췌한다. 모든 글은 `PIIMasking`을 거쳐 길이를 자른다. 신청인 주장·직무 설명 전문은 보내지 않는다.
+- 출력(JSON): `recognized_reasons`, `rejected_reasons`, `check_items`(각 `{text, case_nos 1~3개}`, 최대 5개), `glossary`(`{term, meaning}`, 최대 5개). 화면은 여기에 `meta`(건수·분포)를 붙여 저장한 것을 그린다.
+- 저장 전 검사(`SummaryGenerator.validate!`): JSON 모양, **인용한 사건번호가 모두 입력 묶음 안에 있는지**, **금지 표현**(`FORBIDDEN_PHRASES` 한 곳: 인정될·가능성·유리하/불리하·신청하세요·승소 등). 실패하면 한 번 더 부르고, 그래도 실패하면 `failed`와 오류를 기록한다(요약은 저장하지 않는다).
+- `reviewed_at`은 사람이 검토한 시각을 기록만 하며 화면 노출 조건이 아니다(검사를 통과하면 바로 보인다).
+
+### 11.3 호출 방식
+
+- `POST https://api.exaone.ai/v1/chat/completions`, `Authorization: Bearer $EXAONE_API_KEY`, 모델 `k-exaone_v2.5`, `stream: false`. 문서(`docs/ext/exaone/k-exaone-2.5.md`, 로컬 사본, 저장소에 없음)에 구조화 출력(`response_format`) 파라미터가 없어 보내지 않는다. 대신 프롬프트로 JSON 하나만 요구하고 코드 펜스를 걷어 읽은 뒤 위 검사를 한다. 추론 토큰이 `max_tokens`에 포함되므로 8000, `reasoning_effort: low`, `temperature: 0.3`.
+- 타임아웃: 열기 5초, 읽기 120초(`Net::HTTP`, `GoogleFormSubmitter` 패턴). 429는 `retry-after-ms`/`retry-after`만큼 기다려 최대 3번, 5xx는 한 번 더. 그 밖의 오류와 한도 초과는 `failed`로 기록한다. 키 값은 로그·오류 메시지에 쓰지 않는다.
+- **초당 1회 한도**: 전용 큐 `exaone`(`config/queue.yml`의 워커, 스레드 1개·프로세스 1개)이 한 번에 한 건만 돌리고, 생성기가 프로세스 안에서 요청 사이 1.1초를 지킨다(개발 환경의 async 어댑터·rake 대비). `Rails.cache` 카운터는 쓰지 않는다: 이 앱은 단일 서버·단일 프로세스라 동시성 1 큐가 더 단순하고, 캐시 원자 증가는 대기·재시도를 따로 짜야 한다. 다른 큐 워커는 `queues: default`로 이름을 나열해 `exaone`을 잡지 않는다.
+- 로컬 키: 저장소 루트 `.env`의 `EXAONE_API_KEY`(`dotenv` gem이 개발·테스트에서 읽는다, `.env.example` 참고). 테스트는 키·플래그를 비우고 HTTP를 막은 채 스텁 전송으로 돌린다.
+- 켜는 조건: `EXAONE_SUMMARY_ENABLED=1`(또는 true)이고 `EXAONE_API_KEY`가 있을 때. 둘 중 하나라도 없으면 결과 화면에 프레임이 없다.
+- **운영에서 켜는 순서**(기본 꺼짐이라 `config/deploy.yml`에는 키를 넣지 않았다. `env.secret`에 넣으면 비밀값이 없을 때 모든 kamal 배포가 멈춘다): ① `.kamal/secrets`에 `EXAONE_API_KEY=$EXAONE_API_KEY` 줄을 더한다(값이 아닌 환경 변수 참조, 커밋하지 않는 파일, 셸에 키를 둔다). ② `config/deploy.yml`의 `env.secret`에 `EXAONE_API_KEY`를 더한다. ③ `env.clear`에 `EXAONE_SUMMARY_ENABLED: 1`을 더한다. 그다음 배포한다. 학습 거부 설정(11.5)을 먼저 한다.
+- 큐 이름은 `default`와 `exaone`뿐이다(앱에 다른 `queue_as`·메일러·Turbo 브로드캐스트가 없고, `config/recurring.yml`의 정리 작업은 명령이라 큐를 쓰지 않는다). 큐를 더하면 `config/queue.yml`의 워커 목록에도 이름을 더한다.
+
+### 11.4 미리 만들기
+
+`bin/rails "self_care_summaries:warm[50]"`: 신체부위(없음 포함) × 사전 직종(없음 포함)에서 판정서가 많은 순서로 N개를 만든다(판정 결과는 "모두 보기"만. 판정 결과를 고른 조합과 조건 완화가 걸리는 조합은 첫 방문 때 만들어진다). `DRY_RUN=1`이면 조합과 예상 시간만 출력한다. 이미 만든 조합은 건너뛰어 이어 받을 수 있고, `failed`는 다시 시도한다. 조합을 고르려고 조합마다 사실을 만들므로 운영 DB에서는 시간이 걸린다(로컬 파일럿 권장).
+
+### 11.5 위험과 결정 (2026-11-14 사용자 결정)
+
+- **약관 위험 `[확인 필요]`**: EXAONE API 이용약관(`docs/ext/exaone/terms-of-service.md` :18)은 API를 이용자의 제품·서비스에 연동해 제3자가 모델을 호출하거나 입력하게 하는 것을 금지한다. 이 기능은 방문자의 결과 화면 요청이 (처음 한 번) 호출을 일으키므로 충돌할 수 있다. 사용자는 공개 판정서를 쉽게 설명하는 비영리 목적이고 방문자 입력은 보내지 않으며 같은 조건은 한 번만 만든다는 점을 들어 위험을 받아들였다. **LG AI연구원에 서면으로 확인받기를 권한다.** 같은 문서 :22(재제공 금지)와 :75(의료·법률 등 고위험 분야는 전문 자격자 검토 필수)도 같은 위험이다. 그래서 화면에 "AI 작성, 참고용"과 원문 확인 고지를 두고 판정·예측·권유를 막았다.
+- **학습 거부**: 약관 :20은 회사가 입력값과 결과물을 학습에도 쓸 수 있다고 한다. 거부는 플랫폼(EXAONE 계정)에서 직접 설정하며, **설정한 뒤에** 요약을 만든다. 보내는 것은 공개·비식별 판정서뿐이고 방문자 입력은 보내지 않는다. 개인정보처리방침(`privacy-policy.md` :31·:51)상 IP·Prompt·Output은 수집되어 Google Cloud Platform에 보관된다.
+- 판정서의 이름·주소는 `PIIMasking`이 거르지 못한다. 요인 컬럼 위주로 보내 노출을 줄이지만 0은 아니다. 파일럿(`warm[50]`)에서 사람이 결과를 검토하고 프롬프트를 고친다.
+- `/about` 개인정보 절에 "판정서 공개 본문을 EXAONE에 보내 요약을 만든다, 방문자 입력은 보내지 않는다"를 적었다(ko·en).

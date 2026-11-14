@@ -85,6 +85,8 @@ en:
       self_care_text: Kept in an encrypted session cookie and not stored in the server database. The cookie has no expiry time, so it usually disappears when you close the browser, but it may remain if the browser restores the previous session. Choosing "Start over" in the case finder clears your answers.
       display_heading: Display settings
       display_text: The large text and high contrast settings are kept in a separate cookie for one year. The cookie holds only the setting value and no personal information.
+      summary_heading: Plain-language summary (AI)
+      summary_text: When the plain-language summary of the case finder results is turned on, part of the published rulings (extracted factor fields and short excerpts) is sent to LG AI Research's EXAONE to make a summary, which is stored. What visitors type or choose is not sent, and a summary is made only once for the same conditions. EXAONE handles the data it receives and the results under its terms and privacy policy.
       stats_heading: Saving statistics
       stats_text_off: Only if you separately agree and the connection is turned on. It is off now, so nothing is sent.
       stats_text_on: Only if you separately agree on the start screen, the options you chose are saved for statistics in a Google Form (the team's Google Sheet). If you typed your occupation, that text (up to 30 characters, number patterns masked) or the matching occupation name may be sent; body-part text you typed, your IP and your session ID are not sent as form fields. This service's server sends the data, so Google sees the server's IP. Data is kept for at most 3 years and reviewed every year.
