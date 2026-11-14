@@ -64,3 +64,5 @@ group :development do
   gem "overmind"
 end
 
+
+gem "redcarpet", "~> 3.6"

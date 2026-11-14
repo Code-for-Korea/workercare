@@ -5,7 +5,7 @@
     <%= link_to t("search.select_all"), "#", data: { action: "click->checkbox-group#selectAll" } %>
     <%= link_to t("search.deselect_all"), "#", data: { action: "click->checkbox-group#deselectAll" } %>
   </legend>
-  <div class="grid grid-cols-2 md:grid-cols-5">
+  <div class="checkbox-grid">
     <% @application_type_options.each do |value| %>
       <label class="flex items-center">
         <%= check_box_tag "application_type[]", value, Array(params[:application_type]).include?(value), id: "application_type_#{value}", data: { "checkbox-group-target": "checkbox" } %>
@@ -15,7 +15,7 @@
   </div>
 </fieldset>
 
-<div class="grid">
+<div class="grid-auto">
   <div>
     <%= form.label :employment_type, DiseaseCase.human_attribute_name(:employment_type) %>
     <%= form.select :employment_type,

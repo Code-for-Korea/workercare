@@ -11,7 +11,7 @@ module DiseaseCases
                  "개인의 산재 인정 여부를 예측하거나 의료·법률 판단을 대신하지 않습니다."
 
     # 쿼리 파라미터 설명. 허용값은 코드에서 가져온다(하드코딩 금지).
-    USAGE_PARAMS = %i[q job_name job_description disease_name application_type employment_type work_type
+    USAGE_PARAMS = %i[q job_name job_name_any job_description disease_name application_type employment_type work_type
                       work_relevance_eval death_status burden_body_part sort page].freeze
 
     def initialize(base_url:)
@@ -158,7 +158,9 @@ module DiseaseCases
 
     def param_description(param)
       {
-        q: "검색어", job_name: "직종명(부분 일치)", job_description: "담당 업무(부분 일치)",
+        q: "검색어", job_name: "직종명(부분 일치)",
+        job_name_any: "핵심어 중 하나라도 포함하는 직업명(띄어쓰기 무시). 배열로 여러 개: job_name_any[]=택배&job_name_any[]=배송",
+        job_description: "담당 업무(부분 일치)",
         disease_name: "신청질병", application_type: "신청서 종류. 여러 개를 주면 하나라도 포함(OR)",
         employment_type: "고용 형태", work_type: "근무 형태", work_relevance_eval: "업무관련성 평가",
         death_status: "사망 사례만(Y)", burden_body_part: "부담 신체 부위. 여러 개 가능",

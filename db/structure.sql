@@ -170,7 +170,9 @@ AFTER UPDATE ON disease_cases BEGIN
   );
 END;
 CREATE INDEX "index_disease_cases_on_burden_body_part" ON "disease_cases" ("burden_body_part") /*application='Workercare'*/;
+CREATE INDEX "idx_disease_cases_case_finder" ON "disease_cases" ("year" DESC, "job_name", "burden_body_part", "result") /*application='Workercare'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20261111000001'),
 ('20261108000001'),
 ('20261107000001'),
 ('20261013000001'),

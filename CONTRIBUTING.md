@@ -33,6 +33,7 @@
 |---|---|---|
 | 웹 검색 | 메인 검색(`/`), 상세 검색(`/search`), 판정서 상세(`/disease_cases/:case_no`) | `app/controllers/disease_cases_controller.rb`, `app/views/disease_cases/` |
 | 마크다운 응답 | 같은 주소에 `.md`나 `Accept: text/markdown`을 보내면 검색·결과·상세를 마크다운으로 응답(LLM·스크립트용) | `app/models/disease_cases/markdown_renderer.rb`, `docs/markdown-responses.md` |
+| 단계별 사례 찾기 | 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`/self-care-form`)과 신청 방법 안내(`/apply-guide`). 답은 세션 쿠키에만 두고 DB에 쓰지 않는다 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/`, `app/models/apply_guide.rb`, `docs/self-care-form.md` |
 | 카카오톡 챗봇 스킬 서버 | 카카오 챗봇 관리자센터가 호출하는 `POST /webhooks/kakao`, `POST /webhooks/kakao/jobs` | `app/controllers/webhooks/`, `app/models/chatbot/` |
 | 데이터 적재 도구 | CSV를 DB로 가져오는 rake 태스크, 챗봇 엔티티 사전 도구 | `lib/tasks/`, `lib/chatbot/` |
 
@@ -102,7 +103,9 @@ bin/dev                   # 웹(3000) 실행 (overmind 필요)
 app/
   controllers/
     disease_cases_controller.rb   웹 검색·상세. MAX_SEARCH_RESULTS = 500, 한 쪽 12건
-    pages_controller.rb           /about (현재 "소개" 한 줄뿐)
+    pages_controller.rb           /about, /apply-guide(.md) (신청 방법 안내)
+    self_care_form_controller.rb  단계별 사례 찾기. 답은 세션 쿠키에만 둔다
+    concerns/representation_headers.rb   HTML·마크다운 두 표현의 Vary·Link 헤더
     webhooks/                     카카오 스킬 엔드포인트 (kakao_base, kakao, kakao_jobs)
   models/
     disease_case.rb               판정서 모델, enum(결과·질병분류·신체부위)
@@ -111,11 +114,14 @@ app/
       main_searchable.rb          메인 검색·챗봇 공용 (disease_cases_extracted_fts + 구조화 필터)
     disease_cases/markdown_renderer.rb   검색·상세의 마크다운 응답 (.md / Accept: text/markdown)
     disease_cases/normalizer.rb 신청서 종류·근무 형태·고용 형태 정규화 (규칙: config/normalization/rules.yml)
+    disease_cases/carried_filters.rb   /·/search에 입력칸이 없는 조건(직종 핵심어·목록 밖 신체부위)을 보여 주고 유지
+    self_care_form/               단계별 사례 찾기: flow(단계·허용값), answers(세션 답), case_finder, body_part_matcher
+    apply_guide.rb, apply_guide/html_renderer.rb   신청 가이드(config/apply_guide/procedure_guides.yml)
     ksco_code.rb, disease_case_ksco_code.rb   표준직업분류 코드와 판정서 매핑(유사도 포함)
     chatbot/                      챗봇 전용: 요청 어댑터, 응답 빌더, 검색, 공개용 DTO, 엔티티 사전 읽기
   views/, javascript/, assets/    oat CSS, Stimulus(체크박스 묶음·검색 폼 로딩 표시)
 config/
-  routes.rb                       / , /index(.md) , /search(.md) , /about , /disease_cases/:case_no(.md) , /webhooks/kakao{,/jobs} , /up
+  routes.rb                       / , /index(.md) , /search(.md) , /about , /apply-guide(.md) , /self-care-form/… , /disease_cases/:case_no(.md) , /webhooks/kakao{,/jobs} , /up
   chatbot/entities/*.yml          카카오 엔티티 사전 6종(원본). docs/kakaotalk/entities/*.csv 는 여기서 생성
   locales/                        화면 문구(ko.yml), 모델 속성·enum 라벨
 db/
@@ -152,14 +158,14 @@ wip/                              로컬 작업 폴더. 저장소에 없음 (5�
         │
 [3] LLM 구조화       본문에서 20개 항목 추출 → extract_disease_cases_details_cerebras.csv
         │
-[4] KSCO 매핑        직종명·업무 임베딩으로 표준직업분류 후보 5개 → ...-ksco.csv (55,377건)
+[4] KSCO 매핑        직종명·업무 임베딩으로 표준직업분류 후보 5개 → ...-ksco.csv (55,377행, 판정서 55,060건)
         │
 [5] DB 적재(rake)    import:disease_cases → import:ksco_codes → import:extracted_disease_cases (신청서 종류·근무 형태·고용 형태는 적재 때 정규화)
         │
 [6] 검증과 서비스    FTS 인덱스, 필터, 챗봇·마크다운 응답이 같은 DB를 읽음
 ```
 
-현재까지 확인한 건수는 다음과 같습니다. 원본 판정서 61,815건, LLM 추출 결과 55,377건(**6,438건은 추출 결과가 없습니다**), KSCO 세분류 코드 495개입니다.
+현재까지 확인한 건수는 다음과 같습니다(2026-11-12 개발 DB와 CSV 기준). 원본 판정서 61,815건, LLM 추출 결과 CSV 55,377행(같은 `case_no`가 317행 겹쳐 **판정서 55,060건**이라 **6,755건은 추출 결과가 없습니다**), KSCO 세분류 코드 495개, KSCO 매핑이 붙은 판정서 54,979건(매핑 274,895행, 판정서마다 정확히 5개)입니다.
 
 ### 5.2 단계 1. 원본 수집
 
@@ -196,7 +202,8 @@ LLM 추출에는 본문 중 판단에 쓰이는 세 컬럼만 넣습니다. `dis
 1. **분류표 구조화:** 제8차 한국표준직업분류(통계청고시 제2024-328호, 시행 2025.1.1.)의 PDF(`wip/ksco.pdf`, 129쪽부터)에서 세분류 4자리 코드별로 **직업예시**와 **직업제외**를 뽑아 `ksco-level-4-details.csv`(495개 코드)를 만듭니다(`wip/extract_ksco_level4_details.rb`, 계획은 `wip/wip-ksco-level-4-details-plan.md`).
 2. **임베딩:** Cloudflare Workers AI의 `@cf/google/embeddinggemma-300m`(768차원)으로 판정서의 `직종명`과 `담당_업무`, KSCO의 `세분류`와 `직업예시`를 각각 벡터로 만듭니다(`wip/embed_disease_cases_cf.rb`, `wip/embed_ksco_cf.rb`, 환경변수 `CF_ACCOUNT_ID`, `CF_API_TOKEN`).
 3. **유사도 매칭:** 판정서의 두 벡터를 평균해 정규화하고, KSCO 항목마다 `세분류`와 `직업예시` 벡터와의 내적 중 큰 값을 유사도로 삼아 **상위 5개**를 뽑습니다(`wip/ksco_disease_cases.rb`). 결과는 `ksco_codes_json`(코드, 이름, 유사도)에 담겨 `extract_disease_cases_details_cerebras-ksco.csv`가 됩니다.
-4. 이 매핑은 **자동 추정**입니다. 유사도 낮은 후보가 들어 있을 수 있어, 사람이 검증하는 단계는 아직 없습니다.
+4. 매핑 행에는 순위가 저장되지 않습니다. 판정서마다 후보 5개의 `similarity`(동률 없음)가 있으니 큰 순서가 1순위입니다(`ORDER BY similarity DESC`). 1순위만 따로 저장·필터하려면 스키마를 바꿔야 하므로 아직 하지 않았습니다.
+5. 이 매핑은 **자동 추정**입니다. 유사도 낮은 후보가 들어 있을 수 있어, 사람이 검증하는 단계는 아직 없습니다.
 
 참고: 이 스크립트는 진행률 계산에 `55377`이 코드에 고정되어 있습니다. 입력이 달라지면 고쳐야 합니다.
 
@@ -214,13 +221,19 @@ bin/rails "import:ksco_codes[ksco-level-4-details.csv]"
 # 3) 추출 컬럼과 KSCO 매핑
 bin/rails "import:extracted_disease_cases[extract_disease_cases_details_cerebras-ksco.csv]"
 
+# (KSCO 매핑만 다시 맞출 때) 추출 컬럼은 건드리지 않는다. 기본은 dry-run, 두 번째 인자 apply로 반영
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv]"
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv,apply]"
+
 # (필요하면) 원문 전문 검색 인덱스만 다시 만들기
 bin/rails fts:rebuild
 ```
 
 - 1)은 `case_no`로 upsert하고 끝에서 `disease_cases_fts`를 rebuild합니다. 알 수 없는 심의결과가 있으면 그 행에서 멈춥니다.
 - 3)은 추출 컬럼을 덮어쓰고, 판정 결과가 원본과 다르면 **덮어쓰지 않고 경고만** 냅니다. KSCO 매핑은 CSV의 목록을 "전체 목표"로 보고 **목록에 없는 기존 매핑을 지웁니다.** 단, `ksco_codes_json`이 비었거나 파싱에 실패한 행은 기존 매핑을 건드리지 않습니다. 끝에서 `disease_cases_extracted_fts`를 rebuild합니다.
+- `import:ksco_mappings`는 3)의 KSCO 부분만 따로 하는 태스크입니다. 건수(추가·유사도 변경·삭제·그대로)를 먼저 보여 주고(dry-run), 같은 `case_no`가 여러 행이면 마지막 행을, 한 행에서 같은 코드가 겹치면 큰 유사도를 씁니다. 빈·깨진 JSON 행은 기존 매핑을 지키고, `ksco_codes`에 없는 코드는 건너뛰되 삭제 근거로는 세지 않습니다. 중간에 멈춰도 다시 실행하면 차이만 반영합니다. 운영 DB는 백업 뒤 사용자가 직접 실행합니다.
 - 3)에서 KSCO 코드가 없으면 경고만 내고 건너뜁니다. 먼저 2)를 실행했는지 확인하세요.
+- `import:ksco_codes`는 CSV의 코드를 만들거나 고칠 뿐 **지우지 않습니다.** CSV에 없는 코드(옛 시험 데이터 등)가 `ksco_codes`에 남았다면 `bin/rails "ksco:prune_codes[ksco-level-4-details.csv]"`로 미리 보고(dry-run, 기본), 두 번째 인자 `apply`로 지웁니다. 그 코드의 매핑 행도 함께 지우고 판정서와 CSV에 있는 코드는 건드리지 않습니다. CSV가 비었거나 지울 코드가 전체의 절반을 넘으면 거부합니다. 운영 DB는 백업 뒤 사용자가 직접 실행합니다.
 - 3)은 신청서 종류·근무 형태·고용 형태를 `DiseaseCases::Normalizer`(규칙: `config/normalization/rules.yml`)로 정규화해 저장하고, 덮어쓰면 사라지는 부가 표기는 `application_type_detail`, `work_type_detail`, `employment_type_detail`에 남깁니다. 사망 여부·중량물 취급 여부·업무관련성 평가는 빈 값과 허용값 밖의 값을 NULL로 저장합니다.
 - 이미 적재된 데이터를 새 규칙으로 바꿀 때는 `bin/rails normalize:report[컬럼]`(미리보기)과 `bin/rails normalize:disease_cases`(dry-run) 뒤 `bin/rails "normalize:disease_cases[apply]"`를 씁니다. 원본 컬럼을 덮어쓰는 비가역 작업이라 먼저 `bin/rails db:backup`으로 DB 파일을 백업하세요(5.6.1). CSV 내보내기(`export:workercare_data`)는 복구 수단이 아닙니다. 배경과 규칙은 `docs/disease-cases-normalization.md`입니다.
 - 필터 옵션 캐시가 있어 적재 뒤 화면 반영은 최대 하루 걸립니다(3장).
@@ -264,13 +277,26 @@ ssh web01.workercare 'rm /data/workercare/storage/exports/*_<날짜>.* /data/wor
 - 경고 로그: `result 불일치`, `KSCO 코드 없음`, `판정서 없음`.
 - 표본 점검: 사례 몇 건을 원본 판정서와 대조(판정 결과, 직종, 신체 부위). 특히 추출 컬럼과 비식별 누락.
 - 챗봇용 엔티티는 DB 값을 기준으로 만듭니다(6장).
+- KSCO: `KscoCode.count`가 CSV 코드 수(495)와 같은지 `bin/rails "ksco:prune_codes[ksco-level-4-details.csv]"`(dry-run)로 봅니다. `CSV에 없는 DB 코드: 없음`이어야 합니다.
+- 통계표: 적재·정규화 뒤 `bin/rails analysis:report`로 분석 표를 다시 만들어 이전 값과 비교합니다(5.9).
 
-### 5.8 후속 작업 (보류 중)
+### 5.8 분석 통계표 다시 만들기
+
+`wip/workercare-hermes.md` [A]의 분석 표(판정 결과·연도·업무관련성·직종·질병군·신체부위·부담 부위·일부인정)는 로컬 DB 질의만으로 다시 만들 수 있습니다. LLM이나 외부 API를 쓰지 않고 DB를 읽기만 하며, 판정서 본문은 어디로도 나가지 않습니다.
+
+```bash
+bin/rails analysis:report                       # tmp/analysis/report-YYYYMMDD.md (커밋하지 않는 폴더)
+bin/rails "analysis:report[/path/to/report.md]" # 경로를 정할 때
+```
+
+구현은 `app/models/analysis_report.rb`이고 어떤 표가 재현되는지, 무엇이 재현 불가인지는 `docs/analysis-report.md`와 보고서 첫머리의 "재현 가능성" 표에 있습니다.
+
+### 5.9 후속 작업 (보류 중)
 
 다음은 이 문서에서 다루지 않고 **후속 작업으로 남겼습니다.** 구조와 데이터 파이프라인을 `docs/contributing/`로 나눠 쓰는 일도 포함합니다.
 
 1. **스크립트를 저장소로 옮기기.** 지금은 추출·임베딩·매핑 스크립트가 `.gitignore`된 `wip/`에만 있어 재현할 수 없습니다. 재현 가능한 최소 경로(Cerebras 추출 → 임베딩 → 매핑)를 골라 `lib/`나 `script/`로 옮기고, 비밀값은 환경변수로 받습니다. `wip/download-olap-data.txt` 같은 쿠키가 든 메모는 옮기지 않습니다.
-2. **빠진 6,438건**의 원인을 확인하고 다시 추출합니다.
+2. **빠진 6,755건**(추출 결과가 없는 판정서)의 원인을 확인하고 다시 추출합니다.
 3. **헤더 철자(`업묵부담…`)**를 추출 스키마, CSV, import 태스크에서 함께 정정합니다.
 4. **KSCO 매핑 품질 검증.** 표본 검수와 유사도 하한선 정하기.
 5. **최신 판정서 갱신 주기**와 재적재 절차(증분 import).
@@ -430,7 +456,7 @@ bin/ci                              # 위 단계를 config/ci.rb 순서대로 �
 | 판정서 원본의 수집 방법과 공단 사이트 이용 조건 | 저장소에 기록 없음 |
 | 코드 라이선스, 데이터 이용 조건 | 문구 대기 |
 | 개발용 데이터 파일을 받는 방법 | 저장소에 기록 없음 |
-| 추출 결과 55,377건과 전체 61,815건의 차이 원인 | 확인하지 못함 |
-| 개발 DB에 KSCO 코드 3개와 매핑 0건만 있는 이유 | 가져오기를 하지 않은 환경으로 보이나 확인하지 못함 |
+| 추출 결과가 없는 판정서 6,755건(CSV 55,377행, 고유 55,060건)과 전체 61,815건의 차이 원인 | 확인하지 못함 |
+| 개발 DB `ksco_codes`에 CSV에 없던 코드 `C1`·`C2`(이름 `n`, 매핑 0건)가 있던 이유 | 가져오기 전 시험 데이터로 보이나 출처 기록은 없음. 2026-11-12 `ksco:prune_codes`로 지워 495개가 됨 |
 | 취약점 신고 연락 방법 | 저장소에 기록 없음 |
 | `.github/` CI를 켜지 않은 이유 | 확인하지 못함 |

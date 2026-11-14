@@ -15,7 +15,7 @@ namespace :import do
 
   desc "추출된 직업/근무조건/신체부위/사망/신청서 데이터 CSV 임포트\n" \
        "  사용법: rails 'import:extracted_disease_cases[wip/extract_disease_cases_details_cerebras-ksco.csv]'"
-  task :extracted_disease_cases, [:path] => :environment do |_, args|
+  task :extracted_disease_cases, [ :path ] => :environment do |_, args|
     require "csv"
     require "json"
     path = args[:path] or abort "CSV 경로를 지정하세요."
