@@ -3,10 +3,17 @@ default: &default
     - polling_interval: 1
       batch_size: 500
   workers:
-    - queues: "*"
+    # 와일드카드("*")는 exaone 큐까지 잡으므로 큐 이름으로 나열한다.
+    - queues: default
       threads: 3
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.1
+    # EXAONE 쉬운 요약 전용: 스레드 1개, 프로세스 1개라 한 번에 한 건만 호출한다(API 한도 초당 1회).
+    # JOB_CONCURRENCY를 올려도 이 워커는 늘리지 않는다.
+    - queues: exaone
+      threads: 1
+      processes: 1
+      polling_interval: 1
 
 development:
   <<: *default
