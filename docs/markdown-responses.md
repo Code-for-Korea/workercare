@@ -33,6 +33,7 @@ HTML 화면과 같은 파라미터를 같은 코드로 처리한다(`DiseaseCase
 |---|---|
 | `q` | 검색어(전문 검색) |
 | `job_name`, `job_description`, `disease_name` | 부분 일치 |
+| `job_name_any[]` | 핵심어 중 하나라도 직업명에 포함(띄어쓰기 무시). 예: `job_name_any[]=택배&job_name_any[]=배송` |
 | `application_type[]` | 신청서 종류. 여러 개를 주면 하나라도 포함(OR) |
 | `employment_type`, `work_type`, `work_relevance_eval` | 정규화된 범주값 |
 | `death_status` | `Y`이면 사망 사례만 |

@@ -66,6 +66,18 @@ module DiseaseCases
           scope = scope.where("REPLACE(disease_cases.job_name, ' ', '') IN (?)", names) if names.any?
         end
 
+        # 핵심어 여럿 중 하나라도 직업명에 포함되면 맞는다(OR 부분 일치). 단계형 자가진단의 직종 버튼이
+        # 쓴다(택배기사 → 택배·배송). job_name은 문자열 하나 LIKE, job_names는 정확 일치라 이 용도에 맞지 않다.
+        # DB의 직업명과 바인딩 값 모두 공백을 지워서 비교한다("자동차 조립"·"자동차조립" 둘 다 걸림).
+        # DB 쪽 REPLACE는 일반 공백(' ')만 지우므로 NBSP 같은 특수 공백은 한계다. %·_는 ESCAPE로 이스케이프한다.
+        if params[:job_name_any].present?
+          keywords = Array(params[:job_name_any]).map { |k| k.to_s.gsub(/[[:space:]]+/, "") }.reject(&:empty?).uniq
+          if keywords.any?
+            conditions = Array.new(keywords.size, "REPLACE(disease_cases.job_name, ' ', '') LIKE ? ESCAPE '\\'").join(" OR ")
+            scope = scope.where(conditions, *keywords.map { |k| "%#{sanitize_sql_like(k)}%" })
+          end
+        end
+
         # 질병명은 main_search의 FTS 대상 컬럼에 없으므로(MAIN_SEARCHABLE_COLUMNS) q로는 찾을 수 없다.
         # job_name과 같은 LIKE 부분 일치로 처리한다. 챗봇 어댑터가 사용한다(웹 UI에는 입력 없음).
         if params[:disease_name].present?

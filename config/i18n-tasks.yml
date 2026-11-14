@@ -1,0 +1,12 @@
+# i18n-tasks 설정. 기본값에서 달라진 것은 data.read뿐이다:
+# 단계별 사례 찾기 문구가 config/locales/self_care_form.{ko,en}.yml에 있어 하위 파일도 읽게 한다.
+base_locale: en
+locales: [ en, ko ]
+
+data:
+  read:
+    - config/locales/%{locale}.yml
+    - config/locales/*.%{locale}.yml
+  write:
+    - ["self_care_form.*", "config/locales/self_care_form.%{locale}.yml"]
+    - config/locales/%{locale}.yml

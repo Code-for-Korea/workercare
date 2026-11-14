@@ -1,0 +1,47 @@
+<% content_for :title, "#{t('self_care_form.review.title')} — #{self_care_title}" %>
+<div class="container-narrow">
+  <h1 tabindex="-1" autofocus><%= t("self_care_form.review.title") %></h1>
+
+  <dl class="case-meta">
+    <% [
+         [ "situation", t("self_care_form.review.situation"), situation_text(@answers) ],
+         [ "body_part", t("self_care_form.review.body_part"), choice_text(@answers, "body_part") ],
+         [ "job", t("self_care_form.review.job"), choice_text(@answers, "job") ],
+         [ "decision", t("self_care_form.review.decision"), decision_text(@answers) ]
+       ].each do |step, label, text| %>
+      <div>
+        <dt><%= label %></dt>
+        <dd>
+          <%= text %>
+          <%= link_to t("self_care_form.review.change"), self_care_form_step_path(step), "aria-label": "#{label} #{t('self_care_form.review.change')}" %>
+        </dd>
+      </div>
+    <% end %>
+  </dl>
+
+  <h2><%= t("self_care_form.review.stats_heading") %></h2>
+  <dl class="case-meta">
+    <% SelfCareForm::Flow::PROFILE_FIELDS.each_key do |field| %>
+      <div>
+        <dt><%= t("self_care_form.steps.profile.#{field}") %></dt>
+        <dd>
+          <%= profile_text(@answers, field) %>
+          <%= link_to t("self_care_form.review.change"), self_care_form_step_path("profile"),
+                "aria-label": "#{t("self_care_form.steps.profile.#{field}")} #{t('self_care_form.review.change')}" %>
+        </dd>
+      </div>
+    <% end %>
+  </dl>
+
+  <% if SelfCareForm.google_enabled? %>
+    <div data-controller="loading-form">
+      <%= button_to t("self_care_form.review.show_result"), self_care_form_submit_result_path, method: :post,
+            data: { "loading-form-target": "button", "loading-text": t("self_care_form.review.loading") } %>
+      <%= render "shared/loading_overlay", text: t("self_care_form.review.loading") %>
+    </div>
+  <% else %>
+    <p><%= link_to t("self_care_form.review.show_result"), self_care_form_result_path, role: "button" %></p>
+  <% end %>
+  <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "btn-secondary" %>
+  <p><%= link_to t("self_care_form.back"), back_path_for("review") %></p>
+</div>

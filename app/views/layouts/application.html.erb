@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="<%= I18n.locale %>">
+<html lang="<%= I18n.locale %>" <%= tag.attributes(display_settings_attributes) %>>
   <head>
     <title><%= content_for(:title) || t("search.title") %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,32 +8,38 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     <%= yield :head %>
-    <%= tag.link(rel: "alternate", type: "text/markdown", href: markdown_alternate_path) if respond_to?(:markdown_alternate_path) %>
+    <% alternate = markdown_alternate_path if respond_to?(:markdown_alternate_path) %>
+    <%= tag.link(rel: "alternate", type: "text/markdown", href: alternate) if alternate %>
     <%= favicon_link_tag "favicon.png", rel: "apple-touch-icon", type: "image/png" %>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
   <body>
-    <nav class="container">
-      <ul>
-        <li>
-          <%= link_to root_path do %>
-            <strong>업무상 질병 판정서</strong>
-          <% end %>
-        </li>
-      </ul>
-      <ul>
-        <li>
-          <%= link_to "검색", search_path %>
-        </li>
-        <li>
-          <%= link_to "소개", about_path %>
-        </li>
-      </ul>
-    </nav>
-    <main>
+    <a class="skip-link" href="#main"><%= t("layout.skip_to_content") %></a>
+    <header class="site-header">
+      <%= nav_link_to t("layout.site_name"), root_path, :home, class: "site-name" %>
+      <nav class="site-nav" aria-label="<%= t("layout.main_nav") %>">
+        <ul>
+          <li><%= nav_link_to t("layout.nav_search"), search_path, :search %></li>
+          <li><%= nav_link_to t("self_care_form.nav"), self_care_form_start_path, :self_care_form %></li>
+          <li><%= nav_link_to t("apply_guide.title"), apply_guide_path, :apply_guide %></li>
+          <li><%= nav_link_to t("layout.nav_about"), about_path, :about %></li>
+        </ul>
+      </nav>
+      <div class="display-settings" role="group" aria-label="<%= t("layout.display_settings") %>">
+        <%= button_to t("layout.large_text"), display_settings_path, params: { setting: "size" },
+              form: { data: { turbo: false } }, aria: { pressed: display_setting_on?("size").to_s } %>
+        <%= button_to t("layout.high_contrast"), display_settings_path, params: { setting: "contrast" },
+              form: { data: { turbo: false } }, aria: { pressed: display_setting_on?("contrast").to_s } %>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
       <%= yield %>
     </main>
+    <footer class="site-footer">
+      <p><%= t("layout.footer_notice") %> <%= t("layout.footer_source") %></p>
+    </footer>
   </body>
 </html>

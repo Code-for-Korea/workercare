@@ -8,6 +8,14 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "GET / and GET /search render the loading overlay hidden from assistive tech" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "form[data-controller='loading-form'] .loading-overlay[aria-hidden='true'][data-loading-form-target='overlay'] p.loading-text[role='status']"
+      assert_select "input[type=submit][data-loading-form-target='button']"
+    end
+  end
+
   test "GET / applies structured filters without a query" do
     get root_path, params: { death_status: "Y" }
     assert_response :success
@@ -125,19 +133,6 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/신청서장해/, response.body)
   end
 
-  test "GET / filters by several application_type checkboxes with OR" do
-    DiseaseCase.create!(case_no: "TEST-APP-1", disease_name: "신청서요양", application_type: "요양급여", year: 2024)
-    DiseaseCase.create!(case_no: "TEST-APP-2", disease_name: "신청서유족", application_type: "유족급여|장의비", year: 2024)
-    DiseaseCase.create!(case_no: "TEST-APP-3", disease_name: "신청서장해", application_type: "장해급여", year: 2024)
-
-    get root_path, params: { application_type: %w[장의비 요양급여] }
-
-    assert_response :success
-    assert_match "신청서요양", response.body
-    assert_match "신청서유족", response.body
-    assert_no_match(/신청서장해/, response.body)
-  end
-
   test "GET /search still filters by employment_type and ksco_code via query params (URL-only capability)" do
     matched = DiseaseCase.create!(case_no: "TEST-QS-MATCH", disease_name: "쿼리필터매칭",
       employment_type: "상용직", year: 2024)
@@ -172,6 +167,65 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match "상세조회성공", response.body
+  end
+
+  test "GET / and GET /search put the page title in an h1" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "h1", count: 1
+      assert_select "h3", count: 0
+    end
+  end
+
+  test "result tables sit in a focusable, labelled scroll region" do
+    DiseaseCase.create!(case_no: "TEST-REGION", disease_name: "스크롤영역", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select ".table-scroll[role=region][tabindex='0'][aria-label='#{I18n.t('search.results_table')}'] table"
+    end
+  end
+
+  test "original-document links in both result tables open a new window and say so" do
+    DiseaseCase.create!(case_no: "TEST-EXT-ROW", link: "https://example.com/case/ext", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "td a[href='https://example.com/case/ext'][target=_blank][rel='noopener noreferrer']" do
+        assert_select "span.sr-only", text: /#{Regexp.escape(I18n.t('search.external_link'))}/
+        assert_select "svg[aria-hidden=true][focusable=false]"
+      end
+    end
+  end
+
+  test "the filters details is closed without filter params and open with one" do
+    [ root_path, search_path ].each do |path|
+      get path
+      assert_select "details.filters", count: 1
+      assert_select "details.filters[open]", count: 0
+
+      get path, params: { q: "허리", sort: "recent", page: 1, employment_type: "", application_type: [ "" ] }
+      assert_select "details.filters[open]", count: 0
+
+      get path, params: { job_name: "택배" }
+      assert_select "details.filters[open]", count: 1
+
+      get path, params: { application_type: [ "요양급여" ] }
+      assert_select "details.filters[open]", count: 1
+    end
+  end
+
+  test "GET /disease_cases/:case_no shows the metadata as a dl and an external original link" do
+    DiseaseCase.create!(case_no: "TEST-SHOW-EXT", disease_name: "상세외부링크", link: "https://example.com/case/show",
+      statement: "긴 원문\n둘째 줄", year: 2024)
+
+    get disease_case_path("TEST-SHOW-EXT")
+
+    assert_select "h1", text: "상세외부링크"
+    assert_select "dl.case-meta dt", text: DiseaseCase.human_attribute_name(:case_no)
+    assert_select "dd a[href='https://example.com/case/show'][target=_blank][rel='noopener noreferrer'] span.sr-only",
+      text: I18n.t("search.external_link")
+    assert_select "p.case-text", text: /긴 원문/
   end
 
   test "GET /disease_cases/:case_no returns 404 for an unknown case_no" do
@@ -270,5 +324,21 @@ class DiseaseCasesControllerTest < ActionDispatch::IntegrationTest
 
     %w[요양급여 정규직 고정주간근무].each { |v| assert_match v, response.body }
     assert_match "매우_높음", response.body
+  end
+
+  test "job_name_any is accepted by / and /search and by the markdown usage table" do
+    DiseaseCase.create!(case_no: "TEST-JANY-1", disease_name: "핵심어매칭", job_name: "택배원", year: 2024)
+    DiseaseCase.create!(case_no: "TEST-JANY-2", disease_name: "핵심어제외", job_name: "조리원", year: 2024)
+
+    [ root_path, search_path ].each do |path|
+      get path, params: { job_name_any: %w[택배 배송] }
+      assert_response :success
+      assert_match "핵심어매칭", response.body
+      assert_no_match(/핵심어제외/, response.body)
+    end
+
+    get "/search.md", params: { job_name_any: %w[택배] }
+    assert_match "핵심어매칭", response.body
+    assert_match "job_name_any", response.body
   end
 end

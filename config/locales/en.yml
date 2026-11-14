@@ -1,5 +1,93 @@
 ---
 en:
+  layout:
+    skip_to_content: Skip to main content
+    main_nav: Main menu
+    nav_search: Search
+    nav_about: About
+    display_settings: Display settings
+    large_text: Large text
+    high_contrast: High contrast
+    site_name: Occupational disease rulings
+    footer_notice: The rulings on this site are for reference only. They do not predict whether any individual claim will be approved and are not medical or legal advice.
+    footer_source: Source is the published occupational disease rulings of the Korea Workers' Compensation & Welfare Service.
+  apply_guide:
+    title: How to apply for industrial accident compensation
+    source: Source
+    last_updated: Last checked
+    new_window: "(opens in a new window)"
+  about:
+    title: About
+    lead: This site organizes the occupational disease rulings published by the Korea Workers' Compensation & Welfare Service so they are easier to look up. You can find similar rulings by occupation, affected body part or disease name.
+    features:
+      heading: What you can do
+      search: Search
+      search_text: Find rulings by conditions such as occupation, application type or body part, and by keywords. Advanced search can also search the full text of a ruling.
+      advanced: Advanced search
+      self_care_form: Step-by-step case finder
+      self_care_form_text: Answer a few questions and see similar rulings.
+      apply_guide: How to apply
+      apply_guide_text: A guide to the application procedure, required documents and what to do if a claim is rejected.
+      markdown: Markdown addresses
+      markdown_text: Search results, ruling details and the application guide are available as Markdown by adding .md to the address. How to use them is described in llms.txt.
+    reference:
+      heading: For reference only
+      text: The rulings are reference material. This site does not predict whether any individual claim will be approved and does not replace medical or legal advice. Talk to the Korea Workers' Compensation & Welfare Service or a labor counseling organization before you apply.
+    source:
+      heading: Data source
+      text: The occupational disease rulings published by the Korea Workers' Compensation & Welfare Service. Each case links to the original. The rulings are de-identified but may not be complete.
+    facts:
+      # Static text, not computed per request. Counted on 2026-11-11 from the dev DB (61,815 rulings) with bin/rails runner;
+      # to refresh, rerun the queries in docs/about-figures.md and update the values and the as-of date together.
+      heading: Good to know about the data
+      basis: "The numbers below count the 61,815 occupational disease rulings published by the Korea Workers' Compensation & Welfare Service, as of 2026-11-11. Ruling dates run from 2016-12-27 to 2021-12-30 (197 rulings have no date). Only 16 rulings are from 2016; most are from 2017 to 2021."
+      overview_heading: The rulings at a glance
+      overview_caption: Share of past rulings by result (as of 2026-11-11)
+      overview_note: This is not an estimate of an approval rate or a forecast of any future application.
+      col_result: Result
+      col_count: Count
+      col_percent: Share
+      results:
+        - { label: Approved, count: "30,357", percent: "49.11%" }
+        - { label: Partially approved, count: "6,826", percent: "11.04%" }
+        - { label: Revised approval, count: "1,030", percent: "1.67%" }
+        - { label: Rejected, count: "23,602", percent: "38.18%" }
+      death_text: "Rulings involving a death (death status Y) number 4,587, or 7.42% of the total. 6,819 rulings with no death status recorded are not counted."
+      caveat: These numbers only count past rulings. They do not predict whether an individual case would be approved, and they do not show approval rates by job or disease.
+      groups_heading: Common disease groups and body parts
+      groups_basis: Disease groups and body parts are classifications extracted from the rulings, and the tables show the main categories only (for disease groups, 1 pneumoconiosis ruling is left out; for body parts, the 5 with the most rulings). Rulings with no value are not counted, so the totals do not add up to 61,815 (no disease group 6,290; no body part 19,848). Shares are out of all 61,815.
+      disease_groups_label: Disease group
+      disease_groups:
+        - { label: Musculoskeletal, count: "42,596", percent: "68.9%" }
+        - { label: Cerebro-cardiovascular, count: "12,547", percent: "20.3%" }
+        - { label: Other diseases, count: "381", percent: "0.6%" }
+      body_parts_label: Body part (of the claimed condition)
+      body_parts:
+        - { label: Arm, count: "18,466", percent: "29.9%" }
+        - { label: Lower back, count: "13,805", percent: "22.3%" }
+        - { label: Leg, count: "4,378", percent: "7.1%" }
+        - { label: Other, count: "2,501", percent: "4.0%" }
+        - { label: Neck, count: "2,081", percent: "3.4%" }
+      checks_heading: Points that often appear in rulings
+      checks_lead: Reading the conclusions of the rulings, these points are often examined. This is an observation from the documents. It does not mean that having them guarantees approval, and it is not legal advice.
+      checks:
+        - The link between work and the disease (rulings often use the term "causal relationship")
+        - Work records such as the length of employment and days worked, and work load such as daily amounts of work
+        - For musculoskeletal diseases, physical strain such as repetitive motion, forceful exertion, awkward posture and vibration
+        - Medical opinions such as diagnoses and treatment records
+        - Telling apart a pre-existing or personal condition and natural progression
+      limits_heading: Limits of the data
+      limits_text: Some fields, such as disease group, body part and occupation, were extracted automatically from the ruling text and may be wrong or empty. The rulings are de-identified, so individual cases cannot be fully known, and similar diagnoses can have different outcomes. The counting method is in docs/about-figures.md in the repository.
+    privacy:
+      heading: Privacy
+      lead: This site uses cookies for separate purposes.
+      self_care_heading: Your answers in the step-by-step case finder
+      self_care_text: Kept in an encrypted session cookie and not stored in the server database. The cookie has no expiry time, so it usually disappears when you close the browser, but it may remain if the browser restores the previous session. Choosing "Start over" in the case finder clears your answers.
+      display_heading: Display settings
+      display_text: The large text and high contrast settings are kept in a separate cookie for one year. The cookie holds only the setting value and no personal information.
+      stats_heading: Saving statistics
+      stats_text_off: Only if you separately agree and the connection is turned on. It is off now, so nothing is sent.
+      stats_text_on: Only if you separately agree on the start screen, the options you chose are saved for statistics in a Google Form (the team's Google Sheet). If you typed your occupation, that text (up to 30 characters, number patterns masked) or the matching occupation name may be sent; body-part text you typed, your IP and your session ID are not sent as form fields. This service's server sends the data, so Google sees the server's IP. Data is kept for at most 3 years and reviewed every year.
   helpers:
     submit:
       search: Search
@@ -32,3 +120,10 @@ en:
     burden_body_part_text_placeholder: "e.g. shoulder joint, lumbar spine"
     death_only: Fatal cases only
     death_badge: Fatal
+    carried:
+      title: Conditions not shown on this screen
+      job: "Job keywords: %{keywords}"
+      body_concept: "Body part: %{name} (left/right included)"
+      body_tokens: "%{count} body part tokens"
+      remove_job: Remove job condition
+      remove_body: Remove body part condition

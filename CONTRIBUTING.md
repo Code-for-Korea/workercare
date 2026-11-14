@@ -33,6 +33,7 @@
 |---|---|---|
 | 웹 검색 | 메인 검색(`/`), 상세 검색(`/search`), 판정서 상세(`/disease_cases/:case_no`) | `app/controllers/disease_cases_controller.rb`, `app/views/disease_cases/` |
 | 마크다운 응답 | 같은 주소에 `.md`나 `Accept: text/markdown`을 보내면 검색·결과·상세를 마크다운으로 응답(LLM·스크립트용) | `app/models/disease_cases/markdown_renderer.rb`, `docs/markdown-responses.md` |
+| 단계별 사례 찾기 | 단계별로 고르면 비슷한 판정 사례를 보여 주는 화면(`/self-care-form`)과 신청 방법 안내(`/apply-guide`). 답은 세션 쿠키에만 두고 DB에 쓰지 않는다 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/`, `app/models/apply_guide.rb`, `docs/self-care-form.md` |
 | 카카오톡 챗봇 스킬 서버 | 카카오 챗봇 관리자센터가 호출하는 `POST /webhooks/kakao`, `POST /webhooks/kakao/jobs` | `app/controllers/webhooks/`, `app/models/chatbot/` |
 | 데이터 적재 도구 | CSV를 DB로 가져오는 rake 태스크, 챗봇 엔티티 사전 도구 | `lib/tasks/`, `lib/chatbot/` |
 
@@ -102,7 +103,9 @@ bin/dev                   # 웹(3000) 실행 (overmind 필요)
 app/
   controllers/
     disease_cases_controller.rb   웹 검색·상세. MAX_SEARCH_RESULTS = 500, 한 쪽 12건
-    pages_controller.rb           /about (현재 "소개" 한 줄뿐)
+    pages_controller.rb           /about, /apply-guide(.md) (신청 방법 안내)
+    self_care_form_controller.rb  단계별 사례 찾기. 답은 세션 쿠키에만 둔다
+    concerns/representation_headers.rb   HTML·마크다운 두 표현의 Vary·Link 헤더
     webhooks/                     카카오 스킬 엔드포인트 (kakao_base, kakao, kakao_jobs)
   models/
     disease_case.rb               판정서 모델, enum(결과·질병분류·신체부위)
@@ -111,11 +114,14 @@ app/
       main_searchable.rb          메인 검색·챗봇 공용 (disease_cases_extracted_fts + 구조화 필터)
     disease_cases/markdown_renderer.rb   검색·상세의 마크다운 응답 (.md / Accept: text/markdown)
     disease_cases/normalizer.rb 신청서 종류·근무 형태·고용 형태 정규화 (규칙: config/normalization/rules.yml)
+    disease_cases/carried_filters.rb   /·/search에 입력칸이 없는 조건(직종 핵심어·목록 밖 신체부위)을 보여 주고 유지
+    self_care_form/               단계별 사례 찾기: flow(단계·허용값), answers(세션 답), case_finder, body_part_matcher
+    apply_guide.rb, apply_guide/html_renderer.rb   신청 가이드(config/apply_guide/procedure_guides.yml)
     ksco_code.rb, disease_case_ksco_code.rb   표준직업분류 코드와 판정서 매핑(유사도 포함)
     chatbot/                      챗봇 전용: 요청 어댑터, 응답 빌더, 검색, 공개용 DTO, 엔티티 사전 읽기
   views/, javascript/, assets/    oat CSS, Stimulus(체크박스 묶음·검색 폼 로딩 표시)
 config/
-  routes.rb                       / , /index(.md) , /search(.md) , /about , /disease_cases/:case_no(.md) , /webhooks/kakao{,/jobs} , /up
+  routes.rb                       / , /index(.md) , /search(.md) , /about , /apply-guide(.md) , /self-care-form/… , /disease_cases/:case_no(.md) , /webhooks/kakao{,/jobs} , /up
   chatbot/entities/*.yml          카카오 엔티티 사전 6종(원본). docs/kakaotalk/entities/*.csv 는 여기서 생성
   locales/                        화면 문구(ko.yml), 모델 속성·enum 라벨
 db/
@@ -215,12 +221,17 @@ bin/rails "import:ksco_codes[ksco-level-4-details.csv]"
 # 3) 추출 컬럼과 KSCO 매핑
 bin/rails "import:extracted_disease_cases[extract_disease_cases_details_cerebras-ksco.csv]"
 
+# (KSCO 매핑만 다시 맞출 때) 추출 컬럼은 건드리지 않는다. 기본은 dry-run, 두 번째 인자 apply로 반영
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv]"
+bin/rails "import:ksco_mappings[extract_disease_cases_details_cerebras-ksco.csv,apply]"
+
 # (필요하면) 원문 전문 검색 인덱스만 다시 만들기
 bin/rails fts:rebuild
 ```
 
 - 1)은 `case_no`로 upsert하고 끝에서 `disease_cases_fts`를 rebuild합니다. 알 수 없는 심의결과가 있으면 그 행에서 멈춥니다.
 - 3)은 추출 컬럼을 덮어쓰고, 판정 결과가 원본과 다르면 **덮어쓰지 않고 경고만** 냅니다. KSCO 매핑은 CSV의 목록을 "전체 목표"로 보고 **목록에 없는 기존 매핑을 지웁니다.** 단, `ksco_codes_json`이 비었거나 파싱에 실패한 행은 기존 매핑을 건드리지 않습니다. 끝에서 `disease_cases_extracted_fts`를 rebuild합니다.
+- `import:ksco_mappings`는 3)의 KSCO 부분만 따로 하는 태스크입니다. 건수(추가·유사도 변경·삭제·그대로)를 먼저 보여 주고(dry-run), 같은 `case_no`가 여러 행이면 마지막 행을, 한 행에서 같은 코드가 겹치면 큰 유사도를 씁니다. 빈·깨진 JSON 행은 기존 매핑을 지키고, `ksco_codes`에 없는 코드는 건너뛰되 삭제 근거로는 세지 않습니다. 중간에 멈춰도 다시 실행하면 차이만 반영합니다. 운영 DB는 백업 뒤 사용자가 직접 실행합니다.
 - 3)에서 KSCO 코드가 없으면 경고만 내고 건너뜁니다. 먼저 2)를 실행했는지 확인하세요.
 - `import:ksco_codes`는 CSV의 코드를 만들거나 고칠 뿐 **지우지 않습니다.** CSV에 없는 코드(옛 시험 데이터 등)가 `ksco_codes`에 남았다면 `bin/rails "ksco:prune_codes[ksco-level-4-details.csv]"`로 미리 보고(dry-run, 기본), 두 번째 인자 `apply`로 지웁니다. 그 코드의 매핑 행도 함께 지우고 판정서와 CSV에 있는 코드는 건드리지 않습니다. CSV가 비었거나 지울 코드가 전체의 절반을 넘으면 거부합니다. 운영 DB는 백업 뒤 사용자가 직접 실행합니다.
 - 3)은 신청서 종류·근무 형태·고용 형태를 `DiseaseCases::Normalizer`(규칙: `config/normalization/rules.yml`)로 정규화해 저장하고, 덮어쓰면 사라지는 부가 표기는 `application_type_detail`, `work_type_detail`, `employment_type_detail`에 남깁니다. 사망 여부·중량물 취급 여부·업무관련성 평가는 빈 값과 허용값 밖의 값을 NULL로 저장합니다.

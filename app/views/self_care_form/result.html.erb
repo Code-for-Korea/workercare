@@ -1,0 +1,64 @@
+<% content_for :title, "#{result_title(@answers)} — #{self_care_title}" %>
+<div class="container-narrow">
+  <h1 tabindex="-1" autofocus><%= result_title(@answers) %></h1>
+
+  <% if flash[:stats_sent] %>
+    <p class="notice" role="status"><%= t("self_care_form.result.stats_sent") %></p>
+  <% end %>
+  <% if @result.dropped.any? %>
+    <p class="notice" role="status"><%= t("self_care_form.result.relaxed", dropped: dropped_labels(@result.dropped)) %></p>
+  <% end %>
+  <% if @conditions.body_concept.present? && @answers["body_part_text"].present? %>
+    <p class="notice" role="status"><%= t("self_care_form.result.body_matched", name: @conditions.body_concept) %></p>
+  <% elsif @conditions.body_unmatched %>
+    <p class="notice" role="status"><%= t("self_care_form.result.body_unmatched") %></p>
+  <% end %>
+
+  <% if @cases.empty? %>
+    <p><%= t("self_care_form.result.none") %></p>
+  <% else %>
+    <p>
+      <%= @result.over_cap ? t("self_care_form.result.count_capped") : t("self_care_form.result.count", count: @result.total_count) %>
+    </p>
+  <% end %>
+
+  <% if @answers["situation"] == "no_time" %>
+    <section class="guide-first">
+      <h2><%= t("self_care_form.result.guide_heading") %></h2>
+      <% ApplyGuide.topics.select { |guide_topic| %w[application required_documents].include?(guide_topic.key) }.each do |topic| %>
+        <details id="guide-<%= topic.key %>" open>
+          <summary><h3><%= topic.title %></h3></summary>
+          <%= ApplyGuide::HtmlRenderer.render(topic.markdown) %>
+        </details>
+      <% end %>
+    </section>
+  <% end %>
+
+  <% if @cases.any? %>
+    <ul class="case-list">
+      <% @cases.each do |kase| %>
+        <li>
+          <h2><%= link_to (kase.disease_name.presence || kase.case_no), disease_case_path(kase.case_no) %></h2>
+          <p>
+            <% if kase.job_name.present? %><%= t("self_care_form.result.job") %>: <%= kase.job_name %> · <% end %>
+            <% if kase.burden_body_part.any? %><%= t("self_care_form.result.body") %>: <%= short_body_parts(kase.burden_body_part) %> · <% end %>
+            <%= t("self_care_form.result.decision") %>: <%= kase.result_label %>
+            <% if kase.year.present? %> · <%= t("self_care_form.result.year_suffix", year: kase.year) %><% end %>
+          </p>
+          <p>
+            <%= link_to kase.detail_url, target: "_blank", rel: "noopener noreferrer" do %><%= t("self_care_form.result.original") %><span class="visually-hidden"> <%= t("self_care_form.new_window") %></span><% end %>
+          </p>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <p><%= link_to t("self_care_form.result.apply_guide"), apply_guide_path, role: "button" %></p>
+  <% if @answers["application_experience"] == "불승인을 받음" %>
+    <p><%= link_to t("self_care_form.result.appeal_guide"), apply_guide_path(anchor: "rejection_appeal") %></p>
+  <% end %>
+  <p><%= link_to t("self_care_form.result.more_detail"), search_path(@search_link_params) %></p>
+  <%= button_to t("self_care_form.restart"), self_care_form_reset_path, method: :post, class: "btn-secondary" %>
+
+  <p class="text-muted text-sm"><%= t("self_care_form.disclaimer") %></p>
+</div>

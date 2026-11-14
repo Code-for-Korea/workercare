@@ -1,0 +1,22 @@
+<p><%= t("self_care_form.steps.profile.lead") %></p>
+<%= form_with url: self_care_form_step_path("profile"), method: :post, local: true do %>
+  <% SelfCareForm::Flow::PROFILE_FIELDS.each do |field, options| %>
+    <fieldset>
+      <legend><%= t("self_care_form.steps.profile.#{field}") %></legend>
+      <div class="radio-options checkbox-grid">
+        <label>
+          <input type="radio" name="<%= field %>" value="" <%= "checked" if answers[field].blank? %>>
+          <%= t("self_care_form.steps.profile.no_answer") %>
+        </label>
+        <% options.each do |option| %>
+          <label>
+            <input type="radio" name="<%= field %>" value="<%= option %>" <%= "checked" if answers[field] == option %>>
+            <%= option %>
+          </label>
+        <% end %>
+      </div>
+    </fieldset>
+  <% end %>
+  <button type="submit"><%= t("self_care_form.steps.profile.next") %></button>
+  <button type="submit" name="skip_to_review" value="1" class="btn-secondary"><%= t("self_care_form.steps.profile.skip_to_review") %></button>
+<% end %>

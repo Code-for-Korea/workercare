@@ -1,0 +1,8 @@
+<%= form_with url: self_care_form_step_path("decision"), method: :post, local: true do %>
+  <ul class="choices">
+    <% SelfCareForm::Flow::DECISION_KEYS.each do |key| %>
+      <%= render "choice_button", value: key, label: SelfCareForm::Flow.decision_label(key), secondary: false %>
+    <% end %>
+    <%= render "choice_button", value: "skip", label: t("self_care_form.skip"), secondary: true %>
+  </ul>
+<% end %>

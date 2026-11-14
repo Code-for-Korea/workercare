@@ -1,0 +1,17 @@
+<%= form_with url: self_care_form_step_path("job"), method: :post, local: true do %>
+  <% SelfCareForm::Flow::JOB_GROUPS.each do |group, names| %>
+    <section aria-labelledby="job-group-<%= group.hash.abs %>">
+      <h2 id="job-group-<%= group.hash.abs %>"><%= group %></h2>
+      <ul class="choices">
+        <% names.each do |name| %>
+          <%= render "choice_button", value: name, label: name, secondary: false %>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+  <ul class="choices">
+    <%= render "choice_button", value: "none", label: t("self_care_form.unknown"), secondary: true %>
+  </ul>
+<% end %>
+
+<%= render "free_text", step: "job", value: answers["job_text"] %>
