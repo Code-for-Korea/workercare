@@ -24,6 +24,16 @@ class SelfCareSummary < ApplicationRecord
     [ find_by!(attrs), false ]
   end
 
+  # 이미 있는 행(없으면 nil). 만들지 않는다.
+  def self.lookup(key, digest)
+    find_by(body_concept: key.body_concept, job: key.job, decision: key.decision, data_digest: digest)
+  end
+
+  # 하루 요청 예산 때문에 호출하지 못해 failed가 된 행인가(예산이 남으면 다시 시도할 수 있다).
+  def budget_failure?
+    failed? && error_message.to_s.include?("BudgetExhausted")
+  end
+
   def stale?
     pending? && updated_at < STALE_AFTER.ago
   end

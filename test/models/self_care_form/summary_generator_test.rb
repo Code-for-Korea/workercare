@@ -65,12 +65,12 @@ class SelfCareForm::SummaryGeneratorTest < ActiveSupport::TestCase
     assert_equal "위원회는 반복 작업을 인정하였다.", cases["SUM-C"]["위원회판단_발췌"]
   end
 
-  test "at most 20 cases are sent" do
+  test "at most 6 cases are sent" do
     25.times { |i| make_case(format("SUM-X%02d", i), result: "approved", year: 2020, reasoning: "근거") }
 
     facts = Generator.facts_for(@key)
 
-    assert_equal 20, facts.cases.size
+    assert_equal 6, facts.cases.size
     assert_equal 28, facts.total_count
   end
 
@@ -193,7 +193,7 @@ class SelfCareForm::SummaryGeneratorTest < ActiveSupport::TestCase
     assert_equal "https://api.exaone.ai/v1/chat/completions", uri.to_s
     assert_equal "Bearer test-key-not-real", headers["Authorization"]
     assert_equal "k-exaone_v2.5", body["model"]
-    assert_equal false, body["stream"]
+    assert_equal true, body["stream"]
     assert_equal %w[system user], body["messages"].map { |m| m["role"] }
     refute_match(/SECRET/, body["messages"].to_json)
     assert_match(/사건번호/, body["messages"].last["content"])
@@ -272,15 +272,59 @@ class SelfCareForm::SummaryGeneratorTest < ActiveSupport::TestCase
     row = pending_row
 
     assert_nothing_raised { generator(->(*) { raise Timeout::Error, "slow" }).generate(row) }
-    assert_match(/Timeout::Error/, row.reload.error_message)
+    assert_match(/RequestTimeout.*시간 초과/, row.reload.error_message)
   end
 
-  test "a truncated answer (finish_reason length) is treated as invalid" do
+  test "a truncated answer (finish_reason length) fails the row without a second request" do
+    row = pending_row
+    calls = 0
+
+    generator(->(*) { calls += 1; exaone_response(valid_output, finish_reason: "length") }).generate(row)
+
+    assert_equal 1, calls
+    assert row.reload.failed?
+    assert_match(/Truncated.*응답이 잘림/, row.error_message)
+  end
+
+  test "a timeout is not retried and says so" do
+    calls = 0
     row = pending_row
 
-    generator(->(*) { exaone_response(valid_output, finish_reason: "length") }).generate(row)
+    generator(->(*) { calls += 1; raise Net::ReadTimeout }).generate(row)
 
-    assert row.reload.failed?
+    assert_equal 1, calls
+    assert_match(/시간 초과/, row.reload.error_message)
+  end
+
+  test "a complete answer that fails validation is still retried once" do
+    calls = 0
+    generator(->(*) { calls += 1; exaone_response("JSON 아님") }).generate(pending_row)
+
+    assert_equal Generator::MAX_OUTPUT_ATTEMPTS, calls
+  end
+
+  test "limits default to 7000 tokens, 600s total and 120s per chunk and can be overridden by env" do
+    assert_equal [ 7000, 600, 120 ], [ Generator.max_tokens, Generator.total_timeout, Generator.chunk_timeout ]
+    ENV["EXAONE_MAX_TOKENS"] = "5000"
+    ENV["EXAONE_TOTAL_TIMEOUT"] = "300"
+    ENV["EXAONE_CHUNK_TIMEOUT"] = "bad"
+    assert_equal [ 5000, 300, 120 ], [ Generator.max_tokens, Generator.total_timeout, Generator.chunk_timeout ]
+    body = Generator.new(api_key: "k").send(:request_body, Generator.facts_for(@key))
+    assert_equal 5000, body[:max_tokens]
+  ensure
+    %w[EXAONE_MAX_TOKENS EXAONE_TOTAL_TIMEOUT EXAONE_CHUNK_TIMEOUT].each { |name| ENV.delete(name) }
+  end
+
+  test "call duration and usage are stored in meta.generation" do
+    body = { choices: [ { finish_reason: "stop", message: { content: valid_output.to_json } } ],
+             usage: { prompt_tokens: 100, completion_tokens: 900, reasoning_tokens: 700, total_tokens: 1000 } }.to_json
+    row = pending_row
+
+    generator(->(*) { OffExaoneByDefault::FakeExaoneResponse.new("200", body, nil) }).generate(row)
+
+    generation = row.reload.summary_json.dig("meta", "generation")
+    assert_equal({ "prompt_tokens" => 100, "completion_tokens" => 900, "reasoning_tokens" => 700, "finish_reason" => "stop" }, generation.except("seconds"))
+    assert_kind_of Numeric, generation["seconds"]
   end
 
   test "without an api key nothing is sent" do
@@ -340,5 +384,197 @@ class SelfCareForm::SummaryGeneratorTest < ActiveSupport::TestCase
     assert_equal 3, combos.first.facts.total_count
     assert combos.all? { |c| c.key.decision.empty? && c.key.valid? }
     assert_equal 1, SelfCareSummaries::Warm.combinations(1).size
+  end
+
+  # ---- v2: 429 재시도, 하루 예산, 스트리밍, overview ----
+
+  def with_memory_cache
+    saved = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+    yield
+  ensure
+    Rails.cache = saved
+  end
+
+  def busy_response
+    body = { error: { message: "service is busy, too many concurrent requests(600)", type: "rate_limit_error" } }.to_json
+    OffExaoneByDefault::FakeExaoneResponse.new("429", body, nil)
+  end
+
+  test "a busy 429 without retry-after backs off 15, 30 and 60 seconds and then succeeds" do
+    sleeps = []
+    responses = [ busy_response, busy_response, busy_response, exaone_response(valid_output) ]
+    row = pending_row
+
+    with_memory_cache do
+      Generator.new(transport: ->(*) { responses.shift }, api_key: "k", sleeper: ->(s) { sleeps << s }, min_interval: 0).generate(row)
+    end
+
+    assert row.reload.ready?
+    assert_equal [ 15, 30, 60 ], sleeps
+  end
+
+  test "a busy 429 that never clears fails the row after three retries with a clear message" do
+    calls = 0
+    sleeps = []
+    row = pending_row
+
+    with_memory_cache do
+      Generator.new(transport: ->(*) { calls += 1; busy_response }, api_key: "k", sleeper: ->(s) { sleeps << s }, min_interval: 0).generate(row)
+    end
+
+    assert_equal 4, calls
+    assert_equal [ 15, 30, 60 ], sleeps
+    assert row.reload.failed?
+    assert_match(/HTTP 429.*service is busy.*재시도 3회/, row.error_message)
+  end
+
+  test "busy retries are not counted as output validation attempts" do
+    outputs = [ busy_response, busy_response, exaone_response("JSON 아님"), exaone_response(valid_output) ]
+    row = pending_row
+
+    with_memory_cache do
+      generator(->(*) { outputs.shift }).generate(row)
+    end
+
+    assert row.reload.ready?
+  end
+
+  test "every request including 429s counts toward the daily budget" do
+    responses = [ busy_response, exaone_response(valid_output) ]
+    with_memory_cache do
+      generator(->(*) { responses.shift }).generate(pending_row)
+
+      assert_equal 2, SelfCareForm::ExaoneBudget.used
+    end
+  end
+
+  test "when the daily cap is reached the API is not called and the row records the budget failure" do
+    row = pending_row
+    ENV["EXAONE_DAILY_REQUEST_CAP"] = "2"
+    with_memory_cache do
+      2.times { SelfCareForm::ExaoneBudget.record_request! }
+      refute SelfCareForm::ExaoneBudget.available?
+
+      generator(->(*) { flunk "호출하면 안 됨" }).generate(row)
+    end
+
+    assert row.reload.budget_failure?
+  ensure
+    ENV.delete("EXAONE_DAILY_REQUEST_CAP")
+  end
+
+  test "the cap defaults to 90 and an invalid value falls back to it" do
+    assert_equal 90, SelfCareForm::ExaoneBudget.cap
+    ENV["EXAONE_DAILY_REQUEST_CAP"] = "abc"
+    assert_equal 90, SelfCareForm::ExaoneBudget.cap
+    ENV["EXAONE_DAILY_REQUEST_CAP"] = "40"
+    assert_equal 40, SelfCareForm::ExaoneBudget.cap
+  ensure
+    ENV.delete("EXAONE_DAILY_REQUEST_CAP")
+  end
+
+  test "a response header showing five or fewer requests left stops further calls today" do
+    with_memory_cache do
+      calls = 0
+      transport = lambda do |*|
+        calls += 1
+        exaone_response("JSON 아님", headers: { "x-day-rate-limit-remaining" => "5" })
+      end
+      row = pending_row
+
+      generator(transport).generate(row)
+
+      assert_equal 1, calls # 두 번째 출력 시도 전에 멈춘다
+      assert_match(/BudgetExhausted/, row.reload.error_message)
+      assert_equal 5, SelfCareForm::ExaoneBudget.remaining_hint
+    end
+  end
+
+  test "the budget counter and header hint are per day" do
+    with_memory_cache do
+      SelfCareForm::ExaoneBudget.record_request!
+      travel_to 1.day.from_now do
+        assert_equal 0, SelfCareForm::ExaoneBudget.used
+      end
+    end
+  end
+
+  test "streamed chunks are assembled: only delta.content is kept and usage is logged" do
+    sse = [
+      %(data: {"choices":[{"delta":{"content":"","role":"assistant"},"index":0}]}\n\n),
+      %(data: {"choices":[{"delta":{"reasoning_content":"생각"},"index":0}]}\n\ndata: {"choices":[{"delta":{"con),
+      %(tent":"{\\"a\\":1}"},"index":0}]}\n\n),
+      %(data: {"choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n),
+      %(data: {"choices":[],"usage":{"completion_tokens":9,"prompt_tokens":4,"total_tokens":13,"reasoning_tokens":5}}\n\ndata: [DONE]\n)
+    ]
+    response = Object.new
+    response.define_singleton_method(:read_body) { |&block| sse.each { |chunk| block.call(chunk.dup) } }
+    log = StringIO.new
+    gen = Generator.new(api_key: "k", logger: Logger.new(log), sleeper: ->(_) { }, min_interval: 0)
+
+    body = gen.send(:read_stream, response, Process.clock_gettime(Process::CLOCK_MONOTONIC))
+    content = gen.send(:extract_content, body)
+
+    assert_equal %({"a":1}), content
+    assert_match(/prompt=4 completion=9 reasoning=5 total=13/, log.string)
+    refute_match(/생각/, log.string)
+  end
+
+  test "a stream that runs past the total timeout raises" do
+    response = Object.new
+    response.define_singleton_method(:read_body) { |&block| block.call(%(data: {"choices":[]}\n).dup) }
+    gen = Generator.new(api_key: "k", sleeper: ->(_) { }, min_interval: 0)
+
+    assert_raises(Timeout::Error) do
+      gen.send(:read_stream, response, Process.clock_gettime(Process::CLOCK_MONOTONIC) - Generator.total_timeout - 1)
+    end
+  end
+
+  test "the v2 prompt asks for the distribution, no duplicate citations, and literal check items" do
+    messages = Generator.new(api_key: "k").messages_for(Generator.facts_for(@key))
+    text = messages.map { |m| m[:content] }.join
+
+    assert_equal "v3", Generator::PROMPT_VERSION
+    assert_match(/최대 3개/, text)
+    assert_match(/같은 사건번호를 두 항목 이상에 쓰지 않습니다/, text)
+    assert_match(/질병군_분포/, text)
+    assert_match(/여러 질병이 섞여 있습니다/, text)
+    assert_match(/덧붙이지 않습니다/, text)
+  end
+
+  test "facts carry the disease category distribution and the number of disease kinds, not name lists" do
+    DiseaseCase.where(case_no: "SUM-C").update_all(disease_category: "cardiovascular", disease_name: "뇌경색")
+    DiseaseCase.where(case_no: %w[SUM-A SUM-B]).update_all(disease_category: "musculoskeletal")
+    facts = Generator.facts_for(@key)
+
+    assert_equal({ "근골격계질병" => 2, "뇌심혈관계질병" => 1 }, facts.diseases[:categories])
+    assert_equal 2, facts.diseases[:kinds]
+    assert_equal({ "근골격계질병" => 2, "뇌심혈관계질병" => 1 }, facts.prompt_hash["질병군_분포"])
+    assert_equal 2, facts.prompt_hash["질병_종류_수"]
+    assert_nil facts.prompt_hash["질병명_분포_상위"]
+  end
+
+  test "a missing category is reported as unclassified" do
+    assert_equal({ "미분류" => 3 }, Generator.facts_for(@key).diseases[:categories])
+  end
+
+  test "overview is validated, kept and checked for forbidden phrases" do
+    out = Generator.validate!(valid_output.merge("overview" => "찾은 3건입니다."), %w[SUM-A SUM-B])
+    assert_equal "찾은 3건입니다.", out["overview"]
+
+    assert_raises(Generator::InvalidOutput) { Generator.validate!(valid_output.merge("overview" => "인정될 것입니다."), %w[SUM-A SUM-B]) }
+    assert_raises(Generator::InvalidOutput) { Generator.validate!(valid_output.merge("overview" => 3), %w[SUM-A SUM-B]) }
+  end
+
+  test "more than three items in a section is invalid" do
+    items = Array.new(4) { { "text" => "문장", "case_nos" => %w[SUM-A] } }
+
+    assert_raises(Generator::InvalidOutput) { Generator.validate!(valid_output.merge("check_items" => items), %w[SUM-A SUM-B]) }
+  end
+
+  test "warm combinations need a body part by default" do
+    assert SelfCareSummaries::Warm.combinations(10).all? { |c| c.key.body_concept.present? }
+    assert SelfCareSummaries::Warm.combinations(10, require_body: false).any? { |c| c.key.body_concept.empty? }
   end
 end
