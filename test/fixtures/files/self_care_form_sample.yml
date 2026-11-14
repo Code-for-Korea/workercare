@@ -1,0 +1,13 @@
+# 샘플 폼(구글) 기준 테스트용 설정 픽스처. 커밋된 config/self_care_form.yml과 무관하다.
+# 운영 폼이 정해지면 이 파일과 테스트의 개수 단언만 바꾼다.
+enabled: true
+google_form_response_url: "https://docs.google.com/forms/d/e/1FAIpQLSce45KJEDDH4e2lgtegblriHZDzFL_tQ1UVndkq6Hn7FUmLJA/formResponse"
+entries:
+  body_part: 447515540
+  job: 574759984
+  decision: 44280323
+  age_band: 1913665441
+  region: 1602965800
+  application_experience: 1496037600
+  respondent: 1305751224
+  situation: 1830980629

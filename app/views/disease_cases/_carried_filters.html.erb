@@ -1,0 +1,32 @@
+<%# 입력칸이 없는 조건(직종 핵심어, 체크박스 목록에 없는 신체부위 토큰)을 보여 주고 다시 검색해도 유지한다.
+    검색 form 안에 렌더하므로 중첩 form을 만들지 않는다. [빼기]는 form이 아니라 링크다. %>
+<% carried = DiseaseCases::CarriedFilters.new(params, checkbox_options: @burden_body_part_options) %>
+<% if carried.present? %>
+  <div class="carried-filters">
+    <p><strong><%= t("search.carried.title") %></strong></p>
+    <ul>
+      <% if carried.job_keywords.any? %>
+        <li>
+          <%= t("search.carried.job", keywords: carried.job_keywords.join("·")) %>
+          <%= link_to t("search.carried.remove_job"), carried.path_without(request, "job_name_any") %>
+          <% carried.job_keywords.each do |keyword| %>
+            <%= hidden_field_tag "job_name_any[]", keyword, id: nil %>
+          <% end %>
+        </li>
+      <% end %>
+      <% if carried.body_part? %>
+        <li>
+          <% if carried.body_concept %>
+            <%= t("search.carried.body_concept", name: carried.body_concept) %>
+          <% else %>
+            <%= t("search.carried.body_tokens", count: carried.body_tokens.size) %>
+          <% end %>
+          <%= link_to t("search.carried.remove_body"), carried.path_without(request, "burden_body_part") %>
+          <% carried.extra_body_tokens.each do |token| %>
+            <%= hidden_field_tag "burden_body_part[]", token, id: nil %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

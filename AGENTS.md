@@ -13,8 +13,11 @@
 | `app/models/disease_case.rb` + `concerns/disease_cases/` | `searchable`(`/search`, 원문 FTS), `main_searchable`(메인 검색·챗봇 공용, 추출 컬럼 FTS + 구조화 필터) |
 | `app/models/disease_cases/normalizer.rb` | 신청서 종류·근무 형태·고용 형태 정규화(순수 Ruby). 규칙은 `config/normalization/rules.yml` |
 | `app/models/chatbot/` | 챗봇 전용(요청 어댑터, 응답 빌더, `PublicCase` 허용 필드 DTO, 엔티티 사전) |
+| `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/` | 단계별 사례 찾기. 답은 세션 쿠키에만 두고 DB에 쓰지 않는다. 문서 `docs/self-care-form.md` |
+| `app/models/apply_guide.rb`, `config/apply_guide/procedure_guides.yml` | 신청 가이드(`/apply-guide`, `.md`). 마크다운→HTML은 `ApplyGuide::HtmlRenderer`(sanitize·https 링크만) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `lib/tasks/` | `import:*`, `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
+| `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `export:workercare_data`, `chatbot:entities:*` |
+| `DESIGN.md`, `app/assets/stylesheets/` | 디자인 규칙·토큰·컴포넌트와 CSS(`tokens`·`base`·`layout`·`components`·`utilities`). CSS 클래스·대비 검사는 `test/integration/css_classes_test.rb`, `test/design/contrast_test.rb`. 내용은 `DESIGN.md`를 본다 |
 | `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
 
@@ -53,11 +56,13 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 9. **`업묵부담_가중요인_노출`(업묵) 철자** — 추출 CSV 헤더와 import 태스크가 같은 오타를 읽는다. 한쪽만 고치면 컬럼이 비어 들어간다.
 10. **CI가 꺼져 있다** — `.github/workflows/ci.yml_`(끝에 `_`)는 비활성. rubocop은 `wip/`까지 검사해 실패하고 brakeman·bundler-audit도 실패 중이다. 새 변경이 상태를 더 나쁘게 만들지 않는지 로컬에서 확인한다.
 11. **마크다운 응답은 `.md` 확장자와 `Accept`로만 결정** — User-Agent로 봇에게만 다르게 주지 않는다(cloaking). 모든 표현에 `Vary: Accept`와 서로를 가리키는 `Link` 헤더가 붙는다. 본문은 `PIIMasking`을 거치지만 웹 HTML 상세는 아직 아니다. 새 컬럼을 노출하면 `MarkdownRenderer`의 이스케이프(`cell`)와 비식별을 같이 본다. MCP는 제거됐다(`action_mcp_*` 테이블은 `DropMcpTables` 마이그레이션으로 삭제).
+12. **단계별 사례 찾기는 저장하지 않는다** — 답은 암호화 세션 쿠키(`session[:self_care_form]`, 직접 입력 30자 상한)에만 두고 URL·DB·로그에 남기지 않는다(`filter_parameters`에 `free_text`·통계 답 키). 결과에는 질병명·직업명·신체부위·판정 결과·연도·원문 링크만 쓰고 **서술형 요약은 노출하지 않는다**. 단계·허용값은 `SelfCareForm::Flow` 한 곳이다. 신체부위 직접 입력은 `BodyPartMatcher`가 사전 개념을 찾고(한 글자 표기는 엄격 규칙), 못 찾으면 조건 없이 찾고 알린다. `job_name_any`는 `main_search_params` 허용 목록에 있는 공용 필터다(`/search`가 폼의 직종 조건을 이어 받는다). 신청 가이드 문구는 출시 전 공식 출처로 재확인한다. **구글 폼으로 통계를 보내는 기능은 켜져 있다**(`config/self_care_form.yml`의 `enabled: true`, 샘플 폼 entry id 8개. 사용자 결정 2026-11-11). 선택 동의한 사람만 보내고, 보관은 최대 3년·해마다 점검·삭제 담당은 산업재해 프로젝트 팀이다. **법률·개인정보 검토는 하지 않았다**(권장). 테스트는 `test_helper.rb`가 기본으로 꺼진 설정을 끼워 실제 요청을 막는다. 전송은 [결과 보기] POST에서 마지막 전송값(SHA-256 해시를 세션에 보관)과 다를 때만 하고 GET은 보내지 않으며, `entries`에 id가 있는 키만 전송한다. **원문 전송은 직종 직접 입력만 예외다(신체부위 직접 입력·검색어·챗봇 발화는 보내지 않는다).** 직업을 직접 입력했으면 사전(`JobMatcher`)에서 찾은 직종 이름을, 못 찾으면 입력한 말을 번호 형태를 가리고(`PIIMasking`) 30자로 잘라 보낸다(사용자 결정 2026-11-11; 이름 입력 위험은 `docs/self-care-form.md` 10.1). 신체부위 신체부위 직접 입력 원문·IP·세션 ID는 폼 필드로 보내지 않으며, 콜백은 `rack.response_finished`(Rack 3 표준)에 단다. 시험은 `CONFIRM=1 bin/rails self_care_form:send_test`(시트에 `[테스트]` 행이 남으니 시험한 사람이 지운다). 자세한 절차는 `docs/self-care-form.md` 10장.
+13. **CSS는 렌더된 HTML 기준으로 검사한다** — 새 클래스는 화면(뷰·헬퍼·JS)에서 실제로 쓰여야 하고, 아니면 `css_classes_test`가 실패한다. 예외는 `test/support/css_class_allowlist.yml`이고 이유를 적는다. 중첩, 선택자 이스케이프(`md\:`), `@import`는 쓰지 않는다(같은 테스트가 막는다). 색 토큰을 바꾸면 `contrast_test`가 대비를 확인한다. 글꼴 Pretendard는 jsdelivr CDN이라 CSP를 켜면 `style_src`와 `font_src` 둘 다에 `https://cdn.jsdelivr.net`이 필요하다. 규칙은 `DESIGN.md`.
 
 ## 개인정보·보안
 
 - 판정서는 비식별 처리본이지만 완전하다고 믿지 않는다. `PIIMasking`은 번호 형태만 가린다. 이름·주소는 못 거른다.
-- 사용자 발화 원문을 저장·로그하지 않는다. 테스트에 실제 개인정보를 넣지 않는다.
+- 사용자 발화 원문을 저장·로그하지 않는다. **예외는 단계별 사례 찾기의 직종 직접 입력 한 칸뿐이다**: 선택 동의한 경우에만 가려서(번호 형태, 30자 이내) 구글 폼으로 보낸다(함정 12, 사용자 결정 2026-11-11). 신체부위 직접 입력, 검색어(`q` 등), 챗봇 발화, 로그에는 이 예외를 적용하지 않는다. 테스트에 실제 개인정보를 넣지 않는다.
 - 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `tmp/`의 CSV 백업은 커밋하지 않는다.
 - 외부 LLM·임베딩 서비스로 판정서 본문을 보내는 작업은 팀 합의가 먼저다.
 - **승인 가능성을 예측하지 않는다.** "당신의 사건은 인정됩니다" 류의 응답을 만들지 않는다. 제도 안내는 출처와 확인일을 함께 적는다(`config/locales/procedure_guides.yml`).

@@ -1,5 +1,93 @@
 ---
 ko:
+  layout:
+    skip_to_content: 본문 바로가기
+    main_nav: 주 메뉴
+    nav_search: 검색
+    nav_about: 소개
+    display_settings: 화면 설정
+    large_text: 큰 글씨
+    high_contrast: 고대비 화면
+    site_name: 업무상 질병 판정서
+    footer_notice: 이 사이트의 판정 사례는 참고 자료이며, 개인의 산재 인정 여부를 예측하거나 의료·법률 판단을 대신하지 않습니다.
+    footer_source: 데이터 출처는 근로복지공단 업무상질병 판정서 공개 자료입니다.
+  apply_guide:
+    title: 산재 신청 방법 안내
+    source: 출처
+    last_updated: 마지막 확인일
+    new_window: "(새 창)"
+  about:
+    title: 소개
+    lead: 근로복지공단이 공개한 업무상질병 판정 사례를 찾아보기 쉽게 정리한 곳입니다. 하는 일, 아픈 곳, 질병 이름으로 비슷한 판정 사례를 찾을 수 있습니다.
+    features:
+      heading: 할 수 있는 것
+      search: 검색
+      search_text: 직업, 신청서 종류, 부담 신체 부위 같은 조건과 낱말로 판정 사례를 찾습니다. 상세 검색에서는 판정서 본문도 찾을 수 있습니다.
+      advanced: 상세 검색
+      self_care_form: 단계별 사례 찾기
+      self_care_form_text: 몇 가지 질문에 답하면 비슷한 판정 사례를 모아 보여 줍니다.
+      apply_guide: 산재 신청 방법 안내
+      apply_guide_text: 신청 절차, 필요 서류, 불인정 시 대응 절차를 정리한 안내입니다.
+      markdown: 마크다운 주소
+      markdown_text: 검색 결과, 판정서 상세, 신청 방법 안내는 주소 끝에 .md를 붙이면 마크다운으로 받을 수 있습니다. 이용 방법은 llms.txt에 적혀 있습니다.
+    reference:
+      heading: 참고용입니다
+      text: 판정 사례는 참고 자료입니다. 개인의 산재 인정 여부를 예측하지 않고, 의료나 법률 판단을 대신하지 않습니다. 실제 신청은 근로복지공단이나 노동 상담 기관과 상의하세요.
+    source:
+      heading: 데이터 출처
+      text: 근로복지공단이 공개한 업무상질병 판정서입니다. 원문 링크는 각 사례에 있습니다. 비식별 처리본이지만 완전하지 않을 수 있습니다.
+    facts:
+      # 이 절의 숫자는 요청마다 계산하지 않는 고정 문구입니다. 2026-11-11 개발 DB(판정서 61,815건)에서
+      # bin/rails runner로 센 값이고, 갱신할 때는 docs/about-figures.md의 쿼리를 다시 돌려 아래 값과 기준일을 함께 고칩니다.
+      heading: 알아 두면 좋은 자료
+      basis: "아래 숫자는 근로복지공단이 공개한 업무상질병 판정서 61,815건을 센 값이며 기준일은 2026-11-11입니다. 판정서의 판정일은 2016-12-27부터 2021-12-30까지입니다(판정일이 비어 있는 197건 포함). 2016년 판정은 16건뿐이고 대부분 2017~2021년 판정입니다."
+      overview_heading: 판정 사례 한눈에 보기
+      overview_caption: 지난 판정의 심의결과별 건수와 비율(기준일 2026-11-11)
+      overview_note: 인정률 추정이나 앞으로의 신청 결과에 대한 예상이 아닙니다.
+      col_result: 심의결과
+      col_count: 건수
+      col_percent: 비율
+      results:
+        - { label: 인정, count: "30,357건", percent: "49.11%" }
+        - { label: 일부인정, count: "6,826건", percent: "11.04%" }
+        - { label: 변경인정, count: "1,030건", percent: "1.67%" }
+        - { label: 불인정, count: "23,602건", percent: "38.18%" }
+      death_text: "사망과 관련된 결정(사망 여부 항목이 Y인 사례)은 4,587건으로 전체의 7.42%입니다. 사망 여부 항목이 비어 있는 6,819건은 센 값에 들어 있지 않습니다."
+      caveat: 이 숫자는 지난 판정을 센 것일 뿐입니다. 개인의 사건이 인정될지 예측하지 않고, 직업이나 질병별 인정 비율도 보여 주지 않습니다.
+      groups_heading: 자주 나오는 질병군·신체 부위
+      groups_basis: 질병군과 신체 부위는 판정서에서 뽑은 분류이고, 표에는 주요 분류만 보여 줍니다(질병군은 진폐 1건 생략, 신체 부위는 건수가 많은 상위 5개). 분류 값이 비어 있는 사례도 센 값에 들어 있지 않아 합이 61,815건이 되지 않습니다(질병군 비어 있음 6,290건, 신체 부위 비어 있음 19,848건). 비율은 전체 61,815건에 대한 값입니다.
+      disease_groups_label: 질병군
+      disease_groups:
+        - { label: 근골격계질병, count: "42,596건", percent: "68.9%" }
+        - { label: 뇌심혈관계질병, count: "12,547건", percent: "20.3%" }
+        - { label: 기타질병, count: "381건", percent: "0.6%" }
+      body_parts_label: 신체 부위(신청 상병 기준)
+      body_parts:
+        - { label: 팔, count: "18,466건", percent: "29.9%" }
+        - { label: 허리, count: "13,805건", percent: "22.3%" }
+        - { label: 다리, count: "4,378건", percent: "7.1%" }
+        - { label: 기타, count: "2,501건", percent: "4.0%" }
+        - { label: 목, count: "2,081건", percent: "3.4%" }
+      checks_heading: 판정서에 자주 나오는 확인 항목
+      checks_lead: 판정서의 결론을 읽어 보면 아래 내용이 자주 따져집니다. 문서에서 관찰한 경향이며, 이것을 갖추면 인정된다는 뜻이 아니고 법률 조언도 아닙니다.
+      checks:
+        - 업무와 질병의 관련성(판정서에는 "상당인과관계"라는 표현이 자주 나옵니다)
+        - 일한 기간과 일한 날수 같은 근무 기록, 그리고 하루 작업량 같은 작업 부담
+        - 근골격계질병에서는 반복 동작, 무리한 힘, 부적절한 자세, 진동 작업 같은 신체 부담
+        - 진단서와 진료 기록 등 의학적 소견
+        - 이미 있던 병이나 개인 질환, 자연스러운 경과와의 구분
+      limits_heading: 자료를 볼 때 알아 둘 점
+      limits_text: 질병군, 신체 부위, 직업 같은 일부 항목은 판정서 본문에서 자동으로 뽑아 정리한 값이라 틀리거나 비어 있을 수 있습니다. 판정서는 비식별 처리본이어서 사례를 낱낱이 알 수 없고, 같은 병명이어도 사정이 달라 결과가 다를 수 있습니다. 계산 방법은 저장소의 docs/about-figures.md에 있습니다.
+    privacy:
+      heading: 개인정보
+      lead: 이 사이트는 쿠키를 목적에 따라 나누어 씁니다.
+      self_care_heading: 단계별 사례 찾기의 답
+      self_care_text: 암호화된 세션 쿠키에 두고, 서버 데이터베이스에는 저장하지 않습니다. 만료 시각을 정하지 않은 쿠키라서 보통 브라우저를 닫으면 사라지지만, 브라우저가 이전 세션을 복원하면 남아 있을 수 있습니다. 단계별 사례 찾기에서 [처음부터 다시]를 누르면 답이 지워집니다.
+      display_heading: 화면 설정
+      display_text: 큰 글씨와 고대비 설정은 별도의 쿠키에 1년 동안 둡니다. 쿠키에는 설정 값만 들어 있고 개인 정보는 없습니다.
+      stats_heading: 통계 저장
+      stats_text_off: 별도로 동의하고 연동이 켜진 경우에만 합니다. 지금은 꺼져 있어 아무것도 보내지 않습니다.
+      stats_text_on: 시작 화면에서 따로 동의한 경우에만, 고른 선택지를 통계용으로 구글 폼(팀의 구글 시트)에 저장합니다. 직업을 직접 입력했다면 그 글(30자 이내, 번호 형태는 가림)이나 사전에서 찾은 직종 이름이 갈 수 있고, 신체 부위를 직접 입력한 글, 방문자의 IP, 세션 ID는 폼 항목으로 보내지 않습니다. 이 서비스의 서버가 보내므로 구글은 서버의 IP를 봅니다. 보관 기간은 최대 3년이며 해마다 점검합니다.
   helpers:
     submit:
       search: 검색
@@ -7,6 +95,7 @@ ko:
     advanced: 상세 검색
     all_results: 전체
     deselect_all: 전체 해제
+    external_link: "(새 창, 외부 사이트)"
     fallback_notice: 정확한 결과가 없어 유사한 결과를 보여드립니다.
     select_all: 전체 선택
     filter:
@@ -16,7 +105,9 @@ ko:
       disease_category: 질병분류
       result: 심의결과
       year: 심의연도
+    filters: 필터
     no_results: 검색 결과가 없습니다.
+    results_table: 검색 결과 표
     over_cap: 500건 초과 — 검색어를 구체화하세요.
     placeholder: 판정서 검색...
     results: 건
@@ -32,3 +123,10 @@ ko:
     burden_body_part_text_placeholder: "예: 견관절, 요추"
     death_only: 사망 사례만 보기
     death_badge: 사망
+    carried:
+      title: 검색 화면에 없는 조건
+      job: "직종 핵심어: %{keywords}"
+      body_concept: "신체 부위: %{name}(좌우 포함)"
+      body_tokens: "신체 부위 토큰 %{count}개"
+      remove_job: 직종 조건 빼기
+      remove_body: 신체 부위 조건 빼기
