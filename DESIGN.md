@@ -161,6 +161,7 @@
 | 외부 링크 | 새 창으로 열리는 원문 링크. 아이콘 옆에 `<span class="sr-only">(새 창, 외부 사이트)</span>`를 둔다. `rel="noopener noreferrer"`. |
 | `.guide-topic` | 신청 가이드의 주제 하나(`details`). 안의 표는 좁은 화면에서 가로로 스크롤한다. 본문 HTML은 `ApplyGuide::HtmlRenderer`가 만든다. |
 | `.case-list` | 사례 목록(검색 결과 아님, 단계별 사례 찾기 결과). 질병명이 제목(상세 링크)이고 나머지는 `text-muted` 한 줄 메타 정보다. 판정 결과를 색으로 구분하지 않는다. |
+| `.case-summary` | 결과 화면 사례 목록 위의 쉬운 요약(AI 작성, 참고용) 상자. `turbo-frame#case_summary` 안에 들어가며 만드는 중·실패·요약 없음·완성 네 상태가 같은 상자를 쓴다. 안의 `.notice`는 "원문을 꼭 확인하세요" 고지다. 근거 사례 링크는 `data-turbo-frame="_top"`로 판정서 상세를 연다. 판정 결과를 색으로 구분하지 않는다. |
 | `details`/`summary` 아코디언 | 가이드·필터처럼 길고 선택적인 내용. `summary` 안의 `h2`·`h3`는 인라인이고 펼침 표시는 CSS로 만든다. |
 | `progress` | 단계별 사례 찾기 진행 표시. 높이 0.5rem. 옆에 "질문 5개 중 3번째" 같은 글자를 함께 둔다. |
 | 로딩 오버레이 | 오래 걸리는 요청 중 표시. `prefers-reduced-motion`이면 스피너를 멈춘다. |

@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     get  "review", action: :review, as: :review
     get  "result", action: :result, as: :result
     post "result", action: :submit_result, as: :submit_result
+    get  "summary", action: :summary, as: :summary
     post "reset",  action: :reset,  as: :reset
     step_keys = /#{SelfCareForm::Flow::STEP_KEYS.join("|")}/
     get  ":step",  action: :show,   as: :step, constraints: { step: step_keys }

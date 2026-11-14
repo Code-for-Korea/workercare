@@ -34,6 +34,13 @@
     </section>
   <% end %>
 
+  <% if @cases.any? && SelfCareForm::SummaryGenerator.enabled? %>
+    <%# 쉬운 요약(AI 작성): 늦게 만들어질 수 있어 따로 불러온다. JS가 없으면 이 안내만 보이고 사례 목록은 그대로다. %>
+    <%= turbo_frame_tag "case_summary", src: self_care_form_summary_path, loading: "lazy" do %>
+      <noscript><p class="text-muted text-sm"><%= t("self_care_form.summary.noscript") %></p></noscript>
+    <% end %>
+  <% end %>
+
   <% if @cases.any? %>
     <ul class="case-list">
       <% @cases.each do |kase| %>

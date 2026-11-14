@@ -64,6 +64,25 @@ en:
       not_chosen: Not chosen
       stats_heading: Optional answers for statistics
       no_answer: Prefer not to answer
+    summary:
+      heading: Plain-language summary of rulings (written by AI, for reference)
+      loading: Preparing the plain-language summary…
+      failed: The summary could not be made. Please read the rulings below directly.
+      unavailable: There is no summary for these conditions.
+      noscript: The plain-language summary is shown only when JavaScript is on.
+      notice: LG AI Research's EXAONE (artificial intelligence) read some fields of the published rulings and wrote this in plain language. It may be wrong or incomplete, so be sure to check the original ruling. It does not predict whether a claim will be approved or advise you to apply.
+      basis: "Based on the latest %{shown} rulings out of %{total}."
+      count: "%{count} found"
+      capped: "%{count} or more found"
+      distribution: "Outcomes: %{list}."
+      distribution_item: "%{label} %{count}"
+      evidence: Cases
+      sections:
+        recognized: Reasons often seen in approved cases
+        rejected: Reasons often seen in rejected cases
+        check: Items often examined in the rulings
+        glossary: Hard words explained
+      verify: This summary is for reference only. Be sure to check the original ruling.
     result:
       title: Similar rulings (for reference)
       title_prevention: Rulings for people doing the same work (for reference)

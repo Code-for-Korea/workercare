@@ -64,6 +64,25 @@ ko:
       not_chosen: 고르지 않음
       stats_heading: 통계용 답(선택)
       no_answer: 답하지 않음
+    summary:
+      heading: 판정서 쉬운 요약(AI 작성, 참고용)
+      loading: 쉬운 요약을 만드는 중입니다…
+      failed: 요약을 만들지 못했습니다. 아래 판정서를 직접 보세요.
+      unavailable: 이 조건의 요약은 없습니다.
+      noscript: 쉬운 요약은 JavaScript가 켜져 있을 때 보입니다.
+      notice: LG AI연구원의 EXAONE(인공지능)이 공개된 판정서의 일부 항목을 읽고 쉬운 말로 정리한 글입니다. 틀리거나 빠진 내용이 있을 수 있으니 원문을 꼭 확인하세요. 승인 여부를 예측하거나 신청을 권하는 글이 아닙니다.
+      basis: "%{total} 중 최근 %{shown}건의 판정서를 바탕으로 정리했습니다."
+      count: "찾은 %{count}건"
+      capped: "찾은 %{count}건 이상"
+      distribution: "판정 결과: %{list}."
+      distribution_item: "%{label} %{count}건"
+      evidence: 근거 사례
+      sections:
+        recognized: 인정된 사례에서 자주 나온 이유
+        rejected: 불인정된 사례에서 자주 나온 이유
+        check: 판정서에서 자주 살핀 확인 항목
+        glossary: 어려운 말 풀이
+      verify: 이 요약은 참고용입니다. 판정서 원문을 꼭 확인하세요.
     result:
       title: 비슷한 판정 사례(참고용)
       title_prevention: 같은 일을 하는 사람들의 판정 사례(참고용)

@@ -1,0 +1,45 @@
+<%# 저장된 쉬운 요약(summary_json)을 그린다. 근거 사례 링크는 프레임 밖(_top)에서 판정서 상세로 연다. %>
+<% data = summary.summary_json || {} %>
+<% meta = data["meta"] || {} %>
+<section class="case-summary" aria-labelledby="case-summary-heading">
+  <h2 id="case-summary-heading"><%= t("self_care_form.summary.heading") %></h2>
+  <p class="notice" role="note"><%= t("self_care_form.summary.notice") %></p>
+
+  <p class="text-muted text-sm">
+    <%= t("self_care_form.summary.basis", shown: meta["shown_count"].to_i,
+          total: meta["capped"] ? t("self_care_form.summary.capped", count: SelfCareForm::SummaryGenerator::COUNT_CAP) : t("self_care_form.summary.count", count: meta["total_count"].to_i)) %>
+    <% if meta["distribution"].present? %>
+      <%= t("self_care_form.summary.distribution", list: meta["distribution"].map { |label, n| t("self_care_form.summary.distribution_item", label: label, count: n) }.join(", ")) %>
+    <% end %>
+  </p>
+
+  <% { "recognized_reasons" => :recognized, "rejected_reasons" => :rejected, "check_items" => :check }.each do |section, name| %>
+    <% items = Array(data[section]) %>
+    <% next if items.empty? %>
+    <h3><%= t("self_care_form.summary.sections.#{name}") %></h3>
+    <ul>
+      <% items.each do |item| %>
+        <li>
+          <%= item["text"] %>
+          <span class="text-muted text-sm">
+            <%= t("self_care_form.summary.evidence") %>:
+            <% Array(item["case_nos"]).each_with_index do |case_no, index| %><%= ", " if index.positive? %><%= link_to case_no, disease_case_path(case_no), data: { turbo_frame: "_top" } %><% end %>
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <% glossary = Array(data["glossary"]) %>
+  <% if glossary.any? %>
+    <h3><%= t("self_care_form.summary.sections.glossary") %></h3>
+    <dl>
+      <% glossary.each do |entry| %>
+        <dt><%= entry["term"] %></dt>
+        <dd><%= entry["meaning"] %></dd>
+      <% end %>
+    </dl>
+  <% end %>
+
+  <p class="text-muted text-sm"><%= t("self_care_form.summary.verify") %></p>
+</section>

@@ -48,6 +48,28 @@ class CssClassesTest < ActionDispatch::IntegrationTest
     SelfCareForm::Settings.reset!
   end
 
+  # 쉬운 요약 프레임의 네 상태(만드는 중·완성·실패·요약 없음). 기능이 켜져 있어야 결과 화면에 프레임이 나온다.
+  def render_summary_states
+    with_exaone
+    post self_care_form_reset_path
+    post self_care_form_agree_path, params: { consent: "1" }
+    post self_care_form_step_path("body_part"), params: { value: "손목" }
+    post self_care_form_step_path("job"), params: { value: "택배기사" }
+    visit self_care_form_result_path # 프레임(noscript 안내)
+    visit self_care_form_summary_path # 만드는 중
+    key = SelfCareForm::SummaryGenerator::Key.new(body_concept: "손목", job: "택배기사", decision: "")
+    row = SelfCareSummary.last
+    assert_equal key, row.key
+    row.update!(status: "ready", summary_json: { "meta" => { "total_count" => 1, "capped" => false, "shown_count" => 1, "distribution" => { "인정" => 1 } },
+      "recognized_reasons" => [ { "text" => "문장", "case_nos" => [ "CSS-00" ] } ], "rejected_reasons" => [], "check_items" => [],
+      "glossary" => [ { "term" => "용어", "meaning" => "풀이" } ] })
+    visit self_care_form_summary_path # 완성
+    row.update!(status: "failed", summary_json: nil)
+    visit self_care_form_summary_path # 실패
+    post self_care_form_step_path("job"), params: { free_text: "배원" }
+    visit self_care_form_summary_path # 이 조건의 요약은 없습니다
+  end
+
   def render_states
     # 메인(`/`)과 상세 검색: 빈 화면, 결과, 필터를 연 상태, 넘어온 조건, 쪽수 이동
     visit root_path
@@ -87,6 +109,7 @@ class CssClassesTest < ActionDispatch::IntegrationTest
     visit root_path
 
     render_stats_states
+    render_summary_states
   end
 
   Flow = SelfCareForm::Flow

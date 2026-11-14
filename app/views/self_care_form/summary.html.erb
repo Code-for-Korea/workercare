@@ -1,0 +1,24 @@
+<%# 결과 화면 turbo-frame#case_summary의 응답. 상태: ready / pending / failed / unavailable / off·none(빈 프레임) %>
+<%= turbo_frame_tag "case_summary" do %>
+  <% case @summary_state %>
+  <% when :ready %>
+    <%= render "self_care_form/summary_ready", summary: @summary %>
+  <% when :pending %>
+    <section class="case-summary" aria-labelledby="case-summary-heading" aria-busy="true"
+             data-controller="summary-poll" data-summary-poll-interval-value="2500" data-summary-poll-timeout-value="60000">
+      <h2 id="case-summary-heading"><%= t("self_care_form.summary.heading") %></h2>
+      <p role="status" data-summary-poll-target="waiting"><%= t("self_care_form.summary.loading") %></p>
+      <p role="status" data-summary-poll-target="timeout" hidden><%= t("self_care_form.summary.failed") %></p>
+    </section>
+  <% when :failed %>
+    <section class="case-summary" aria-labelledby="case-summary-heading">
+      <h2 id="case-summary-heading"><%= t("self_care_form.summary.heading") %></h2>
+      <p role="status"><%= t("self_care_form.summary.failed") %></p>
+    </section>
+  <% when :unavailable %>
+    <section class="case-summary" aria-labelledby="case-summary-heading">
+      <h2 id="case-summary-heading"><%= t("self_care_form.summary.heading") %></h2>
+      <p role="status"><%= t("self_care_form.summary.unavailable") %></p>
+    </section>
+  <% end %>
+<% end %>
