@@ -85,6 +85,32 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     assert_includes @task.validate(with_quote, @input).errors, "alcohol: 언급없음인데 evidence_quote가 있습니다"
   end
 
+  test "값이 미확인인데 mention=있음이면 오류" do
+    output = valid_output.merge("smoking" => field("미확인", "흡연 20년", "있음"))
+    errors = @task.validate(output, @input).errors
+    assert_includes errors, "smoking: mention=있음인데 값이 미확인입니다"
+    assert_includes errors, "smoking: 값이 미확인인데 evidence_quote가 있습니다"
+  end
+
+  test "미확인·빈 값은 근거를 달 수 없다" do
+    quoted = valid_output.merge("alcohol" => field("미확인", "술을 마시지 않는다", "없음"))
+    assert_includes @task.validate(quoted, @input).errors, "alcohol: mention=없음인데 값이 비음주가 아닙니다"
+    source = valid_output.merge("source" => field("언급없음", "기왕증인 퇴행성 변화가 주된 원인이다", "없음"))
+    assert_includes @task.validate(source, @input).errors, "source: 값이 언급없음인데 evidence_quote가 있습니다"
+    empty_list = valid_output.merge("comorbidities" => field([], "고혈압으로 약물치료 중", "있음"))
+    assert_includes @task.validate(empty_list, @input).errors, "comorbidities: mention=있음인데 비어 있습니다"
+    list_none = valid_output.merge("comorbidities" => field([ "고혈압" ], "고혈압으로 약물치료 중", "없음"))
+    assert_includes @task.validate(list_none, @input).errors, "comorbidities: mention=없음인데 값이 있습니다"
+  end
+
+  test "프롬프트·스키마 버전과 일치 규칙 문구" do
+    assert_equal "comorbidity-p2", @task.prompt_version
+    assert_equal "comorbidity-s2", @task.schema_version
+    assert_includes @task.system_prompt, "직접 뒷받침"
+    assert_includes @task.system_prompt, "오래된 건강검진 문진표"
+    assert_equal SolarExtraction::Tasks::Base::DEFAULT_MAX_TOKENS, @task.max_tokens
+  end
+
   test "있음인데 근거가 비면 오류" do
     output = valid_output.merge("smoking" => field("현재", "", "있음"))
     assert_includes @task.validate(output, @input).errors, "smoking: evidence_quote가 비어 있습니다"

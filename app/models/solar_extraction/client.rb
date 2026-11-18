@@ -57,8 +57,9 @@ module SolarExtraction
 
     # messages: [{role:, content:}, ...]. estimated_tokens: 제한기에 예약할 추정 토큰(프롬프트+출력).
     # @return [Response] content는 파싱된 JSON(Hash), usage는 {prompt_tokens:, completion_tokens:, reasoning_tokens:, total_tokens:}
-    def extract(messages:, schema_name:, schema:, estimated_tokens: 0)
-      payload = JSON.generate(request_body(messages, schema_name, schema))
+    # max_tokens: 과제별 출력 상한(없으면 생성자 값)
+    def extract(messages:, schema_name:, schema:, estimated_tokens: 0, max_tokens: nil)
+      payload = JSON.generate(request_body(messages, schema_name, schema, max_tokens))
       last_error = nil
 
       1.upto(@max_attempts) do |attempt|
@@ -95,11 +96,11 @@ module SolarExtraction
 
     private
 
-    def request_body(messages, schema_name, schema)
+    def request_body(messages, schema_name, schema, max_tokens = nil)
       body = {
         model: @model,
         messages: messages,
-        max_tokens: @max_tokens,
+        max_tokens: max_tokens || @max_tokens,
         response_format: {
           type: "json_schema",
           json_schema: { name: schema_name, strict: true, schema: schema }

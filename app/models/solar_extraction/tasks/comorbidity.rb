@@ -5,8 +5,8 @@ module SolarExtraction
     # 기저질환(plan 2.1): comorbidities(다중 enum), smoking, alcohol, 기왕증 출처(source).
     class Comorbidity < Base
       NAME = "comorbidity"
-      PROMPT_VERSION = "comorbidity-p1"
-      SCHEMA_VERSION = "comorbidity-s1"
+      PROMPT_VERSION = "comorbidity-p2"
+      SCHEMA_VERSION = "comorbidity-s2"
 
       COMORBIDITIES = %w[고혈압 당뇨 이상지질 비만 퇴행성 심장질환 뇌혈관 기타].freeze
       SMOKING = %w[현재 과거 비흡연 미확인].freeze
@@ -35,9 +35,16 @@ module SolarExtraction
           #{COMMON_RULES}
           필드:
           - comorbidities: 재해자가 가진 것으로 판정서에 적힌 기저질환·기왕증 범주(#{COMORBIDITIES.join(', ')}). 언급이 없거나 없다고 명시되면 빈 배열.
-          - smoking: 흡연 상태(#{SMOKING.join('/')}). 언급이 없으면 "미확인"(mention=언급없음), 비흡연이라고 적혀 있으면 "비흡연"(mention=없음).
-          - alcohol: 음주 상태(#{ALCOHOL.join('/')}). 언급이 없으면 "미확인"(mention=언급없음), 음주하지 않는다고 적혀 있으면 "비음주"(mention=없음).
+          - smoking: 흡연 상태(#{SMOKING.join('/')}). 현재 흡연 중이거나 흡연량·흡연력이 적혀 있으면 "현재", 끊었다고 적혀 있으면 "과거", 비흡연이라고 적혀 있으면 "비흡연"(mention=없음). 언급이 없으면 "미확인"(mention=언급없음).
+          - alcohol: 음주 상태(#{ALCOHOL.join('/')}). 음주 사실·음주량이 적혀 있으면 "음주", 음주하지 않는다고 적혀 있으면 "비음주"(mention=없음). 언급이 없으면 "미확인"(mention=언급없음).
           - source: 기저질환·기왕증이 어디에 근거해 적혔는지. 의학적 소견·인정 사실에 기록된 사실이면 "사실 기록", 위원회가 판단문에서 기왕증·퇴행성 등을 언급하면 "위원회 판단". 기저질환 언급이 없으면 "언급없음".
+
+        값·mention·근거 일치 규칙(반드시 지킵니다):
+        - 값이 "미확인"(또는 빈 배열, source "언급없음")이면 mention은 "언급없음"이고 evidence_quote는 빈 문자열입니다. 값이 미확인인데 mention을 "있음"으로 하거나 근거를 달지 않습니다.
+        - mention이 "있음"이면 값은 "미확인"이 아니고(빈 배열도 아님) evidence_quote가 있어야 합니다. 흡연량·흡연력 문장이 있으면 smoking은 "미확인"이 아니라 "현재" 또는 "과거"입니다.
+        - evidence_quote는 그 값을 직접 뒷받침하는 문장이어야 합니다. 진단명 머리말(예: "알콜성간질환"), "건강보험 수진내역" 같은 일반 구절, 다른 항목의 문장은 근거가 아닙니다. 직접 뒷받침하는 문장이 없으면 "미확인"/"언급없음"으로 둡니다.
+        - 오래된 건강검진 문진표(재해보다 몇 년 전 시점)의 흡연·음주 응답은 지금의 상태로 읽지 않습니다. 시점이 현재라고 적혀 있지 않으면 "과거" 또는 "미확인"으로 합니다.
+        - 기저질환은 과거력·복용 약물·검진 소견·진료내역 항목을 모두 훑어 중복 없이 나열합니다. 다만 약물 이름만 있고 질환명이 없으면 질환으로 추정하지 않습니다(보수적으로). 질환명이 적혀 있거나 "당뇨약", "혈압약"처럼 질환이 명시된 표현일 때만 해당 범주로 넣습니다. 근거 문장은 질환명이나 약 이름이 든 구절입니다.
         TEXT
       end
 
@@ -75,7 +82,11 @@ module SolarExtraction
         case mention
         when "언급없음" then value == "미확인" ? [] : [ "언급없음인데 값이 미확인이 아닙니다" ]
         when "없음" then value == negative ? [] : [ "mention=없음인데 값이 #{negative}가 아닙니다" ]
-        else value == negative ? [ "mention=있음인데 값이 #{negative}입니다" ] : []
+        else
+          if value == negative then [ "mention=있음인데 값이 #{negative}입니다" ]
+          elsif value == "미확인" then [ "mention=있음인데 값이 미확인입니다" ]
+          else []
+          end
         end
       end
 

@@ -20,6 +20,8 @@ module SolarExtraction
 
       MENTIONS = %w[있음 없음 언급없음].freeze
       QUOTE_MAX = 80
+      DEFAULT_MAX_TOKENS = 1500
+      UNSET_VALUES = [ "미확인", "언급없음" ].freeze
       SECTIONS = {
         "medical_records" => "의학적 소견",
         "recognized_facts" => "인정 사실",
@@ -53,6 +55,9 @@ module SolarExtraction
       end
 
       def schema_name = name
+
+      # 과제별 출력 토큰 상한(응답이 잘리면 finish_reason=length로 실패한다)
+      def max_tokens = DEFAULT_MAX_TOKENS
 
       def self.normalize_text(text)
         text.to_s.unicode_normalize(:nfc).gsub(/[[:space:]]+/, " ").strip
@@ -131,6 +136,9 @@ module SolarExtraction
         end
         value_check.call(field["value"], mention).each { |message| errors << "#{key}: #{message}" }
         quote = check_quote(field["evidence_quote"], mention, key, errors, haystack)
+        if UNSET_VALUES.include?(field["value"]) && quote.present? && mention != "언급없음"
+          errors << "#{key}: 값이 #{field['value']}인데 evidence_quote가 있습니다"
+        end
         { "value" => field["value"], "evidence_quote" => quote, "mention" => mention }
       end
 

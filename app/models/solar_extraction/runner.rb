@@ -191,7 +191,7 @@ module SolarExtraction
 
       reserve = @estimator.reserve_tokens(item[:chars], @task.overhead_chars)
       response = @client_in_use.extract(messages: @task.messages(item[:input_text]), schema_name: @task.schema_name,
-                                        schema: @task.json_schema, estimated_tokens: reserve)
+                                        schema: @task.json_schema, estimated_tokens: reserve, max_tokens: @task.max_tokens)
       validation = @task.validate(response.content, item[:input_text])
       status = validation.errors.empty? ? "ok" : "invalid"
       output = validation.output || response.content

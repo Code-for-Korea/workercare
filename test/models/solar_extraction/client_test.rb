@@ -40,6 +40,14 @@ class SolarExtraction::ClientTest < ActiveSupport::TestCase
     client.extract(messages: [ { role: "user", content: "hi" } ], schema_name: "t", schema: { type: "object" }, estimated_tokens: 50)
   end
 
+  test "max_tokens는 호출별 값이 생성자 값보다 우선한다" do
+    transport = FakeTransport.new([ 200, {}, ok_body ])
+    client = build(transport, max_tokens: 1500)
+    client.extract(messages: [ { role: "user", content: "hi" } ], schema_name: "t", schema: { type: "object" })
+    client.extract(messages: [ { role: "user", content: "hi" } ], schema_name: "t", schema: { type: "object" }, max_tokens: 3000)
+    assert_equal [ 1500, 3000 ], transport.calls.map { |c| c[:body]["max_tokens"] }
+  end
+
   test "요청 형태와 인증 헤더, 응답 파싱" do
     transport = FakeTransport.new([ 200, {}, ok_body(reasoning: 7) ])
     response = extract(build(transport, model: "solar-mini4"))

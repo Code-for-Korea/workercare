@@ -14,7 +14,8 @@ class SolarExtraction::RunnerTest < ActiveSupport::TestCase
       @model = model
     end
 
-    def extract(messages:, schema_name:, schema:, estimated_tokens:)
+    def extract(messages:, schema_name:, schema:, estimated_tokens:, max_tokens: nil)
+      @max_tokens_seen = max_tokens
       text = messages.last[:content]
       @calls << text
       raise SolarExtraction::RetriesExhausted.new(attempts: 3, last_error: "http:429") if @fail_for.any? { |marker| text.include?(marker) }
@@ -29,6 +30,8 @@ class SolarExtraction::RunnerTest < ActiveSupport::TestCase
       SolarExtraction::Client::Response.new(content: content, usage: { prompt_tokens: 100, completion_tokens: 10, reasoning_tokens: 0, total_tokens: 110 },
                                             model: "fake-model-1", finish_reason: "stop", attempts: 1)
     end
+
+    attr_reader :max_tokens_seen
 
     def call_count = @calls.size
   end
@@ -64,6 +67,12 @@ class SolarExtraction::RunnerTest < ActiveSupport::TestCase
     assert_match(/DRY-RUN/, @io.string)
     assert_match(/추정 비용: \$/, @io.string)
     assert_no_match(/CASE\d/, @io.string)
+  end
+
+  test "실행기는 과제의 max_tokens를 클라이언트에 넘긴다" do
+    client = FakeClient.new
+    runner(client: client, apply: true, limit: 1).run
+    assert_equal @task.max_tokens, client.max_tokens_seen
   end
 
   test "dry-run은 API 키 없이도 돌아간다" do
