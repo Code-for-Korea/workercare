@@ -1,6 +1,6 @@
 # Solar LLM 추가 추출 계획
 
-상태: **계획(구현 전)**. 확인일 2026-11-18. 컬럼 이름·기준값은 모두 제안이며 팀이 확정하기 전까지 바뀔 수 있습니다.
+상태: **계획**. 3단계(rake 태스크)는 **구현됨(이 PR)**이고 실행·적재는 아직입니다. 확인일 2026-11-18. 컬럼 이름·기준값은 모두 제안이며 팀이 확정하기 전까지 바뀔 수 있습니다.
 
 ## 1. 배경과 현재 상태
 
@@ -125,7 +125,7 @@
 
 ### 6.1 로컬 시험
 
-1. 정답 200건을 만듭니다. 질환군과 인정/불인정으로 층화 추출하고 사람이 라벨을 답니다.
+1. 정답 200건을 만듭니다. `bin/rails "solar:gold_sample[200]"`은 `disease_category`(NULL은 `(NULL)`) × `result`(승인·불승인 등 4종) 층으로 비례 배분하고, 층마다 최소 3건을 둡니다. 결과는 `storage/exports/solar/gold/gold_sample_200_20261118.csv`입니다. 시드는 기본 `20261118`이고 `SEED`로 바꿉니다. 경로는 `OUT_FILE`로 바꿉니다. 본문은 읽지 않고 LLM도 쓰지 않습니다. 라벨 칸(`comorbidity_*`, `prior_career_*`, `labeler`, `notes`)은 사람이 채웁니다.
 2. 모델(`solar-mini4`, `solar-pro4`, 필요 시 4.5 Preview)·프롬프트·스키마를 비교합니다.
 3. 정확도 기준(제안값, 팀이 확정)을 넘으면 전체 실행으로 갑니다.
 4. 파일럿에서 판정서 평균 토큰을 재고 전체 비용과 소요 시간을 추정합니다.
@@ -134,9 +134,50 @@
 
 ### 6.2 서버 전체 실행
 
-- **스크립트**: 저장소의 rake 태스크(예: `lib/tasks/solar_extract.rake`, 이름 제안). 기본은 dry-run입니다.
-- **이어 받기**: 처리한 `case_no`를 체크포인트 파일에 기록하고 재시작하면 건너뜁니다.
-- **한도 준수**: 분당 요청·토큰 한도를 지킵니다. 429와 타임아웃은 backoff로 재시도하고 실패 건은 별도 파일에 기록합니다.
+- **태스크**: `lib/tasks/solar_extract.rake`의 `solar:extract[과제]`. 과제는 `comorbidity`(기저질환, `comorbidity-p1`·`comorbidity-s1`)와 `prior_career`(과거 근무경력, `prior_career-p1`·`prior_career-s1`)입니다. 기본은 dry-run입니다.
+
+```bash
+# dry-run(기본): 호출 없이 건수·토큰·비용·소요 시간만 추정합니다
+LIMIT=20 bin/rails "solar:extract[comorbidity]"
+
+# 실제 호출(UPSTAGE_API_KEY 필요. 로컬은 .env)
+APPLY=1 CONCURRENCY=4 bin/rails "solar:extract[comorbidity]"
+```
+
+- **환경변수**(코드 기준):
+
+| 변수 | 기본 | 뜻 |
+|---|---|---|
+| `APPLY` | 없음(dry-run) | `1`일 때만 호출합니다. |
+| `LIMIT` | 전체 | 아직 안 한 후보 중 앞 n건만 처리합니다. |
+| `SCOPE` | `all` | `all`, `empty_rows`(추출 컬럼 `job_name`·`main_reasoning`·`work_relevance_eval`이 모두 빈 행), `disease_category=근골격계`, `case_nos=파일경로`(한 줄에 case_no 하나) |
+| `CONCURRENCY` | 1 | 동시 호출 수. 1~8 범위로 맞춥니다. |
+| `MODEL` | `SOLAR_MODEL` → `solar-mini4` | 모델 ID |
+| `RPM` / `TPM` | 100 / 250000 | 로컬 요청 한도 제한기 값(Tier 0 기준). 계정 등급에 맞춰 낮게 줍니다. |
+| `SOLAR_REASONING_EFFORT` | `none` | 요청의 `reasoning_effort`로 보냅니다. 빈 값이면 보내지 않습니다. |
+| `OUT_DIR` | `storage/exports/solar/<과제>/` | 결과 폴더 |
+| `SKIP_FAILED` | 꺼짐 | `1`이면 `failures.jsonl`에 있는 건을 건너뜁니다. |
+| `PROGRESS_EVERY` | 50 | 진행 로그 간격(건) |
+| `TOKENS_PER_CHAR`·`OUT_TOKENS`·`PRICE_IN`·`PRICE_OUT`·`LATENCY` | 0.6·300·0.10·0.40·4.0초 | 추정 전용. `OUT_TOKENS`는 제한기 예약에도 쓰입니다. 가격은 $/100만 토큰입니다. |
+
+- **출력**: `OUT_DIR/results.jsonl`에 건마다 한 줄씩 씁니다. `status`는 `ok`(검증 통과) 또는 `invalid`(검증 실패, `validation_errors`에 사유)입니다. `OUT_DIR/failures.jsonl`에는 재시도를 소진했거나 되돌릴 수 없는 오류 건을 `error_class`와 고정 문구만으로 씁니다. 근거 문장(`evidence_quote`)은 80자 이하이고 번호 형태가 가려진 채 저장됩니다.
+- **이어 받기**: 시작할 때 두 파일을 읽어 `results.jsonl`에 있는 건(`ok`·`invalid`)은 건너뜁니다. `invalid`도 다시 호출하지 않습니다. `failures.jsonl`에만 있는 건은 다시 시도하고, `SKIP_FAILED=1`이면 건너뜁니다. 중단되면 같은 명령을 다시 실행하면 됩니다.
+- **중단 조건**(fail-fast): 아래 중 하나면 새 건을 시작하지 않고 멈춥니다.
+  - 키 없음(`APPLY=1`일 때 rake가 `abort`), HTTP 401·403, 월 청구 한도 초과(`usage_limit_exceeded`)
+  - 연속 20건 실패
+  - `INT`·`TERM` 신호: 진행 중인 건만 마치고 저장합니다.
+  - 그 밖의 오류: 429·5xx·408·타임아웃·네트워크 오류는 지수 백오프로 최대 5회 재시도합니다(429는 응답 헤더의 대기 시각을 따릅니다). 소진되면 `failures.jsonl`에 기록하고 계속합니다. 다른 4xx는 그 건만 실패로 기록합니다.
+- **동시성과 시간 추정**: 요청 한도(TPM)는 요청이 겹칠 때만 병목이 됩니다. `CONCURRENCY=1`이면 요청이 하나씩 끝날 때까지 기다려 분당 약 15건이고, 61,815건은 약 69시간입니다(분당 약 6.8만 토큰, 250K TPM의 27%). 아래는 6.1 가정(요청당 입력 4,000 + 출력 500 = 4,500토큰, 지연 4초)으로 한 계산입니다. 추정이며 파일럿으로 교체합니다.
+
+| CONCURRENCY | 지연 기준 처리량 | 실제 상한 | 전체 시간 |
+|---|---|---|---|
+| 1 | 15건/분 | 15건/분 | 약 69시간 |
+| 4 | 60건/분 | 약 55건/분(TPM 250K ÷ 4,500) | 약 19시간 |
+| 8 | 120건/분 | 약 55건/분(TPM이 먼저 막음) | 약 19시간 |
+
+  - Tier 0(250K TPM)에서는 동시성 4 이상을 올려도 이득이 없습니다. 4 정도가 TPM 한도에 닿는 지점입니다.
+  - Tier 1(500K TPM)이면 동시성 8에서 약 9시간, Legacy Tier(50K TPM)면 약 93시간입니다.
+  - 제한기는 호출 전에 추정 토큰(입력 추정 + `OUT_TOKENS`)을 예약하므로 실제 처리량은 다를 수 있습니다.- **한도 준수**: 분당 요청·토큰 한도를 지킵니다. 429와 타임아웃은 backoff로 재시도하고 실패 건은 별도 파일에 기록합니다.
 - **진행 로그**: 건수와 추정 남은 시간만 남기고 판정서 원문은 로그에 남기지 않습니다.
 - **출력**: DB에 바로 쓰지 않고 `storage/exports/`(볼륨에 남고 gitignore) 아래 JSONL/CSV로 씁니다. 검토 뒤 별도 import 태스크·PR로 적재하고, 정규화·FTS rebuild 순서는 `CONTRIBUTING.md` 5.6을 따르며 먼저 `bin/rails db:backup`을 합니다.
 - **실행 방법** `[확인 필요]`: `bin/kamal app exec --roles=web --reuse`는 SSH 세션이 끊기면 멈출 수 있습니다. 서버에서 `docker exec -d`(또는 tmux)로 분리 실행하는 방안을 시험해 확인합니다.
@@ -146,9 +187,12 @@
 
 ### 6.3 API 키
 
-- 로컬은 `.env`의 `UPSTAGE_API_KEY`를 씁니다(값을 문서·커밋에 적지 않음).
-- 서버는 Kamal secrets입니다. `.kamal/secrets`에 참조 한 줄은 사용자가 직접 추가하고, `config/deploy.yml`의 `env.secret` 추가는 구현 PR에서 합니다.
-- 키가 없으면 태스크는 실행을 거부합니다.
+- 로컬은 `.env`의 `UPSTAGE_API_KEY`를 씁니다. `dotenv`는 development·test 그룹에만 있습니다. `.env.example`에 빈 항목이 있으며, 값은 문서·커밋에 적지 않습니다.
+- 서버(Kamal secrets)는 **아직 적용하지 않았습니다**(이 PR은 `config/deploy.yml`을 바꾸지 않습니다). 아래 두 가지를 **함께** 합니다.
+  1. 사용자가 `.kamal/secrets`에 `UPSTAGE_API_KEY=$UPSTAGE_API_KEY` 참조 한 줄을 직접 추가합니다.
+  2. `config/deploy.yml`의 `env.secret`에 `UPSTAGE_API_KEY`를 추가합니다.
+  한쪽만 하면 `kamal deploy`가 누락된 secret 때문에 실패합니다.
+- 키가 없으면 `APPLY=1` 실행은 시작하지 않고 멈춥니다(dry-run은 키가 필요 없습니다).
 
 ## 7. 단계·마일스톤
 
@@ -157,7 +201,7 @@
 | 0 | 약관·데이터 이용 조건 읽기, 팀 합의 | 합의 기록 |
 | 1 | 코드북 초안, 정답 200건 라벨링(2.1 항목의 라벨 포함, 건강검진·화학물질은 해당 건이 적으니 따로 층화) | 라벨 파일(로컬) |
 | 2 | 로컬 모델·프롬프트·스키마 비교, 평균 토큰·비용 추정. 2.1 항목은 기저질환·과거 근무경력부터 시험하고 화학물질 스키마는 재설계 | 비교 결과 |
-| 3 | rake 태스크 구현 PR(dry-run, 체크포인트, 재시도) | PR |
+| 3 | rake 태스크 구현 PR(dry-run, 이어 받기, 재시도) | PR. **구현됨(이 PR)** |
 | 4 | 소규모 서버 시험(수백 건) | 출력 JSONL 검토 |
 | 5 | 서버 전체 실행(과제 C → B → A 순 제안) | `storage/exports/` 결과 |
 | 6 | 검토 후 import 태스크 PR, 백업·FTS rebuild | 적재 |
