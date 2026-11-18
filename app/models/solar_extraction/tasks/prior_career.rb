@@ -116,7 +116,7 @@ module SolarExtraction
           errors << "#{path}: task가 #{TASK_MAX}자를 넘습니다(#{task.length}자)"
         end
         quote = check_quote(career["evidence_quote"], "있음", path, errors, haystack)
-        career.merge("evidence_quote" => quote || career["evidence_quote"])
+        career.merge("evidence_quote" => quote)
       end
 
       def check_ym(value, path, errors)

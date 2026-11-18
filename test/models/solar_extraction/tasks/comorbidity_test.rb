@@ -42,6 +42,18 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     assert_empty @task.validate(output, @input).errors
   end
 
+  test "검증에 실패한 근거 문장도 번호 형태는 가려지고 80자로 잘려 저장된다" do
+    quote = "모델이 지어낸 문장 010-1234-5678 주민번호 800101-1234567 " + ("가" * 100)
+    output = valid_output.merge("smoking" => field("현재", quote, "있음"))
+    result = @task.validate(output, @input)
+    stored = result.output["smoking"]["evidence_quote"]
+
+    assert_includes result.errors, "smoking: evidence_quote가 입력에 없습니다"
+    assert_not_includes stored, "010-1234-5678"
+    assert_not_includes stored, "1234567"
+    assert_operator stored.length, :<=, SolarExtraction::Tasks::Base::QUOTE_MAX
+  end
+
   test "입력에 없는 근거 문장은 invalid 사유로 남는다" do
     output = valid_output.merge("smoking" => field("현재", "하루 한 갑씩 피웠다", "있음"))
     result = @task.validate(output, @input)

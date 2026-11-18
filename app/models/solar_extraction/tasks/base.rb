@@ -11,6 +11,7 @@ module SolarExtraction
     # - enum·mention 값, 길이, 필수 조합을 확인한다.
     # - evidence_quote는 입력 텍스트의 부분 문자열이어야 한다. 비교는 유니코드 NFC 정규화 후 연속 공백(개행 포함)을
     #   한 칸으로 줄인 문자열끼리 한다(모델이 줄바꿈·공백을 바꿔 옮기는 것을 허용). 그 밖의 차이(말줄임표, 요약)는 틀린 것으로 본다.
+    # - 검증에 실패한 근거 문장도 PIIMasking을 거치고 QUOTE_MAX자로 잘라 남긴다(모델 출력이 원문 그대로 저장되지 않게).
     # - 통과한 근거 문장에는 PIIMasking(번호 형태만 가림)을 검증 뒤에 적용해 저장한다. 검증 전에 가리면 원문과 달라져
     #   부분 문자열 검사가 깨지고, 검증 뒤에 가리면 결과 파일에 주민번호·전화번호·이메일·계좌 형태가 남지 않는다.
     #   이름·주소는 걸러지지 않으므로 결과 파일은 판정서와 같은 취급(저장소 밖, 외부 공유 금지)이다.
@@ -91,7 +92,8 @@ module SolarExtraction
 
       def mask(quote) = PIIMasking.mask(quote, log: false)
 
-      # evidence_quote 공통 검사. 통과하면 가린 문장을, 실패하면 nil을 돌려준다.
+      # evidence_quote 공통 검사. 문자열이면 통과·실패와 상관없이 PIIMasking을 거친 뒤 QUOTE_MAX자로 자른 문장을 돌려준다
+      # (검증에 실패한 모델 출력이 원문 그대로 저장되지 않게). 문자열이 아니면 nil.
       def check_quote(quote, mention, path, errors, haystack, required: nil)
         required = mention != "언급없음" if required.nil?
         unless quote.is_a?(String)
@@ -103,16 +105,14 @@ module SolarExtraction
         end
         if quote.strip.empty?
           errors << "#{path}: evidence_quote가 비어 있습니다" if required
-          return quote
+          return safe_quote(quote)
         end
         errors << "#{path}: 언급없음인데 evidence_quote가 있습니다" if mention == "언급없음"
-        if haystack.include?(normalize(quote))
-          mask(quote)
-        else
-          errors << "#{path}: evidence_quote가 입력에 없습니다"
-          nil
-        end
+        errors << "#{path}: evidence_quote가 입력에 없습니다" unless haystack.include?(normalize(quote))
+        safe_quote(quote)
       end
+
+      def safe_quote(quote) = mask(quote)[0, QUOTE_MAX]
 
       # {value, evidence_quote, mention} 필드를 검사한다. value_check는 (value, mention) -> 오류 문자열 배열.
       def check_field(output, key, errors, haystack, &value_check)
@@ -131,7 +131,7 @@ module SolarExtraction
         end
         value_check.call(field["value"], mention).each { |message| errors << "#{key}: #{message}" }
         quote = check_quote(field["evidence_quote"], mention, key, errors, haystack)
-        { "value" => field["value"], "evidence_quote" => quote || field["evidence_quote"], "mention" => mention }
+        { "value" => field["value"], "evidence_quote" => quote, "mention" => mention }
       end
 
       def check_keys(output, keys, errors)
