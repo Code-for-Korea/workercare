@@ -35,7 +35,11 @@ namespace :solar do
       progress_every: Integer(ENV["PROGRESS_EVERY"].presence || 50),
       price_in_per_m: options[:price_in_per_m], price_out_per_m: options[:price_out_per_m]
     )
-    runner.run
+    begin
+      runner.run
+    rescue SolarExtraction::Runner::Locked => e
+      abort "[solar] #{e.message}"
+    end
   end
 
   desc "정답(gold) 표본 CSV를 만든다. disease_category × result 층화, SEED(기본 20261118). 본문·LLM 없음"

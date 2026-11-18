@@ -191,6 +191,54 @@ class SolarExtraction::RunnerTest < ActiveSupport::TestCase
     assert_operator failures.size, :<, 6
   end
 
+  test "저장이 실패해 워커가 죽어도 실행은 끝나고 오류를 올리며 나머지는 쓰지 않는다" do
+    runner = runner(client: FakeClient.new, apply: true, concurrency: 2)
+    store = runner.instance_variable_get(:@store)
+    store.define_singleton_method(:write_result) { |_| raise IOError, "disk full" }
+
+    error = Timeout.timeout(10) { assert_raises(IOError) { runner.run } }
+    assert_equal "disk full", error.message
+    assert_not File.exist?(File.join(@dir, "results.jsonl"))
+  end
+
+  test "다른 실행이 OUT_DIR 락을 잡고 있으면 APPLY는 시작하지 않는다" do
+    File.open(File.join(@dir, ".lock"), File::RDWR | File::CREAT) do |held|
+      assert held.flock(File::LOCK_EX | File::LOCK_NB)
+      client = FakeClient.new
+      error = assert_raises(SolarExtraction::Runner::Locked) { runner(client: client, apply: true).run }
+
+      assert_match(/다른 실행이 진행 중/, error.message)
+      assert_equal 0, client.call_count
+      assert_not File.exist?(File.join(@dir, "results.jsonl"))
+      assert_nothing_raised { runner(client: client).run } # dry-run은 락을 보지 않는다
+    end
+    runner(client: FakeClient.new, apply: true).run # 풀리면 돌 수 있다
+    assert_equal 6, results.size
+  end
+
+  test "TERM을 받으면 진행 중인 건만 마치고 나머지는 쓰지 않으며 이어 받을 수 있다" do
+    client = FakeClient.new
+    first_call = true
+    original = client.method(:extract)
+    client.define_singleton_method(:extract) do |**args|
+      if first_call
+        first_call = false
+        Process.kill("TERM", Process.pid)
+        sleep 0.3 # 핸들러가 중단 플래그를 세울 시간
+      end
+      original.call(**args)
+    end
+    summary = SolarExtraction::Runner.new(task: @task, out_dir: @dir, io: @io, progress_every: 2, apply: true, client: client).run
+
+    assert_nil summary[:aborted]
+    assert_equal 1, results.size
+    assert_equal 1, client.call_count
+
+    resume = FakeClient.new
+    runner(client: resume, apply: true).run
+    assert_equal 6, results.map { |r| r["case_no"] }.uniq.size
+  end
+
   test "알 수 없는 SCOPE는 거부한다" do
     assert_raises(ArgumentError) { runner(scope: "nope").run }
   end

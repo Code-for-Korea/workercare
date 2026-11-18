@@ -5,7 +5,7 @@ require "json"
 
 module SolarExtraction
   # OUT_DIR 아래 results.jsonl / failures.jsonl을 이어 쓰는 저장소. 한 줄마다 flush하고 스레드에서 안전하다.
-  # 이어 받기: 시작할 때 두 파일을 읽어 이미 끝낸 case_no를 알려 준다(깨진 줄은 건너뛴다).
+  # 이어 받기: 시작할 때 두 파일을 읽어 이미 끝낸 case_no를 알려 준다(깨진 줄과 객체가 아닌 줄은 건너뛴다).
   class ResultStore
     RESULTS = "results.jsonl"
     FAILURES = "failures.jsonl"
@@ -58,7 +58,8 @@ module SolarExtraction
       return Set.new unless path.exist?
 
       path.each_line.each_with_object(Set.new) do |line, set|
-        case_no = JSON.parse(line)["case_no"]
+        parsed = JSON.parse(line)
+        case_no = parsed["case_no"] if parsed.is_a?(Hash)
         set << case_no if case_no
       rescue JSON::ParserError
         next

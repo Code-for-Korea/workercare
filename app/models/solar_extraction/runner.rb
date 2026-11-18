@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "json"
 require "time"
 
@@ -10,6 +11,8 @@ module SolarExtraction
   # - 결과는 OUT_DIR의 results.jsonl(ok/invalid), failures.jsonl(재시도 소진 등)에 한 줄씩 이어 쓴다.
   # - 이어 받기: 두 파일을 읽어 끝낸 case_no는 건너뛴다. 실패 건은 다시 시도하되 skip_failed면 건너뛴다.
   # - 로그와 failures.jsonl에는 판정서 원문을 넣지 않는다(건수·토큰·비용·ETA, 오류 클래스와 고정 문구만).
+  # - APPLY는 OUT_DIR/.lock에 flock을 잡아 같은 폴더의 동시 실행을 막는다(dry-run은 잡지 않는다).
+  # - 워커가 예기치 않게 죽으면(예: 저장 실패) 중단하고 그 오류를 올린다. 처리하지 못한 건은 쓰지 않아 이어 받을 수 있다.
   # - INT/TERM을 받으면 새 건을 시작하지 않고 진행 중인 건만 마친 뒤 flush한다.
   class Runner
     SCOPE_EMPTY_ROWS = "empty_rows"
@@ -18,6 +21,11 @@ module SolarExtraction
     MAX_CONCURRENCY = 8
     LENGTH_SQL = "length(coalesce(medical_records,'')) + length(coalesce(recognized_facts,'')) + length(coalesce(committee_decision,''))"
     EMPTY_ROWS_SQL = "coalesce(job_name,'') = '' AND coalesce(main_reasoning,'') = '' AND coalesce(work_relevance_eval,'') = ''"
+
+    LOCK_FILE = ".lock"
+
+    # 같은 OUT_DIR에서 다른 APPLY 실행이 돌고 있다.
+    class Locked < SolarExtraction::Error; end
 
     Stats = Struct.new(:ok, :invalid, :failed, :prompt_tokens, :completion_tokens, :reasoning_tokens)
 
@@ -48,14 +56,30 @@ module SolarExtraction
       @mutex = Mutex.new
       @consecutive_failures = 0
       @stop = false
+      @worker_error = nil
     end
 
     def run
-      candidates, skipped = pending_cases
-      @apply ? apply(candidates, skipped) : dry_run(candidates, skipped)
+      return dry_run(*pending_cases) unless @apply
+
+      # 락을 먼저 잡고 끝난 건을 읽는다(읽은 뒤에 잡으면 그 사이 다른 실행이 쓴 건을 또 처리한다)
+      with_lock { apply(*pending_cases) }
     end
 
     private
+
+    # OUT_DIR/.lock에 배타적 비차단 flock을 APPLY 동안 잡는다. 프로세스가 죽으면 OS가 풀어 준다.
+    def with_lock
+      FileUtils.mkdir_p(@store.dir)
+      lock = File.open(@store.dir.join(LOCK_FILE), File::RDWR | File::CREAT, 0o600)
+      unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+        raise Locked, "같은 출력 폴더(#{@store.dir})에서 다른 실행이 진행 중입니다. 끝난 뒤에 다시 실행하세요"
+      end
+
+      yield
+    ensure
+      lock&.close # 닫으면 락도 풀린다
+    end
 
     # ---- 후보 선정 ----
 
@@ -128,6 +152,12 @@ module SolarExtraction
           while (item = queue.pop)
             process(item) unless stopping?
           end
+        rescue StandardError => e
+          # 저장 실패 등으로 워커가 죽으면 생산자가 가득 찬 큐에서 영영 막히지 않도록 멈추고 닫는다.
+          # 처리하지 못한 건은 쓰지 않았으므로 다시 실행하면 이어 받는다.
+          @mutex.synchronize { @worker_error ||= e }
+          abort!("워커 오류(#{e.class.name})로 중단합니다")
+          queue.close
         end
       end
       candidates.each_slice(FETCH_BATCH) do |slice|
@@ -139,12 +169,17 @@ module SolarExtraction
           break if stopping?
 
           record = records[case_no] or next
-          queue << { case_no: case_no, input_text: @task.build_input(record), chars: chars[case_no] }
+          begin
+            queue << { case_no: case_no, input_text: @task.build_input(record), chars: chars[case_no] }
+          rescue ClosedQueueError
+            break # 워커가 죽어서 닫았다
+          end
         end
       end
     ensure
       queue&.close
       workers&.each(&:join)
+      raise @worker_error if @worker_error
     end
 
     def process(item)
