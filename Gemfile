@@ -53,6 +53,9 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
   gem "i18n-tasks"
+
+  # 로컬 .env 로드(UPSTAGE_API_KEY 등). 운영은 Kamal secrets를 쓴다
+  gem "dotenv"
 end
 
 group :development do
