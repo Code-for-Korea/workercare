@@ -4,7 +4,7 @@
 
 ## 1. 배경과 현재 상태
 
-판정서 61,815건에서 LLM으로 추출한 컬럼은 21개입니다. 기존 추출 스키마와 프롬프트는 `wip/cerebras_prompts.rb`에 있습니다(로컬, 저장소에 없음). 개발 DB(`storage/development.sqlite3`)에서 채움률(NULL·빈 문자열이 아닌 행 비율)을 직접 확인했고 제시된 수치와 같았습니다.
+판정서 61,815건에서 LLM으로 추출한 컬럼은 21개입니다. 기존 추출 스키마와 프롬프트는 `wip/cerebras_prompts.rb`에 있습니다(로컬, 저장소에 없음). 개발 DB(`storage/development.sqlite3`)에서 채움률(NULL도 빈 문자열(공백만 있는 값 포함)도 아닌 행 비율)을 직접 확인했고 제시된 수치와 같았습니다. 숫자 컬럼(`weekly_work_hours`·`max_item_weight`·`daily_total_weight`)에는 빈 문자열이 없어 NULL만 셉니다.
 
 | 컬럼 | 채움률 | 비고 |
 |---|---|---|
@@ -14,7 +14,7 @@
 | `max_item_weight` | 51.4% | |
 | `daily_total_weight` | 19.5% | |
 
-- 추출이 전혀 없는 행은 약 6,800건(약 11%)입니다. `job_name`·`main_reasoning`·`work_relevance_eval`이 모두 비면 6,755건, 여기에 `weekly_work_hours`·`burden_body_part`까지 모두 비면 6,829건입니다.
+- 추출이 전혀 없는 행은 6,829건(약 11%)입니다. `job_name`·`main_reasoning`·`work_relevance_eval`이 모두 NULL 또는 빈 문자열인 행이며, 이 행들은 `weekly_work_hours`·`burden_body_part`도 모두 비어 있습니다.
 - 노출 여부 Y/N 플래그는 이전 시험에서 거의 채워지지 않았습니다.
 - 없는 것: 불인정 사유(닫힌 코드북), 질환군별 변수, 기왕증, 특별진찰·역학조사.
 - 인정 결과 분포(`result`): approved 30,357 / rejected 23,602 / partially_approved 6,826 / revised_approved 1,030.
@@ -37,7 +37,7 @@
 |---|---|
 | A | 불인정 사유 분류. 미리 계산한 통계를 화면·`/about`에 보여 줍니다. 방문자 요청마다 LLM을 호출하지 않습니다. |
 | B | 질환군별 보충 추출. `disease_category`별 작은 JSON 스키마를 두고 structured outputs로 enum을 고정합니다(자유 문자열은 범주가 폭증합니다). |
-| C | 빈 행 약 6,800건 재추출. 기존 스키마를 쓰고 모델만 바꿉니다. |
+| C | 빈 행 6,829건 재추출. 기존 스키마를 쓰고 모델만 바꿉니다. |
 | D | 기존 추출 품질 점검. 정답 200건과 비교하고, 결과가 뒤집힌 건과 `work_relevance_eval`↔`result` 모순을 표시합니다. |
 | E | `burden_body_part`·`job_name` 정규화 후보 제안. 사람이 승인합니다(AGENTS.md 함정 4의 후속). |
 
