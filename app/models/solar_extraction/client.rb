@@ -12,6 +12,7 @@ module SolarExtraction
   #   추론 토큰은 completion 토큰에 포함된다.
   # - 429·5xx·타임아웃은 지수 백오프+지터로 재시도한다. 429는 X-Upstage-RateLimit-Retry-After-* (Unix 초) 헤더를 따른다.
   #   429 중 usage_limit_exceeded(월 청구 한도)는 재시도해도 소용없으니 바로 올린다. 그 밖의 4xx도 바로 올린다.
+  #   헤더 대기는 max_delay로 자르지 않고 그대로 따른다. max_header_wait(기본 900초)를 넘으면 일찍 올리지 않고 RetriesExhausted로 끝낸다.
   # - 로그를 남기지 않는다. 오류 메시지에도 요청·응답 본문을 넣지 않는다.
   class Client
     ENDPOINT = URI("https://api.upstage.ai/v1/chat/completions")
@@ -28,7 +29,7 @@ module SolarExtraction
 
     # transport: ->(uri, headers, body) { [status, headers, body_string] }. 기본은 Net::HTTP.
     def initialize(api_key: ENV["UPSTAGE_API_KEY"], model: nil, transport: nil, limiter: nil,
-                   max_attempts: 5, base_delay: 2.0, max_delay: 120.0, max_tokens: 1500, temperature: 0,
+                   max_attempts: 5, base_delay: 2.0, max_delay: 120.0, max_header_wait: 900.0, max_tokens: 1500, temperature: 0,
                    reasoning_effort: ENV.fetch("SOLAR_REASONING_EFFORT", "none"),
                    open_timeout: 10, read_timeout: 180,
                    sleeper: ->(seconds) { sleep(seconds) }, random: Random.new, wall_clock: -> { Time.now.to_f })
@@ -41,6 +42,7 @@ module SolarExtraction
       @max_attempts = [ max_attempts.to_i, 1 ].max
       @base_delay = base_delay
       @max_delay = max_delay
+      @max_header_wait = max_header_wait
       @max_tokens = max_tokens
       @temperature = temperature
       @reasoning_effort = reasoning_effort.presence
@@ -79,7 +81,13 @@ module SolarExtraction
         raise ClientError.new(status: status, code: code) unless retryable?(status, code)
 
         last_error = "http:#{status}"
-        pause(retry_delay(status, headers, attempt)) if attempt < @max_attempts
+        if attempt < @max_attempts
+          delay = retry_delay(status, headers, attempt)
+          # 헤더가 허용하는 시각 전에 재시도하면 또 429라 일찍 끝내는 편이 낫다
+          raise RetriesExhausted.new(attempts: attempt, last_error: "http:#{status}:retry_after_too_long") if delay > @max_header_wait
+
+          pause(delay)
+        end
       end
 
       raise RetriesExhausted.new(attempts: @max_attempts, last_error: last_error)
@@ -118,7 +126,8 @@ module SolarExtraction
       nil
     end
 
-    # 헤더가 있으면 그 시각(Unix 초)까지, 없으면 지수 백오프. 둘 중 큰 값에 지터를 얹는다.
+    # 헤더가 있으면 그 시각(Unix 초)까지, 없으면 지수 백오프(max_delay 상한). 둘 중 큰 값을 쓴다.
+    # 헤더 대기는 max_delay로 자르지 않는다(허용 전에 다시 보내면 안 된다). 비정상적으로 길면(max_header_wait 초과) 호출부가 포기한다.
     def retry_delay(status, headers, attempt)
       from_header = status == 429 ? header_wait(headers) : 0
       [ from_header, backoff(attempt) ].max
@@ -130,7 +139,7 @@ module SolarExtraction
         value = normalized[name]
         value.to_f - @wall_clock.call if value.present?
       end
-      [ waits.max.to_f, 0 ].max.clamp(0, @max_delay)
+      [ waits.max.to_f, 0 ].max
     end
 
     # 절반~전부 사이의 지터를 준 지수 백오프

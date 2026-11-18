@@ -84,6 +84,25 @@ class SolarExtraction::ClientTest < ActiveSupport::TestCase
     assert_in_delta 30.0, @sleeps.first, 0.001 # 헤더(1030) - 현재(1000)가 백오프(1~2초)보다 크다
   end
 
+  test "Retry-After 헤더 대기는 max_delay(120초)로 자르지 않고 그대로 기다린다" do
+    transport = FakeTransport.new(
+      [ 429, { "X-Upstage-RateLimit-Retry-After-Requests" => "1600" }, error_body("too_many_requests") ],
+      [ 200, {}, ok_body ]
+    )
+    extract(build(transport))
+
+    assert_equal [ 600.0 ], @sleeps # 헤더(1600) - 현재(1000). max_delay 120초보다 길다
+  end
+
+  test "헤더 대기가 상한(max_header_wait)을 넘으면 일찍 재시도하지 않고 RetriesExhausted" do
+    transport = FakeTransport.new([ 429, { "X-Upstage-RateLimit-Retry-After-Requests" => "6000" }, error_body("too_many_requests") ], [ 200, {}, ok_body ])
+    error = assert_raises(SolarExtraction::RetriesExhausted) { extract(build(transport)) }
+
+    assert_equal 1, transport.calls.size
+    assert_empty @sleeps
+    assert_match(/retry_after_too_long/, error.last_error)
+  end
+
   test "5xx와 타임아웃도 재시도하고 소진하면 RetriesExhausted" do
     transport = FakeTransport.new([ 503, {}, "" ], Net::ReadTimeout)
     error = assert_raises(SolarExtraction::RetriesExhausted) { extract(build(transport, max_attempts: 3)) }
