@@ -7,12 +7,34 @@ module SolarExtraction
       NAME = "comorbidity"
       PROMPT_VERSION = "comorbidity-p2"
       SCHEMA_VERSION = "comorbidity-s2"
+      VALIDATOR_VERSION = "comorbidity-v3"
 
       COMORBIDITIES = %w[고혈압 당뇨 이상지질 비만 퇴행성 심장질환 뇌혈관 기타].freeze
       SMOKING = %w[현재 과거 비흡연 미확인].freeze
       ALCOHOL = %w[음주 비음주 미확인].freeze
       SOURCE = %w[사실\ 기록 위원회\ 판단 언급없음].freeze
       KEYS = %w[comorbidities smoking alcohol source].freeze
+
+      # 근거 문장-값 키워드 검증(v3). 근거 문장에 값과 관련된 키워드가 하나도 없으면 invalid.
+      # 목록은 일부러 보수적이다(진짜 근거를 막는 것보다 일부 엉뚱한 근거를 놓치는 쪽이 낫다). 영문은 대소문자를 가리지 않는다.
+      # comorbidities는 목록 전체에 근거 문장이 하나뿐이라 값에 든 범주 중 하나라도 키워드가 있으면 통과한다("기타"는 아래 일반 구절 검사만).
+      COMORBIDITY_KEYWORDS = {
+        "고혈압" => [ /혈압/, /(?<![A-Za-z])HTN(?![A-Za-z])/i ],
+        "당뇨" => [ /당뇨/, /혈당/, /인슐린/, /(?<![A-Za-z])DM(?![A-Za-z])/i, /HbA1c/i, /당화혈색소/ ],
+        "이상지질" => [ /고지혈/, /이상지질/, /콜레스테롤/, /중성지방/, /(?<![A-Za-z])LDL/i ],
+        "비만" => [ /비만/, /(?<![A-Za-z])BMI(?![A-Za-z])/i, /체질량/ ],
+        "퇴행성" => [ /퇴행/, /퇴변/, /골극/, /협착/, /골관절염/, /degenerat/i, /osteophyte/i, /sclerosis/i, /spondylo/i, /osteoarthr/i, /arthrosis/i ],
+        "심장질환" => [ /심근/, /협심/, /부정맥/, /심부전/, /관상/, /심방세동/ ],
+        "뇌혈관" => [ /뇌경색/, /뇌출혈/, /뇌내출혈/, /뇌졸중/, /뇌혈관/, /지주막하/ ]
+      }.freeze
+      SMOKING_KEYWORDS = [ /흡연/, /담배/, /금연/, /끽연/, /연초/, /피우|피웠/, /개비/, /(?:\d|반|한)\s*갑(?!상)/, /pack/i ].freeze
+      # 알콜성·알코올성 + 질환명("알콜성간질환", "알코올성 지방간")은 진단명이지 음주 사실이 아니므로 키워드 검사 전에 지운다.
+      ALCOHOL_DIAGNOSIS = /알(?:콜|코올)성[가-힣]*/
+      # 술은 "수술·기술·시술"에 들어 있어 앞에 한글이 없을 때만 센다.
+      ALCOHOL_KEYWORDS = [ /음주/, /(?<![가-힣])술/, /주량/, /소주/, /맥주/, /막걸리/, /양주/, /폭음|과음/, /금주/, /알코올|알콜/ ].freeze
+      # 이것만 남으면(지운 뒤 한글·숫자가 2자 미만) 일반 머리말이라 근거가 아니다. 공백은 무시하고 비교한다.
+      GENERIC_PHRASES = %w[건강보험공단수진내역 건강보험수진내역 수진내역 진료내역 기타및상세불명의 상세불명의 상세불명 과거력 병력 진단명 상병명 상병].freeze
+      GENERIC_MIN_CHARS = 2
 
       def json_schema
         {
@@ -60,10 +82,49 @@ module SolarExtraction
         cleaned["smoking"] = check_field(output, "smoking", errors, haystack) { |value, mention| check_state(value, mention, SMOKING, "비흡연") }
         cleaned["alcohol"] = check_field(output, "alcohol", errors, haystack) { |value, mention| check_state(value, mention, ALCOHOL, "비음주") }
         cleaned["source"] = check_field(output, "source", errors, haystack) { |value, mention| check_source(value, mention) }
+        check_evidence_support(output, errors)
         Validation.new(errors, cleaned.compact)
       end
 
       private
+
+      # 값을 뒷받침하는 키워드가 근거 문장에 있는지 확인한다. 이미 다른 검사로 막힌 경우(값이 미확인·언급없음, 근거 비어 있음, 객체 아님)는 건너뛴다.
+      def check_evidence_support(output, errors)
+        KEYS.each do |key|
+          field = output[key]
+          next unless field.is_a?(Hash) && field["mention"] != "언급없음" && field["evidence_quote"].is_a?(String)
+
+          quote = normalize(field["evidence_quote"])
+          next if quote.empty? || UNSET_VALUES.include?(field["value"])
+
+          if generic_only?(quote)
+            errors << "#{key}: evidence_quote가 일반 머리말뿐이라 값의 근거가 아닙니다"
+          elsif !supported?(key, field["value"], quote)
+            errors << "#{key}: evidence_quote에 값(#{Array(field['value']).join(', ')})의 키워드가 없습니다"
+          end
+        end
+      end
+
+      def generic_only?(quote)
+        rest = quote.gsub(/[[:space:]]/, "")
+        GENERIC_PHRASES.each { |phrase| rest = rest.gsub(phrase, "") }
+        rest.gsub(/[^가-힣A-Za-z0-9]/, "").length < GENERIC_MIN_CHARS
+      end
+
+      def supported?(key, value, quote)
+        case key
+        when "comorbidities"
+          categories = Array(value) & COMORBIDITIES
+          return true if categories.empty? || categories.include?("기타")
+
+          categories.any? { |category| COMORBIDITY_KEYWORDS.fetch(category).any? { |pattern| pattern.match?(quote) } }
+        when "smoking" then SMOKING_KEYWORDS.any? { |pattern| pattern.match?(quote) }
+        when "alcohol"
+          stripped = quote.gsub(ALCOHOL_DIAGNOSIS, " ")
+          ALCOHOL_KEYWORDS.any? { |pattern| pattern.match?(stripped) }
+        else true # source는 일반 머리말 검사만(근거 문장의 종류를 키워드로 가를 수 없다)
+        end
+      end
 
       def check_list(value, mention)
         return [ "배열이 아닙니다" ] unless value.is_a?(Array)

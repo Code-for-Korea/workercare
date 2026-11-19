@@ -111,6 +111,70 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     assert_equal SolarExtraction::Tasks::Base::DEFAULT_MAX_TOKENS, @task.max_tokens
   end
 
+  def support_input(*lines)
+    @task.build_input("medical_records" => lines.join("\n"), "recognized_facts" => nil, "committee_decision" => nil)
+  end
+
+  def blank_output
+    { "comorbidities" => field([], "", "언급없음"), "smoking" => field("미확인", "", "언급없음"),
+      "alcohol" => field("미확인", "", "언급없음"), "source" => field("언급없음", "", "언급없음") }
+  end
+
+  test "근거 문장에 값의 키워드가 없으면 오류, 있으면 통과" do
+    input = support_input("고혈압 약 복용 중", "흡연 1일 0.5갑", "음주력: 소주 1병", "허리 염좌로 치료")
+    ok = blank_output.merge("comorbidities" => field([ "고혈압" ], "고혈압 약 복용 중", "있음"),
+                            "smoking" => field("현재", "흡연 1일 0.5갑", "있음"),
+                            "alcohol" => field("음주", "음주력: 소주 1병", "있음"))
+    assert_empty @task.validate(ok.merge("source" => field("사실 기록", "고혈압 약 복용 중", "있음")), input).errors
+
+    bad = ok.merge("comorbidities" => field([ "당뇨" ], "고혈압 약 복용 중", "있음"),
+                   "smoking" => field("현재", "허리 염좌로 치료", "있음"),
+                   "alcohol" => field("음주", "고혈압 약 복용 중", "있음"))
+    errors = @task.validate(bad, input).errors
+    assert_includes errors, "comorbidities: evidence_quote에 값(당뇨)의 키워드가 없습니다"
+    assert_includes errors, "smoking: evidence_quote에 값(현재)의 키워드가 없습니다"
+    assert_includes errors, "alcohol: evidence_quote에 값(음주)의 키워드가 없습니다"
+  end
+
+  test "기저질환은 값에 든 범주 중 하나라도 키워드가 있으면 통과하고 기타는 일반 구절 검사만 한다" do
+    input = support_input("혈압 150/110, 혈당 99, 총콜레스테롤 258", "경추 추간판탈출증 진단")
+    multi = blank_output.merge("comorbidities" => field([ "고혈압", "당뇨", "이상지질" ], "혈압 150/110, 혈당 99, 총콜레스테롤 258", "있음"))
+    assert_empty @task.validate(multi, input).errors
+    other = blank_output.merge("comorbidities" => field([ "기타" ], "경추 추간판탈출증 진단", "있음"))
+    assert_empty @task.validate(other, input).errors
+    wrong = blank_output.merge("comorbidities" => field([ "뇌혈관", "비만" ], "경추 추간판탈출증 진단", "있음"))
+    assert(@task.validate(wrong, input).errors.any? { |e| e.start_with?("comorbidities: evidence_quote에 값(뇌혈관, 비만)") })
+  end
+
+  test "알콜성 질환명만으로는 음주 근거가 아니지만 음주 사실이 같이 있으면 통과한다" do
+    input = support_input("상세불명의 알콜성간질환", "알코올성 지방간. 주 3회 음주력 있음", "수술 후 경과 양호")
+    header = blank_output.merge("alcohol" => field("음주", "상세불명의 알콜성간질환", "있음"))
+    assert_includes @task.validate(header, input).errors, "alcohol: evidence_quote에 값(음주)의 키워드가 없습니다"
+    fatty = blank_output.merge("alcohol" => field("음주", "알코올성 지방간", "있음"))
+    assert_includes @task.validate(fatty, input).errors, "alcohol: evidence_quote에 값(음주)의 키워드가 없습니다"
+    with_fact = blank_output.merge("alcohol" => field("음주", "알코올성 지방간. 주 3회 음주력 있음", "있음"))
+    assert_empty @task.validate(with_fact, input).errors
+    surgery = blank_output.merge("alcohol" => field("음주", "수술 후 경과 양호", "있음"))
+    assert_includes @task.validate(surgery, input).errors, "alcohol: evidence_quote에 값(음주)의 키워드가 없습니다"
+  end
+
+  test "일반 머리말뿐인 근거는 오류이고 실제 내용이 함께 있으면 통과한다" do
+    input = support_input("건강보험 수진내역", "과거력(건강보험수진내역): 당뇨", "상세불명의 원발성 고혈압")
+    generic = blank_output.merge("source" => field("사실 기록", "건강보험 수진내역", "있음"))
+    assert_includes @task.validate(generic, input).errors, "source: evidence_quote가 일반 머리말뿐이라 값의 근거가 아닙니다"
+    header = blank_output.merge("source" => field("사실 기록", "과거력(건강보험수진내역)", "있음"))
+    assert(@task.validate(header, input).errors.any? { |e| e.include?("일반 머리말뿐") })
+    real = blank_output.merge("comorbidities" => field([ "당뇨" ], "과거력(건강보험수진내역): 당뇨", "있음"),
+                              "source" => field("사실 기록", "과거력(건강보험수진내역): 당뇨", "있음"))
+    assert_empty @task.validate(real, input).errors
+    disease = blank_output.merge("comorbidities" => field([ "고혈압" ], "상세불명의 원발성 고혈압", "있음"))
+    assert_empty @task.validate(disease, input).errors
+  end
+
+  test "프롬프트·스키마·검증기 버전" do
+    assert_equal "comorbidity-v3", @task.validator_version
+  end
+
   test "있음인데 근거가 비면 오류" do
     output = valid_output.merge("smoking" => field("현재", "", "있음"))
     assert_includes @task.validate(output, @input).errors, "smoking: evidence_quote가 비어 있습니다"

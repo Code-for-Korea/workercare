@@ -33,6 +33,9 @@ module SolarExtraction
       def prompt_version = self.class::PROMPT_VERSION
       def schema_version = self.class::SCHEMA_VERSION
 
+      # 로컬 검증기·결과 형식 버전. 프롬프트·스키마가 같아도 검증 규칙이나 출력 형식(review_flags 등)이 바뀌면 올린다.
+      def validator_version = self.class::VALIDATOR_VERSION
+
       # 이름 붙인 절로 이어 붙인 입력. 세 컬럼이 모두 비면 nil.
       def build_input(record)
         parts = SECTIONS.filter_map do |column, label|

@@ -104,6 +104,84 @@ class SolarExtraction::Tasks::PriorCareerTest < ActiveSupport::TestCase
     assert_equal SolarExtraction::Tasks::PriorCareer::MAX_CAREERS, result.output["careers"].size
   end
 
+  def flag_input(text)
+    @task.build_input("medical_records" => nil, "recognized_facts" => text, "committee_decision" => nil)
+  end
+
+  def flags(result) = result.output["review_flags"]
+
+  test "깨끗한 출력은 review_flags가 빈 배열이다" do
+    result = @task.validate(output, @input)
+    assert_empty result.errors
+    assert_equal [], flags(result)
+  end
+
+  test "종료 시점이 없고 근거가 진행 중이면 invalid" do
+    text = "2012.7.부터 현재까지 같은 사업장에서 근무하고 있다. 2005.3.~2010.2. 용접."
+    careers = [ career("start_ym" => "2012-07", "end_ym" => nil, "evidence_quote" => "2012.7.부터 현재까지 같은 사업장에서 근무하고 있다") ]
+    errors = @task.validate(output(careers: careers), flag_input(text)).errors
+    assert_includes errors, "careers[0]: 종료 시점이 없고 근거 문장이 진행 중이라 현 사업장 경력으로 보입니다"
+
+    open_ended = [ career("start_ym" => "2005-03", "end_ym" => nil, "evidence_quote" => "2005.3.~2010.2. 용접") ]
+    assert_empty @task.validate(output(careers: open_ended), flag_input(text)).errors
+    ended = [ career("start_ym" => "2012-07", "end_ym" => "2013-01", "evidence_quote" => "2012.7.부터 현재까지 같은 사업장에서 근무하고 있다") ]
+    assert_empty @task.validate(output(careers: ended), flag_input(text)).errors
+  end
+
+  test "현재 사업장 입사 전이라는 설명은 진행 중 표현으로 보지 않는다" do
+    text = "1995년~2000년 건설현장 일용 (현재 사업장 입사 전)"
+    careers = [ career("start_ym" => nil, "end_ym" => nil, "evidence_quote" => text) ]
+    assert_empty @task.validate(output(careers: careers), flag_input(text)).errors
+    text2 = "2010.3.~현재 재직 중"
+    open_ended = [ career("start_ym" => "2010-03", "end_ym" => nil, "evidence_quote" => text2) ]
+    assert_includes @task.validate(output(careers: open_ended), flag_input(text2)).errors,
+                    "careers[0]: 종료 시점이 없고 근거 문장이 진행 중이라 현 사업장 경력으로 보입니다"
+  end
+
+  test "현 사업장 시작 이후에 시작하거나 걸친 구간은 flag" do
+    text = "2005.3.~2010.2. 용접. 2012.7.부터 현 사업장에서 근무. 2013.1.~2014.6. 배관."
+    after = career("start_ym" => "2013-01", "end_ym" => "2014-06", "evidence_quote" => "2013.1.~2014.6. 배관")
+    overlap = career("start_ym" => "2011-01", "end_ym" => "2012-12", "evidence_quote" => "2012.7.부터 현 사업장에서 근무")
+    result = @task.validate(output(careers: [ career("evidence_quote" => "2005.3.~2010.2. 용접"), after, overlap ]), flag_input(text))
+    assert_empty result.errors
+    assert_equal [ [ "starts_after_current_start", [ 1 ] ], [ "overlaps_current_start", [ 2 ] ] ], flags(result).map { |f| [ f["rule"], f["career_indexes"] ] }
+  end
+
+  test "입사 날짜는 가장 늦은 것을 현 사업장으로 보고 이전 직장 자신의 입사일은 flag하지 않는다" do
+    text = "2005.3. 가업체 입사, 2010.2. 퇴사. 2010.3. 나업체 입사, 2012.6. 퇴사. 2013.1.~2014.1. 다."
+    first = career("evidence_quote" => "2005.3. 가업체 입사, 2010.2. 퇴사")
+    second = career("start_ym" => "2010-03", "end_ym" => "2012-06", "evidence_quote" => "2010.3. 나업체 입사, 2012.6. 퇴사")
+    assert_empty flags(@task.validate(output(careers: [ first, second ]), flag_input(text)))
+    after = career("start_ym" => "2013-01", "end_ym" => "2014-01", "evidence_quote" => "2013.1.~2014.1. 다")
+    assert_equal [ "starts_after_current_start" ], flags(@task.validate(output(careers: [ first, second, after ]), flag_input(text))).map { |f| f["rule"] }
+  end
+
+  test "고용형태 변경 표지가 한 문장에 있거나 이어지는 구간의 고용형태가 다르면 flag" do
+    text = "2011.7.~2014.3. 월급제 근로자. 2014.4.~2016.6. 같은 업체에서 프리랜서. 2017.1.~2018.1. 정규직에서 계약직으로 전환."
+    a = career("start_ym" => "2011-07", "end_ym" => "2014-03", "evidence_quote" => "2011.7.~2014.3. 월급제 근로자")
+    b = career("start_ym" => "2014-04", "end_ym" => "2016-06", "evidence_quote" => "2014.4.~2016.6. 같은 업체에서 프리랜서")
+    c = career("start_ym" => "2017-01", "end_ym" => "2018-01", "evidence_quote" => "2017.1.~2018.1. 정규직에서 계약직으로 전환")
+    result = @task.validate(output(careers: [ a, b, c ]), flag_input(text))
+    assert_empty result.errors
+    found = flags(result).select { |f| f["rule"] == "employment_type_change" }.map { |f| f["career_indexes"] }
+    assert_includes found, [ 0, 1 ] # 이어지는 구간, 월급제 -> 프리랜서
+    assert_includes found, [ 1 ]    # 같은 업체 + 고용형태
+    assert_includes found, [ 2 ]    # 전환 + 둘 이상
+    far = career("start_ym" => "2020-01", "end_ym" => "2020-12", "evidence_quote" => "2011.7.~2014.3. 월급제 근로자")
+    assert_empty flags(@task.validate(output(careers: [ a, far ]), flag_input(text))).select { |f| f["career_indexes"].size == 2 }
+  end
+
+  test "고용형태가 한 번만 나오고 이어지지 않으면 flag하지 않는다" do
+    text = "2005.3.~2010.2. 일용직으로 용접. 2012.1.~2013.1. 계약직 상하차."
+    a = career("evidence_quote" => "2005.3.~2010.2. 일용직으로 용접")
+    b = career("start_ym" => "2012-01", "end_ym" => "2013-01", "evidence_quote" => "2012.1.~2013.1. 계약직 상하차")
+    assert_empty flags(@task.validate(output(careers: [ a, b ]), flag_input(text)))
+  end
+
+  test "검증기 버전과 review_flags 형식" do
+    assert_equal "prior_career-v3", @task.validator_version
+  end
+
   test "프롬프트는 현 사업장 제외와 없음 규칙을 담고 개월 수는 요구하지 않는다" do
     assert_includes @task.system_prompt, "현재 사업장"
     assert_includes @task.system_prompt, "이전 근무경력: 무"

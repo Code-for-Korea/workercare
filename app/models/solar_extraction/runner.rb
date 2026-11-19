@@ -115,7 +115,7 @@ module SolarExtraction
 
     def dry_run(candidates, skipped)
       estimate = @estimator.estimate(candidates.map(&:last), @task.overhead_chars)
-      @io.puts "[solar] DRY-RUN (과제=#{@task.name}, 프롬프트=#{@task.prompt_version}, 스키마=#{@task.schema_version}) 호출하지 않았습니다"
+      @io.puts "[solar] DRY-RUN (과제=#{@task.name}, 프롬프트=#{@task.prompt_version}, 스키마=#{@task.schema_version}, 검증기=#{@task.validator_version}) 호출하지 않았습니다"
       @io.puts "[solar] 범위=#{@scope} 범위 전체=#{skipped[:scope_total]}건, 이미 끝냄=#{skipped[:done]}, 실패 건너뜀=#{skipped[:failed]}"
       @io.puts "[solar] 처리할 건수: #{estimate.cases}건 (동시성 #{@concurrency})"
       @io.puts "[solar] 추정 입력 토큰: #{estimate.input_tokens}, 추정 출력 토큰: #{estimate.output_tokens}"
@@ -203,6 +203,7 @@ module SolarExtraction
     def record_result(case_no, status:, output:, errors:, usage:, model:)
       @store.write_result(
         case_no: case_no, task: @task.name, model: model, prompt_version: @task.prompt_version, schema_version: @task.schema_version,
+        validator_version: @task.validator_version,
         status: status, output: output, validation_errors: errors, usage: usage, extracted_at: Time.now.utc.iso8601
       )
       @mutex.synchronize do

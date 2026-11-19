@@ -7,11 +7,21 @@ module SolarExtraction
     # - 구간마다 start_ym~end_ym을 양 끝 포함 월 수로 센다(2005-03~2005-03은 1개월). 겹치는 달은 한 번만 센다(월 집합 합집합).
     # - 시작·끝이 없는 구간이 하나라도 있으면 합계를 믿을 수 없어 nil. mention=없음이면 0, 언급없음이면 nil.
     # - careers가 MAX_CAREERS개를 넘으면 앞에서부터 MAX_CAREERS개만 남긴다(오류로 보지 않는다. 출력 잘림 방지용).
+    #
+    # 현 사업장 후처리(v3). 프롬프트로 막지 못한 "현 사업장 경력 혼입"을 코드로 점검한다.
+    # - invalid(오류): (a) 종료 시점(end_ym)이 없고 근거 문장이 진행 중으로 읽히는 구간("현재", "재직 중", "진단일까지" 등). 과거 경력은 끝났어야 한다.
+    # - review_flags(오류 아님, 결과 output["review_flags"]에 항상 배열로 남김): 어림짐작이 섞인 의심.
+    #   b) 입력 텍스트가 현 사업장 시작일을 밝혔고("현 사업장"·"재해 당시 사업장" + 날짜는 가장 이른 날짜, "입사" + 날짜는 가장 늦은 날짜)
+    #      구간이 그 날 이후에 시작하거나 걸쳐 있음. c) 근거 문장에 고용형태 변경 표지(정규직·계약직·일용·프리랜서·월급제·전환)가
+    #      있고 같은 문장에 둘 이상이거나 "같은 업체"와 함께 나오거나, 이어지는 구간들이 서로 다른 고용형태임(같은 업체 안의 고용형태 변경 의심).
+    #   형식: {"rule", "career_indexes"(careers 배열 위치), "message"}. 규칙 이름은 ongoing 외에 RULES 참고.
+    # 이 점검은 입력 텍스트와 careers만 쓴다(DB의 다른 컬럼·job_tenure_months는 읽지 않는다).
     # 사업장명은 비식별 처리돼 있어 추출하지 않는다. 현 직장 근속은 job_tenure_months가 따로 있으니 "입사 전" 경력만 받는다.
     class PriorCareer < Base
       NAME = "prior_career"
       PROMPT_VERSION = "prior_career-p2"
       SCHEMA_VERSION = "prior_career-s2"
+      VALIDATOR_VERSION = "prior_career-v3"
 
       OCCUPATIONS = [
         "1 관리자", "2 전문가 및 관련 종사자", "3 사무 종사자", "4 서비스 종사자", "5 판매 종사자",
@@ -22,6 +32,18 @@ module SolarExtraction
       MAX_TOKENS = 3000
       YM = /\A(\d{4})-(0[1-9]|1[0-2])\z/
       KEYS = %w[mention careers].freeze
+      # 진행 중 표현("현재", "재직 중", "근무 중"). 종료 시점이 없는 구간의 근거에서만 본다.
+      ONGOING = /현재(?!\s*(?:사업장|회사|직장))|재직\s*중|근무\s*중|진단일\s*까지|재해일\s*까지/
+      SAME_WORKPLACE = /같은\s*(?:업체|사업장|회사)/
+      CURRENT_EMPLOYER = /현\s*사업장|현재\s*사업장|재해\s*당시\s*사업장|당해\s*사업장|재해\s*발생\s*사업장/
+      JOINED = /입사(?!\s*(?:전|이전))/ # "입사 전 근무이력"은 머리말이라 제외
+      DATE = /(\d{4})\s*(?:[.\-\/]|년)\s*(\d{1,2})/
+      DATE_WINDOW = 20
+      EMPLOYMENT_TYPES = {
+        "정규직" => /정규직/, "계약직" => /계약직/, "일용" => /일용/, "프리랜서" => /프리랜서|프리랜스/, "월급제" => /월급제/
+      }.freeze
+      CONVERSION = /전환/
+      RULES = %w[starts_after_current_start overlaps_current_start employment_type_change].freeze
       CAREER_KEYS = %w[start_ym end_ym occupation task evidence_quote].freeze
 
       def max_tokens = MAX_TOKENS
@@ -88,7 +110,8 @@ module SolarExtraction
         mention = output["mention"]
         errors << "mention 값이 허용 목록에 없습니다" unless MENTIONS.include?(mention)
         careers = check_careers(output["careers"], mention, normalize(input_text), errors)
-        Validation.new(errors, { "mention" => mention, "prior_career_months" => compute_months(mention, careers), "careers" => careers })
+        flags = review_flags(careers, normalize(input_text))
+        Validation.new(errors, { "mention" => mention, "prior_career_months" => compute_months(mention, careers), "careers" => careers, "review_flags" => flags })
       end
 
       # 구간 합계 개월 수(양 끝 포함, 겹침은 한 번만). 계산할 수 없으면 nil. 클래스 설명 참고.
@@ -108,6 +131,83 @@ module SolarExtraction
       end
 
       private
+
+      # 오류가 아닌 의심 표시. 검증에 실패한 구간(careers에서 빠진 항목)은 없으므로 위치는 careers 배열 기준이다.
+      def review_flags(careers, haystack)
+        flags = []
+        cutoff, strong = current_start(haystack)
+        careers.each_with_index do |career, index|
+          start_ym = career["start_ym"]
+          end_ym = career["end_ym"]
+          next unless cutoff && start_ym
+
+          if start_ym > cutoff || (strong && start_ym == cutoff)
+            flags << flag("starts_after_current_start", [ index ], "구간이 현 사업장 시작(#{cutoff}) 이후에 시작합니다")
+          elsif end_ym && end_ym > cutoff
+            flags << flag("overlaps_current_start", [ index ], "구간이 현 사업장 시작(#{cutoff})과 겹칩니다")
+          end
+        end
+        flags + employment_type_flags(careers)
+      end
+
+      def flag(rule, indexes, message) = { "rule" => rule, "career_indexes" => indexes, "message" => message }
+
+      # 입력이 밝힌 현 사업장 시작 연월과 그것이 확실한 표지에서 나왔는지. 못 찾으면 nil.
+      def current_start(haystack)
+        strong = dates_near(haystack, CURRENT_EMPLOYER).min
+        return [ strong, true ] if strong
+
+        joined = dates_near(haystack, JOINED).max
+        joined ? [ joined, false ] : nil
+      end
+
+      # 표지 앞뒤 DATE_WINDOW자 안에서 표지에 가장 가까운 날짜 하나씩(표지마다)을 "YYYY-MM"으로 모은다.
+      def dates_near(text, marker)
+        text.to_enum(:scan, marker).filter_map do
+          at = Regexp.last_match.begin(0)
+          from = [ at - DATE_WINDOW, 0 ].max
+          window = text[from, (at - from) + DATE_WINDOW]
+          dates = window.to_enum(:scan, DATE).map { [ Regexp.last_match.begin(0) + from, ym_string(Regexp.last_match(1), Regexp.last_match(2)) ] }
+          dates.min_by { |position, _| (position - at).abs }&.last
+        end.compact
+      end
+
+      def ym_string(year, month)
+        number = month.to_i
+        return nil unless number.between?(1, 12)
+
+        format("%<year>04d-%<month>02d", year: year.to_i, month: number)
+      end
+
+      def employment_types(quote)
+        EMPLOYMENT_TYPES.select { |_, pattern| pattern.match?(quote.to_s) }.keys
+      end
+
+      def employment_type_flags(careers)
+        flags = []
+        types = careers.map { |career| employment_types(career["evidence_quote"]) }
+        careers.each_with_index do |career, index|
+          quote = career["evidence_quote"].to_s
+          if CONVERSION.match?(quote) || types[index].size >= 2 || (types[index].any? && SAME_WORKPLACE.match?(quote))
+            flags << flag("employment_type_change", [ index ], "근거 문장에 고용형태 변경 표지가 있습니다")
+          end
+        end
+        ordered = careers.each_index.sort_by { |index| careers[index]["start_ym"].to_s }
+        ordered.each_cons(2) do |a, b|
+          next if types[a].empty? || types[b].empty? || types[a] == types[b]
+          next unless contiguous?(careers[a]["end_ym"], careers[b]["start_ym"])
+
+          flags << flag("employment_type_change", [ a, b ], "이어지는 구간의 고용형태가 다릅니다(같은 업체 내 변경 의심)")
+        end
+        flags
+      end
+
+      # 앞 구간 끝과 뒤 구간 시작이 이어지거나(같은 달·다음 달), 어느 쪽이든 알 수 없으면 true.
+      def contiguous?(end_ym, start_ym)
+        return true if end_ym.nil? || start_ym.nil?
+
+        month_index(start_ym) - month_index(end_ym) <= 1 && month_index(start_ym) >= month_index(end_ym)
+      end
 
       def month_index(ym)
         year, month = ym.split("-").map(&:to_i)
@@ -141,6 +241,9 @@ module SolarExtraction
           errors << "#{path}: task가 #{TASK_MAX}자를 넘습니다(#{task.length}자)"
         end
         quote = check_quote(career["evidence_quote"], "있음", path, errors, haystack)
+        if end_ym.nil? && quote.present? && ONGOING.match?(quote)
+          errors << "#{path}: 종료 시점이 없고 근거 문장이 진행 중이라 현 사업장 경력으로 보입니다"
+        end
         career.merge("start_ym" => start_ym, "end_ym" => end_ym, "evidence_quote" => quote)
       end
 
