@@ -42,6 +42,8 @@ namespace :solar do
     rescue SolarExtraction::Runner::Locked => e
       abort "[solar] #{e.message}"
     end
+    # 한도 초과·인증 오류 등으로 멈췄으면 0이 아닌 코드로 끝내 bin/solar_run.sh가 다음 과제를 시작하지 않게 한다(신호 중단은 0).
+    exit 2 if runner.abort_reason
   end
 
   desc "정답(gold) 표본 CSV를 만든다. disease_category × result 층화, SEED(기본 20261118). 본문·LLM 없음"
