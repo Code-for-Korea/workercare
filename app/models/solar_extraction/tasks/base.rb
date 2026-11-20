@@ -45,6 +45,17 @@ module SolarExtraction
         parts.join("\n\n").presence
       end
 
+      # build_input이 만든 입력을 절별로 나눠 {컬럼 => NFC·공백 정규화한 본문}으로 돌려준다(없는 절은 키가 없다).
+      def split_sections(input_text)
+        labels = SECTIONS.invert
+        input_text.to_s.split(/^(?=\[(?:#{SECTIONS.values.map { |label| Regexp.escape(label) }.join('|')})\]\n)/).each_with_object({}) do |chunk, result|
+          match = chunk.match(/\A\[([^\]]+)\]\n/)
+          next unless match && labels[match[1]]
+
+          result[labels[match[1]]] = normalize(match.post_match)
+        end
+      end
+
       def messages(input_text)
         [
           { role: "system", content: system_prompt },

@@ -18,8 +18,7 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     {
       "comorbidities" => field([ "고혈압" ], "고혈압으로 약물치료 중", "있음"),
       "smoking" => field("현재", "흡연 20년", "있음"),
-      "alcohol" => field("비음주", "술을 마시지 않는다", "없음"),
-      "source" => field("위원회 판단", "기왕증인 퇴행성 변화가 주된 원인이다", "있음")
+      "alcohol" => field("비음주", "술을 마시지 않는다", "없음")
     }
   end
 
@@ -95,8 +94,6 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
   test "미확인·빈 값은 근거를 달 수 없다" do
     quoted = valid_output.merge("alcohol" => field("미확인", "술을 마시지 않는다", "없음"))
     assert_includes @task.validate(quoted, @input).errors, "alcohol: mention=없음인데 값이 비음주가 아닙니다"
-    source = valid_output.merge("source" => field("언급없음", "기왕증인 퇴행성 변화가 주된 원인이다", "없음"))
-    assert_includes @task.validate(source, @input).errors, "source: 값이 언급없음인데 evidence_quote가 있습니다"
     empty_list = valid_output.merge("comorbidities" => field([], "고혈압으로 약물치료 중", "있음"))
     assert_includes @task.validate(empty_list, @input).errors, "comorbidities: mention=있음인데 비어 있습니다"
     list_none = valid_output.merge("comorbidities" => field([ "고혈압" ], "고혈압으로 약물치료 중", "없음"))
@@ -104,8 +101,11 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
   end
 
   test "프롬프트·스키마 버전과 일치 규칙 문구" do
-    assert_equal "comorbidity-p2", @task.prompt_version
-    assert_equal "comorbidity-s2", @task.schema_version
+    assert_equal "comorbidity-p4", @task.prompt_version
+    assert_equal "comorbidity-s3", @task.schema_version
+    assert_not_includes @task.json_schema[:properties].keys, :source
+    assert_includes @task.system_prompt, "신청 상병"
+    assert_includes @task.system_prompt, "퇴행성"
     assert_includes @task.system_prompt, "직접 뒷받침"
     assert_includes @task.system_prompt, "오래된 건강검진 문진표"
     assert_equal SolarExtraction::Tasks::Base::DEFAULT_MAX_TOKENS, @task.max_tokens
@@ -117,7 +117,7 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
 
   def blank_output
     { "comorbidities" => field([], "", "언급없음"), "smoking" => field("미확인", "", "언급없음"),
-      "alcohol" => field("미확인", "", "언급없음"), "source" => field("언급없음", "", "언급없음") }
+      "alcohol" => field("미확인", "", "언급없음") }
   end
 
   test "근거 문장에 값의 키워드가 없으면 오류, 있으면 통과" do
@@ -125,13 +125,13 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     ok = blank_output.merge("comorbidities" => field([ "고혈압" ], "고혈압 약 복용 중", "있음"),
                             "smoking" => field("현재", "흡연 1일 0.5갑", "있음"),
                             "alcohol" => field("음주", "음주력: 소주 1병", "있음"))
-    assert_empty @task.validate(ok.merge("source" => field("사실 기록", "고혈압 약 복용 중", "있음")), input).errors
+    assert_empty @task.validate(ok, input).errors
 
     bad = ok.merge("comorbidities" => field([ "당뇨" ], "고혈압 약 복용 중", "있음"),
                    "smoking" => field("현재", "허리 염좌로 치료", "있음"),
                    "alcohol" => field("음주", "고혈압 약 복용 중", "있음"))
     errors = @task.validate(bad, input).errors
-    assert_includes errors, "comorbidities: evidence_quote에 값(당뇨)의 키워드가 없습니다"
+    assert_not_includes errors, "comorbidities: evidence_quote에 값(당뇨)의 키워드가 없습니다"
     assert_includes errors, "smoking: evidence_quote에 값(현재)의 키워드가 없습니다"
     assert_includes errors, "alcohol: evidence_quote에 값(음주)의 키워드가 없습니다"
   end
@@ -143,7 +143,59 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
     other = blank_output.merge("comorbidities" => field([ "기타" ], "경추 추간판탈출증 진단", "있음"))
     assert_empty @task.validate(other, input).errors
     wrong = blank_output.merge("comorbidities" => field([ "뇌혈관", "비만" ], "경추 추간판탈출증 진단", "있음"))
-    assert(@task.validate(wrong, input).errors.any? { |e| e.start_with?("comorbidities: evidence_quote에 값(뇌혈관, 비만)") })
+    result = @task.validate(wrong, input)
+    assert_empty result.errors
+    assert_equal [ "evidence_keyword_missing" ], result.output["review_flags"].map { |f| f["rule"] }
+    assert_match(/comorbidities: evidence_quote에 값\(뇌혈관, 비만\)/, result.output["review_flags"].first["message"])
+  end
+
+  test "퇴행성 키워드 부재는 invalid가 아니라 review_flags로만 남고 사전이 넓다" do
+    input = support_input("요추 변성 및 협착 소견", "허리 염좌로 치료")
+    ok = blank_output.merge("comorbidities" => field([ "퇴행성" ], "요추 변성 및 협착 소견", "있음"))
+    result = @task.validate(ok, input)
+    assert_empty result.errors
+    assert_empty result.output["review_flags"]
+
+    flagged = blank_output.merge("comorbidities" => field([ "퇴행성" ], "허리 염좌로 치료", "있음"))
+    result = @task.validate(flagged, input)
+    assert_empty result.errors
+    assert_equal "evidence_keyword_missing", result.output["review_flags"].first["rule"]
+    assert_equal "comorbidities", result.output["review_flags"].first["field"]
+  end
+
+  def sectioned(medical: nil, facts: nil, committee: nil)
+    @task.build_input("medical_records" => medical, "recognized_facts" => facts, "committee_decision" => committee)
+  end
+
+  test "source는 모델 출력이 아니라 근거 위치에서 코드가 파생한다" do
+    # 기저질환 없음 -> 언급없음
+    result = @task.validate(blank_output, @input)
+    assert_equal({ "value" => "언급없음", "evidence_quote" => "", "mention" => "언급없음" }, result.output["source"])
+
+    # 소견 절의 근거 -> 사실 기록
+    result = @task.validate(valid_output, @input)
+    assert_equal "사실 기록", result.output["source"]["value"]
+    assert_equal "있음", result.output["source"]["mention"]
+
+    # 판단문에만 -> 위원회 판단
+    input = sectioned(medical: "요추 염좌 치료", committee: "기왕증인 퇴행성 변화가 주된 원인이다.")
+    only_committee = blank_output.merge("comorbidities" => field([ "퇴행성" ], "기왕증인 퇴행성 변화가 주된 원인이다", "있음"))
+    assert_equal "위원회 판단", @task.validate(only_committee, input).output["source"]["value"]
+
+    # 근거는 판단문 문장이지만 같은 질환이 소견 절에 있으면 사실 기록(위원회가 인용해도 사실 기록)
+    both = sectioned(medical: "당뇨병으로 약물치료", committee: "당뇨가 있으나 업무와 무관하다.")
+    quoted = blank_output.merge("comorbidities" => field([ "당뇨" ], "당뇨가 있으나 업무와 무관하다", "있음"))
+    assert_equal "사실 기록", @task.validate(quoted, both).output["source"]["value"]
+
+    # 인정 사실 절 -> 사실 기록
+    facts = sectioned(facts: "재해자는 고혈압으로 치료받았다.", committee: "판단")
+    from_facts = blank_output.merge("comorbidities" => field([ "고혈압" ], "고혈압으로 치료받았다", "있음"))
+    assert_equal "사실 기록", @task.validate(from_facts, facts).output["source"]["value"]
+  end
+
+  test "모델이 source를 내면 키가 맞지 않는 오류" do
+    output = valid_output.merge("source" => field("사실 기록", "고혈압으로 약물치료 중", "있음"))
+    assert(@task.validate(output, @input).errors.any? { |e| e.start_with?("최상위 키가 맞지 않습니다") })
   end
 
   test "알콜성 질환명만으로는 음주 근거가 아니지만 음주 사실이 같이 있으면 통과한다" do
@@ -160,19 +212,18 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
 
   test "일반 머리말뿐인 근거는 오류이고 실제 내용이 함께 있으면 통과한다" do
     input = support_input("건강보험 수진내역", "과거력(건강보험수진내역): 당뇨", "상세불명의 원발성 고혈압")
-    generic = blank_output.merge("source" => field("사실 기록", "건강보험 수진내역", "있음"))
-    assert_includes @task.validate(generic, input).errors, "source: evidence_quote가 일반 머리말뿐이라 값의 근거가 아닙니다"
-    header = blank_output.merge("source" => field("사실 기록", "과거력(건강보험수진내역)", "있음"))
+    generic = blank_output.merge("comorbidities" => field([ "기타" ], "건강보험 수진내역", "있음"))
+    assert_includes @task.validate(generic, input).errors, "comorbidities: evidence_quote가 일반 머리말뿐이라 값의 근거가 아닙니다"
+    header = blank_output.merge("comorbidities" => field([ "기타" ], "과거력(건강보험수진내역)", "있음"))
     assert(@task.validate(header, input).errors.any? { |e| e.include?("일반 머리말뿐") })
-    real = blank_output.merge("comorbidities" => field([ "당뇨" ], "과거력(건강보험수진내역): 당뇨", "있음"),
-                              "source" => field("사실 기록", "과거력(건강보험수진내역): 당뇨", "있음"))
+    real = blank_output.merge("comorbidities" => field([ "당뇨" ], "과거력(건강보험수진내역): 당뇨", "있음"))
     assert_empty @task.validate(real, input).errors
     disease = blank_output.merge("comorbidities" => field([ "고혈압" ], "상세불명의 원발성 고혈압", "있음"))
     assert_empty @task.validate(disease, input).errors
   end
 
   test "프롬프트·스키마·검증기 버전" do
-    assert_equal "comorbidity-v3", @task.validator_version
+    assert_equal "comorbidity-v4", @task.validator_version
   end
 
   test "있음인데 근거가 비면 오류" do
@@ -188,7 +239,7 @@ class SolarExtraction::Tasks::ComorbidityTest < ActiveSupport::TestCase
   end
 
   test "키가 빠지거나 객체가 아니면 오류" do
-    result = @task.validate(valid_output.except("source"), @input)
+    result = @task.validate(valid_output.except("alcohol"), @input)
     assert(result.errors.any? { |e| e.start_with?("최상위 키가 맞지 않습니다") })
     assert_equal [ "출력이 객체가 아닙니다" ], @task.validate("x", @input).errors
   end

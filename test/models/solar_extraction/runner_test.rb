@@ -24,8 +24,7 @@ class SolarExtraction::RunnerTest < ActiveSupport::TestCase
       content = {
         "comorbidities" => { "value" => quote.empty? ? [] : [ "고혈압" ], "evidence_quote" => quote, "mention" => quote.empty? ? "언급없음" : "있음" },
         "smoking" => { "value" => "미확인", "evidence_quote" => "", "mention" => "언급없음" },
-        "alcohol" => { "value" => "미확인", "evidence_quote" => "", "mention" => "언급없음" },
-        "source" => { "value" => "언급없음", "evidence_quote" => "", "mention" => "언급없음" }
+        "alcohol" => { "value" => "미확인", "evidence_quote" => "", "mention" => "언급없음" }
       }
       SolarExtraction::Client::Response.new(content: content, usage: { prompt_tokens: 100, completion_tokens: 10, reasoning_tokens: 0, total_tokens: 110 },
                                             model: "fake-model-1", finish_reason: "stop", attempts: 1)
