@@ -33,7 +33,7 @@ class SolarExtraction::Tasks::PriorCareerTest < ActiveSupport::TestCase
   test "occupation enum, 연월 형식, 순서, task 길이" do
     errors = @task.validate(output(careers: [ career("occupation" => "10 기타", "start_ym" => "2005-13", "task" => "가" * 41) ]), @input).errors
     assert_includes errors, "careers[0]: occupation이 허용 목록에 없습니다"
-    assert_includes errors, "careers[0].start_ym: YYYY-MM 형식이 아닙니다"
+    assert_includes errors, "careers[0].start_ym: YYYY-MM(월 미상은 YYYY) 형식이 아닙니다"
     assert(errors.any? { |e| e.include?("task가 40자를 넘습니다") })
 
     reversed = @task.validate(output(careers: [ career("start_ym" => "2010-05", "end_ym" => "2009-01") ]), @input).errors
@@ -42,6 +42,54 @@ class SolarExtraction::Tasks::PriorCareerTest < ActiveSupport::TestCase
 
   test "연월은 null 허용" do
     assert_empty @task.validate(output(careers: [ career("start_ym" => nil, "end_ym" => nil) ]), @input).errors
+  end
+
+  test "월 미상은 YYYY로 받고 개월 수는 nil, 구간은 남는다" do
+    year_only = career("start_ym" => "1990", "end_ym" => "1999")
+    result = @task.validate(output(careers: [ year_only, career ]), @input)
+    assert_empty result.errors
+    assert_nil result.output["prior_career_months"]
+    assert_equal 2, result.output["careers"].size
+    assert_nil @task.compute_months("있음", [ career("start_ym" => "1990-05", "end_ym" => "1999") ])
+    assert_equal 12, @task.compute_months("있음", [ career("start_ym" => "2005-03", "end_ym" => "2006-02") ])
+  end
+
+  test "연만 있는 구간의 시작·끝 순서 검사는 연 단위로 한다" do
+    same_year = career("start_ym" => "1990-05", "end_ym" => "1990")
+    assert_empty @task.validate(output(careers: [ same_year ]), @input).errors
+    reversed = career("start_ym" => "1991", "end_ym" => "1990-12")
+    assert_includes @task.validate(output(careers: [ reversed ]), @input).errors, "careers[0]: 시작이 끝보다 늦습니다"
+    bad_format = career("start_ym" => "1990-?")
+    assert(@task.validate(output(careers: [ bad_format ]), @input).errors.any? { |e| e.include?("형식이 아닙니다") })
+  end
+
+  test "판정서 표기(점·슬래시·일 포함)의 날짜는 YYYY-MM으로 맞춘다" do
+    loose = career("start_ym" => "2005.03", "end_ym" => "2010.02.28")
+    result = @task.validate(output(careers: [ loose ]), @input)
+    assert_empty result.errors
+    assert_equal [ "2005-03", "2010-02" ], [ result.output["careers"][0]["start_ym"], result.output["careers"][0]["end_ym"] ]
+    assert_equal 60, result.output["prior_career_months"]
+    assert_equal "2005-03", @task.validate(output(careers: [ career("start_ym" => "2005/3") ]), @input).output["careers"][0]["start_ym"]
+    assert(@task.validate(output(careers: [ career("start_ym" => "2005.13") ]), @input).errors.any? { |e| e.include?("형식이 아닙니다") })
+  end
+
+  test "법인 전환·고용승계·재입사 표지가 있는 구간은 same_employer_marker로 표시하고 invalid로 하지 않는다" do
+    input = @task.build_input("medical_records" => nil, "committee_decision" => nil,
+                              "recognized_facts" => "2005.3.~2010.2. 가 업체에서 근무하다 법인 전환으로 상호가 바뀌었고 2010.3. 재입사하였다.")
+    marked = career("evidence_quote" => "2005.3.~2010.2. 가 업체에서 근무하다 법인 전환으로 상호가 바뀌었고")
+    result = @task.validate(output(careers: [ marked ]), input)
+    assert_empty result.errors
+    assert_includes result.output["review_flags"].map { |f| f["rule"] }, "same_employer_marker"
+    plain = @task.validate(output, @input)
+    assert_not_includes plain.output["review_flags"].map { |f| f["rule"] }, "same_employer_marker"
+  end
+
+  test "프롬프트는 현 사업장 규칙과 월 미상 표기를 안내한다" do
+    prompt = @task.system_prompt
+    assert_includes prompt, "법인 전환"
+    assert_includes prompt, "고용승계"
+    assert_includes prompt, "재입사"
+    assert_includes prompt, '"YYYY"'
   end
 
   test "언급없음이면 careers가 비어야 하고 개월 수는 nil" do
@@ -179,15 +227,15 @@ class SolarExtraction::Tasks::PriorCareerTest < ActiveSupport::TestCase
   end
 
   test "검증기 버전과 review_flags 형식" do
-    assert_equal "prior_career-v3", @task.validator_version
+    assert_equal "prior_career-v4", @task.validator_version
   end
 
   test "프롬프트는 현 사업장 제외와 없음 규칙을 담고 개월 수는 요구하지 않는다" do
     assert_includes @task.system_prompt, "현재 사업장"
     assert_includes @task.system_prompt, "이전 근무경력: 무"
     assert_not_includes @task.json_schema[:properties].keys, :prior_career_months
-    assert_equal "prior_career-p2", @task.prompt_version
-    assert_equal "prior_career-s2", @task.schema_version
+    assert_equal "prior_career-p4", @task.prompt_version
+    assert_equal "prior_career-s3", @task.schema_version
   end
 
   test "출력 토큰 상한은 과제별로 다르다" do
