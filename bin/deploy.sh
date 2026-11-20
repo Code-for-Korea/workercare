@@ -6,6 +6,7 @@
 #   - deploy / redeploy / setup / app boot는 빈 키가 있으면 멈춘다. 나머지 명령은 경고만 한다.
 #   - Solar 추출 실행 중에 deploy/app boot를 하면 작업이 끊긴다. 추출이 끝난 뒤에 배포한다.
 #   - Docker Hub 자격은 레지스트리를 쓰는 명령에서만 묻고, 셸에 KAMAL_REGISTRY_*가 있으면 묻지 않는다.
+#   예: bin/deploy.sh app exec --roles=web --detach "sh /rails/storage/solar_run.sh"  (--reuse 없는 app exec는 레지스트리 로그인이 필요해 자격을 묻는다)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -62,6 +63,18 @@ esac
 # app boot도 레지스트리에서 이미지를 받으므로 자격이 필요하다.
 if [ "$BOOTS" = 1 ]; then
   REGISTRY=1
+fi
+# --reuse 없는 app exec는 kamal이 새 컨테이너를 띄우며 레지스트리 로그인을 하므로 자격이 필요하다.
+if [ "$CMD" = app ] && [ "$SUB" = exec ]; then
+  REUSE=0
+  for arg in "$@"; do
+    if [ "$arg" = --reuse ]; then
+      REUSE=1
+    fi
+  done
+  if [ "$REUSE" = 0 ]; then
+    REGISTRY=1
+  fi
 fi
 
 MISSING=0
