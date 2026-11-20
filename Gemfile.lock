@@ -382,6 +382,7 @@ DEPENDENCIES
   bundler-audit
   csv
   debug
+  dotenv
   i18n-tasks
   importmap-rails
   jbuilder

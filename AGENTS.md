@@ -16,9 +16,10 @@
 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/` | 단계별 사례 찾기. 답은 세션 쿠키에만 두고 DB에 쓰지 않는다. 문서 `docs/self-care-form.md` |
 | `app/models/apply_guide.rb`, `config/apply_guide/procedure_guides.yml` | 신청 가이드(`/apply-guide`, `.md`). 마크다운→HTML은 `ApplyGuide::HtmlRenderer`(sanitize·https 링크만) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `db:backup`(SQLite 백업), `export:workercare_data`(분석용 CSV), `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본) |
+| `app/models/solar_extraction/` | Solar LLM 추가 추출. 클라이언트(`client.rb`)·요청 한도 조절(`rate_limiter.rb`)·과제(`tasks/`: comorbidity, prior_career)·실행기(`runner.rb`)·정답 표본(`gold_sample.rb`). DB에는 쓰지 않는다. 서버 분리 실행은 `bin/solar_run.sh`(`kamal app exec --detach`). 계획 `docs/solar-extraction-plan.md` |
+| `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `db:backup`(SQLite 백업), `export:workercare_data`(분석용 CSV), `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본), `solar:extract[task]`(Upstage Solar 추가 추출, dry-run 기본·`APPLY=1`일 때만 호출, 결과는 `storage/exports/solar/` JSONL), `solar:gold_sample[n]`(정답 라벨링 표본) |
 | `DESIGN.md`, `app/assets/stylesheets/` | 디자인 규칙·토큰·컴포넌트와 CSS(`tokens`·`base`·`layout`·`components`·`utilities`). CSS 클래스·대비 검사는 `test/integration/css_classes_test.rb`, `test/design/contrast_test.rb`. 내용은 `DESIGN.md`를 본다 |
-| `docs/` | 기획·설계(`workercare*.plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
+| `docs/` | 기획·설계(`workercare*.plan.md`), Solar LLM 추가 추출 계획(`solar-extraction-plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
 | `wip/` | 로컬 작업 폴더. **gitignore, 저장소에 없음**(추출·임베딩 스크립트, 대용량 CSV) |
 | `docs/ext/` | 외부 서비스 원문 문서의 로컬 사본(카카오 오픈빌더, EXAONE 등). gitignore, .keep만 저장소에 있다 |
 
@@ -65,7 +66,7 @@ Kamal(`config/deploy.yml`). 서버 SSH 별칭 `web01.workercare`, 이미지 `wag
 - 판정서는 비식별 처리본이지만 완전하다고 믿지 않는다. `PIIMasking`은 번호 형태만 가린다. 이름·주소는 못 거른다.
 - 사용자 발화 원문을 저장·로그하지 않는다. **예외는 단계별 사례 찾기의 직종 직접 입력 한 칸뿐이다**: 선택 동의한 경우에만 가려서(번호 형태, 30자 이내) 구글 폼으로 보낸다(함정 12, 사용자 결정 2026-11-11). 신체부위 직접 입력, 검색어(`q` 등), 챗봇 발화, 로그에는 이 예외를 적용하지 않는다. 테스트에 실제 개인정보를 넣지 않는다.
 - 비밀값(`config/master.key`, `config/credentials/*.key`, `.env*`, `.kamal/secrets`)과 `wip/`, 원본 데이터, `storage/backups`·`storage/exports`의 백업·CSV는 커밋하지 않는다(`/storage/*`가 gitignore). 내보내기 기본은 판정서 본문 제외이고 `FULL_TEXT=1` 결과는 외부에 공유하지 않는다.
-- 외부 LLM·임베딩 서비스로 판정서 본문을 보내는 작업은 팀 합의가 먼저다.
+- 공개·비식별 판정서는 외부 LLM(예: Upstage Solar)으로 보낼 수 있다(추출·분류용). 사용자 입력(단계별 사례 찾기 답, 검색어, 챗봇 발화)은 외부 LLM으로 보내지 않는다. 학습에 쓰는 무료·베타 모델은 원칙적으로 비교 시험에만 쓴다(예외: Solar 추가 추출의 `solar-mini-4-5-preview` 운영 실행, 사용자 결정 2026-11-20, `docs/solar-extraction-plan.md` 6.4). 대량 추출은 로컬 시험 후 서버 스크립트로 실행하고 결과는 검토 뒤 별도로 적재한다(`docs/solar-extraction-plan.md`).
 - **승인 가능성을 예측하지 않는다.** "당신의 사건은 인정됩니다" 류의 응답을 만들지 않는다. 제도 안내는 출처와 확인일을 함께 적는다(`config/locales/procedure_guides.yml`).
 
 ## 코딩·커밋 관례

@@ -264,7 +264,7 @@ bin/kamal app exec -r web --reuse \
 ```
 
 - 2번과 3번은 끝날 때 FTS 인덱스를 자동으로 rebuild합니다. 따로 `fts:rebuild`를 실행할 필요는 없습니다.
-- 데이터 양이 많으면 시간이 오래 걸립니다. SSH 연결이 끊길 수 있으니 서버에서 `tmux`나 `nohup`으로 `docker exec`를 실행하는 편이 안전합니다.
+- 데이터 양이 많으면 시간이 오래 걸립니다. SSH 연결이 끊길 수 있으니 오래 걸리는 작업은 `bin/kamal app exec --roles=web --detach`로 별도 컨테이너에 띄웁니다(Solar 추출은 `bin/solar_run.sh`, `docs/solar-extraction-plan.md` 6.4).
 - 임포트가 끝나면 CSV는 지워도 됩니다. 개인정보가 있다면 `sudo rm -r /data/workercare/storage/import`로 정리합니다.
 
 ### 9.2 방법 B: 로컬 DB 파일 복사
