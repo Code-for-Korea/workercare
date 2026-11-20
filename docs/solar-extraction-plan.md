@@ -207,8 +207,9 @@ bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview
   - 제한기는 호출 전에 추정 토큰(입력 추정 + `OUT_TOKENS`)을 예약하므로 실제 처리량은 다를 수 있습니다.- **한도 준수**: 분당 요청·토큰 한도를 지킵니다. 429와 타임아웃은 backoff로 재시도하고 실패 건은 별도 파일에 기록합니다.
 - **진행 로그**: 건수와 추정 남은 시간만 남기고 판정서 원문은 로그에 남기지 않습니다.
 - **출력**: DB에 바로 쓰지 않고 `storage/exports/`(볼륨에 남고 gitignore) 아래 JSONL/CSV로 씁니다. 검토 뒤 별도 import 태스크·PR로 적재하고, 정규화·FTS rebuild 순서는 `CONTRIBUTING.md` 5.6을 따르며 먼저 `bin/rails db:backup`을 합니다.
-- **실행 방법** `[확인 필요]`: `bin/kamal app exec --roles=web --reuse`는 SSH 세션이 끊기면 멈출 수 있습니다. 서버에서 `docker exec -d`(또는 tmux)로 분리 실행하는 방안을 시험해 확인합니다.
-- **배포와 충돌**: 재배포하면 컨테이너가 바뀌어 작업이 끊깁니다. 실행 중에는 배포하지 않거나, 이어 받기로 재개합니다.
+- **실행 방법(분리 실행)**: `--reuse`(`docker exec`)는 SSH 세션에 묶여 끊기면 멈출 수 있으므로, 전체 실행은 `bin/kamal app exec --roles=web --detach "sh bin/solar_run.sh"`로 별도 컨테이너에 띄웁니다. 검증 상태: Kamal 2.12.0 소스로 `--detach`가 `docker run --detach`(`--rm`·`--restart` 없음)이고 이름이 `<service>-<role>-exec-<version>-<hex>`이며 role env 파일(비밀값)·볼륨이 붙고 `--reuse`와 함께 못 쓴다는 것까지 확인했습니다. 서버 실측 전이라 `LIMIT=20` 시험(로그·결과·`docker stop` 동작)으로 확인합니다. `bin/solar_run.sh`는 이미지에 들어가므로 배포 뒤에 쓸 수 있고, 배포 전에는 `/data/workercare/storage/solar_run.sh`로 올려 `sh /rails/storage/solar_run.sh`로 실행합니다(6.4).
+- **차선**: `docker exec -d`(web 컨테이너 안 실행)도 SSH와는 분리되지만 배포·재시작 때 같이 멈추고 `docker stop`으로 끌 수 없습니다.
+- **배포와 충돌**: 분리 실행한 별도 컨테이너는 `kamal deploy`가 멈추지 않지만 실행 중에는 배포하지 않습니다(6.4). 차선인 `docker exec -d`는 배포하면 끊깁니다. 끊기면 이어 받기로 재개합니다.
 - **DB 부하**: SQLite는 읽기만 하므로 웹과 같이 돌려도 되지만 부하를 확인합니다.
 - **운영 실행은 사용자가 직접 합니다.**
 
@@ -238,11 +239,21 @@ bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview
    ```bash
    bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview LIMIT=300 CONCURRENCY=2 RPM=<계정 한도> TPM=<계정 한도> bin/rails 'solar:extract[comorbidity]'"
    ```
-4. 전체: 3번 명령에서 `LIMIT=300`을 빼고 `CONCURRENCY=4`(Tier 0)로 바꿔 실행합니다. 두 과제는 각각 따로 실행합니다(결과 폴더가 과제별이라 잠금이 겹치지 않음).
+4. 전체(분리 실행): `bin/solar_run.sh`가 comorbidity, prior_career를 **순차**로 돌립니다(같은 키 한도를 공유해 병렬이 이득이 없고 제한기가 프로세스별이라 한도를 넘기기 쉽습니다). 기본값은 `APPLY=1`, `MODEL=solar-mini-4-5-preview`, `CONCURRENCY=4`이고 `LIMIT`·`RPM`·`TPM`·`OUT_DIR`(주면 `<OUT_DIR>/<과제>`)은 `env`로 줍니다. 로그는 볼륨의 `exports/solar/run.log`(시작·끝 시각, 과제, 모델, 종료 코드, rails 출력)에 쌓이고, 과제가 비정상 종료하면 다음 과제를 시작하지 않습니다.
    ```bash
-   bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview CONCURRENCY=4 RPM=<계정 한도> TPM=<계정 한도> bin/rails 'solar:extract[comorbidity]'"
+   # 시험(배포 뒤. 서버 실측 확인): 로그·결과·중단 동작을 봅니다
+   bin/kamal app exec --roles=web --detach "env LIMIT=20 RPM=<계정 한도> TPM=<계정 한도> sh bin/solar_run.sh comorbidity"
+   # 전체
+   bin/kamal app exec --roles=web --detach "env RPM=<계정 한도> TPM=<계정 한도> sh bin/solar_run.sh"
+   # 이미지에 아직 없으면(배포 전): scp bin/solar_run.sh web01.workercare:/data/workercare/storage/solar_run.sh 뒤
+   bin/kamal app exec --roles=web --detach "sh /rails/storage/solar_run.sh"
    ```
-5. 이어 받기: 끊기면 같은 명령을 다시 실행합니다. `results.jsonl`에 있는 건은 건너뜁니다. 모델을 바꿔 이어 받을 때는 `OUT_DIR`을 따로 줍니다(위 모델 선택 참고). 실행 방식이 SSH 세션에 묶이는 문제는 6.2의 `[확인 필요]`대로 서버에서 분리 실행(`docker exec -d`, tmux)을 시험해 확인합니다. 배포하면 컨테이너가 바뀌어 작업이 끊깁니다.
+   `--reuse`는 쓰지 않고 `--roles=web`은 유지합니다. 이미지 태그는 `--version` 미지정 시 서버의 최신 이미지입니다.
+   - 진행 확인: `ssh web01.workercare "tail -n 5 /data/workercare/storage/exports/solar/run.log"`, `ssh web01.workercare "wc -l /data/workercare/storage/exports/solar/*/results.jsonl"`, `ssh web01.workercare "docker ps --filter name=exec --format '{{.Names}} {{.Status}}'"`. 중단 사유는 `grep "중단 사유" run.log`로 봅니다.
+   - 중단: `ssh web01.workercare "docker stop -t 240 <이름>"`. 스크립트가 TERM을 rails에 넘겨 진행 중인 건만 마치고 멈추고 이후 과제는 시작하지 않습니다(요청당 최대 180초라 `-t`를 넉넉히).
+   - 결과 가져오기: 아래 scp. 끝난 컨테이너는 `docker rm <이름>`으로 지웁니다.
+   - 주의: 실행 중에는 배포하지 않습니다(별도 컨테이너라 작업은 살아 있으나 서버 메모리가 겹치고, `.kamal/hooks/post-deploy`의 `docker system prune -f`가 종료된 컨테이너와 그 docker logs를 지웁니다. 로그는 `run.log`에서 봅니다). 11/30 안에 끝내려면 배포를 동결합니다.
+5. 이어 받기: 컨테이너가 죽었거나(중단·한도 초과) 서버가 재부팅됐으면(`--restart`가 없어 자동으로 돌아오지 않음, 가끔 `docker ps` 확인) 같은 4번 명령을 다시 실행합니다. `results.jsonl`에 있는 건은 건너뛰고 `.lock`은 프로세스와 함께 풀리므로 지울 필요가 없습니다. 모델을 바꿔 이어 받을 때는 `OUT_DIR`을 따로 줍니다(위 모델 선택 참고). rake는 중단 사유(한도 초과·인증 오류 등)로 멈추면 종료 코드 2로 끝나고(신호 중단은 0), 그러면 `bin/solar_run.sh`는 다음 과제를 시작하지 않습니다. 사유는 `run.log`의 "중단 사유" 줄에서 봅니다.
 6. 동시성·한도: `CONCURRENCY`(1~8)와 `RPM`/`TPM`(로컬 제한기)을 계정 등급에 맞춥니다. 429는 응답 헤더의 대기 시각을 따르고 한도 초과·401/403은 즉시 중단합니다(6.2 중단 조건).
 
 **결과 위치와 검토**

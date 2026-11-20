@@ -16,7 +16,7 @@
 | `app/controllers/self_care_form_controller.rb`, `app/models/self_care_form/` | 단계별 사례 찾기. 답은 세션 쿠키에만 두고 DB에 쓰지 않는다. 문서 `docs/self-care-form.md` |
 | `app/models/apply_guide.rb`, `config/apply_guide/procedure_guides.yml` | 신청 가이드(`/apply-guide`, `.md`). 마크다운→HTML은 `ApplyGuide::HtmlRenderer`(sanitize·https 링크만) |
 | `app/models/disease_cases/markdown_renderer.rb` | 검색·상세를 마크다운으로 렌더링. 컨트롤러 `format.md`, 문서 `docs/markdown-responses.md` |
-| `app/models/solar_extraction/` | Solar LLM 추가 추출. 클라이언트(`client.rb`)·요청 한도 조절(`rate_limiter.rb`)·과제(`tasks/`: comorbidity, prior_career)·실행기(`runner.rb`)·정답 표본(`gold_sample.rb`). DB에는 쓰지 않는다. 계획 `docs/solar-extraction-plan.md` |
+| `app/models/solar_extraction/` | Solar LLM 추가 추출. 클라이언트(`client.rb`)·요청 한도 조절(`rate_limiter.rb`)·과제(`tasks/`: comorbidity, prior_career)·실행기(`runner.rb`)·정답 표본(`gold_sample.rb`). DB에는 쓰지 않는다. 서버 분리 실행은 `bin/solar_run.sh`(`kamal app exec --detach`). 계획 `docs/solar-extraction-plan.md` |
 | `lib/tasks/` | `import:*`(KSCO 매핑만은 `import:ksco_mappings`, dry-run 기본), `fts:rebuild`, `normalize:*`, `db:backup`(SQLite 백업), `export:workercare_data`(분석용 CSV), `chatbot:entities:*`, `analysis:report`(통계표를 DB 질의로 재생성), `ksco:prune_codes`(CSV에 없는 KSCO 코드 삭제, dry-run 기본), `solar:extract[task]`(Upstage Solar 추가 추출, dry-run 기본·`APPLY=1`일 때만 호출, 결과는 `storage/exports/solar/` JSONL), `solar:gold_sample[n]`(정답 라벨링 표본) |
 | `DESIGN.md`, `app/assets/stylesheets/` | 디자인 규칙·토큰·컴포넌트와 CSS(`tokens`·`base`·`layout`·`components`·`utilities`). CSS 클래스·대비 검사는 `test/integration/css_classes_test.rb`, `test/design/contrast_test.rb`. 내용은 `DESIGN.md`를 본다 |
 | `docs/` | 기획·설계(`workercare*.plan.md`), Solar LLM 추가 추출 계획(`solar-extraction-plan.md`), 정규화(`disease-cases-normalization.md`), 카카오(`kakaotalk/`) |
