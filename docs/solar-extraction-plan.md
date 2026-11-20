@@ -130,11 +130,11 @@
 3. 정확도 기준(제안값, 팀이 확정)을 넘으면 전체 실행으로 갑니다.
 4. 파일럿에서 판정서 평균 토큰을 재고 전체 비용과 소요 시간을 추정합니다.
 
-가정 예시(파일럿으로 교체): 입력 4,000토큰·출력 500토큰이면 61,815건은 입력 약 2.5억·출력 약 0.3억 토큰이고 `solar-mini4` 기준 약 $37입니다. 한도가 250K TPM이면 분당 약 55건이라 약 19시간이 걸립니다.
+가정 예시(아래 6.4의 200건 실측으로 교체됨): 입력 4,000토큰·출력 500토큰이면 61,815건은 입력 약 2.5억·출력 약 0.3억 토큰이고 `solar-mini4` 기준 약 $37입니다. 한도가 250K TPM이면 분당 약 55건이라 약 19시간이 걸립니다.
 
 ### 6.2 서버 전체 실행
 
-- **태스크**: `lib/tasks/solar_extract.rake`의 `solar:extract[과제]`. 과제는 `comorbidity`(기저질환, `comorbidity-p2`·`comorbidity-s2`·검증기 `comorbidity-v3`)와 `prior_career`(과거 근무경력, `prior_career-p2`·`prior_career-s2`·검증기 `prior_career-v3`)입니다. 기본은 dry-run입니다.
+- **태스크**: `lib/tasks/solar_extract.rake`의 `solar:extract[과제]`. 과제는 `comorbidity`(기저질환, `comorbidity-p4`·`comorbidity-s3`·검증기 `comorbidity-v4`)와 `prior_career`(과거 근무경력, `prior_career-p4`·`prior_career-s3`·검증기 `prior_career-v4`)입니다. 기본은 dry-run입니다.
 
 ```bash
 # dry-run(기본): 호출 없이 건수·토큰·비용·소요 시간만 추정합니다
@@ -161,11 +161,24 @@ APPLY=1 CONCURRENCY=4 bin/rails "solar:extract[comorbidity]"
 | `TOKENS_PER_CHAR`·`OUT_TOKENS`·`PRICE_IN`·`PRICE_OUT`·`LATENCY` | 0.6·300·0.10·0.40·4.0초 | 추정 전용. `OUT_TOKENS`는 제한기 예약에도 쓰입니다. 가격은 $/100만 토큰입니다. |
 
 - **출력**: `OUT_DIR/results.jsonl`에 건마다 한 줄씩 씁니다. `status`는 `ok`(검증 통과) 또는 `invalid`(검증 실패, `validation_errors`에 사유)입니다. `OUT_DIR/failures.jsonl`에는 재시도를 소진했거나 되돌릴 수 없는 오류 건을 `error_class`와 고정 문구만으로 씁니다. 근거 문장(`evidence_quote`)은 검증 통과 여부와 상관없이 번호 형태가 가려지고 80자로 잘려 저장됩니다.
-- **과제별 검증·출력 규칙**(p2/s2, p3 검증기 v3, 시범 결과 반영). 결과 줄에는 `prompt_version`·`schema_version`과 함께 `validator_version`이 들어갑니다(프롬프트·스키마가 같아도 검증 규칙이나 결과 형식이 바뀌면 올립니다):
-  - `comorbidity`: 값이 `미확인`(source는 `언급없음`)이면 mention은 `언급없음`이고 근거 문장은 없어야 합니다. mention이 `있음`이면 값은 `미확인`·빈 배열이 아니고 근거 문장이 있어야 합니다. `없음`은 `비흡연`·`비음주`·빈 배열과만 짝입니다. 프롬프트는 근거가 값을 직접 뒷받침해야 하고(진단명 머리말·"건강보험 수진내역" 같은 일반 구절 금지), 오래된 검진 문진표는 현재 상태로 읽지 않으며, 약물 이름만으로 질환을 추정하지 않도록(보수적) 지시합니다. v3는 코드로도 막습니다. (1) 근거 문장에 값의 키워드가 하나도 없으면 invalid입니다: 흡연(흡연·담배·금연·개비·`N갑` 등), 음주(음주·술·주량·소주·맥주 등, "알콜성/알코올성"+질환명은 지우고 검사하므로 "알콜성간질환"만으로는 근거가 아님, "수술"의 술은 세지 않음), 기저질환(범주별 키워드, `comorbidities`는 근거가 목록 전체에 하나뿐이라 값에 든 범주 중 하나라도 맞으면 통과, `기타`는 일반 구절 검사만). 사전은 `Comorbidity`의 상수이며 보수적으로 유지합니다. (2) "건강보험 수진내역"·"상세불명의"·"과거력" 같은 일반 머리말을 지우고 한글·숫자가 2자 미만이면 invalid입니다(실제 내용이 함께 있으면 통과).
-  - `prior_career`: 모델은 `mention`과 `careers[]`만 냅니다(`prior_career_months`는 스키마에서 뺐습니다). 개월 수는 검증 단계에서 코드가 `careers` 구간으로 계산해 결과에 넣습니다(양 끝 포함 월 수, 겹친 달은 한 번만, 시작·끝이 없는 구간이 하나라도 있으면 `null`, `mention=없음`이면 0, `언급없음`이면 `null`). 프롬프트는 현재 사업장 근무를 과거 경력에서 제외하고, "이전 근무경력: 무"면 `mention=없음`+빈 배열, 언급이 없으면 `언급없음`으로 하도록 지시합니다(가상 예시 포함). `mention=있음`인데 `careers`가 비거나, 그 밖의 mention인데 `careers`가 있으면 invalid입니다. `careers`는 최대 10개이며 넘으면 코드가 앞에서 10개만 남깁니다(Structured outputs의 `maxItems` 지원 여부를 문서에서 확인하지 못해 스키마에는 넣지 않았습니다). v3는 현 사업장 후처리를 더했습니다: 종료 시점이 없고 근거가 진행 중 표현(현재·재직 중·진단일까지 등)이면 invalid, 어림짐작이 섞인 의심(입력이 밝힌 현 사업장 시작일 이후·겹침, 같은 업체 고용형태 변경 표지)은 `output.review_flags`(`{rule, career_indexes, message}` 배열, 항상 존재)에 남기고 invalid로 하지 않습니다. 입력 텍스트와 `careers`만 쓰며 DB의 다른 컬럼은 읽지 않습니다.
+- **과제별 검증·출력 규칙**(p4/s3/v4, 정답 200건 시범 결과 반영). 결과 줄에는 `prompt_version`·`schema_version`과 함께 `validator_version`이 들어갑니다(프롬프트·스키마가 같아도 검증 규칙이나 결과 형식이 바뀌면 올립니다):
+  - `comorbidity`: 값이 `미확인`이면 mention은 `언급없음`이고 근거 문장은 없어야 합니다. mention이 `있음`이면 값은 `미확인`·빈 배열이 아니고 근거 문장이 있어야 합니다. `없음`은 `비흡연`·`비음주`·빈 배열과만 짝입니다. 프롬프트는 근거가 값을 직접 뒷받침해야 하고(진단명 머리말·"건강보험 수진내역" 같은 일반 구절 금지), 오래된 검진 문진표는 현재 상태로 읽지 않으며, 약물 이름만으로 질환을 추정하지 않도록(보수적) 지시합니다. v3는 코드로도 막습니다. (1) 근거 문장에 값의 키워드가 하나도 없으면 invalid입니다: 흡연(흡연·담배·금연·개비·`N갑` 등), 음주(음주·술·주량·소주·맥주 등, "알콜성/알코올성"+질환명은 지우고 검사하므로 "알콜성간질환"만으로는 근거가 아님, "수술"의 술은 세지 않음), 기저질환(범주별 키워드, `comorbidities`는 근거가 목록 전체에 하나뿐이라 값에 든 범주 중 하나라도 맞으면 통과, `기타`는 일반 구절 검사만). 사전은 `Comorbidity`의 상수입니다. **v4에서 기저질환(comorbidities)의 키워드 부재는 invalid가 아니라 `output.review_flags`(`{rule: "evidence_keyword_missing", field, message}`, 항상 배열)로 낮췄습니다**: p3 정답 200건에서 퇴행성 TP 33건 중 26건이 invalid로 막혀 거르는 효과보다 과잉 차단이 컸습니다. 퇴행성 사전은 변성·stenosis·OA를 더해 넓혔습니다. 흡연·음주 키워드 검사는 그대로 invalid입니다. (2) "건강보험 수진내역"·"상세불명의"·"과거력" 같은 일반 머리말을 지우고 한글·숫자가 2자 미만이면 invalid입니다(실제 내용이 함께 있으면 통과). **p4(s3)부터 모델은 `source`를 내지 않습니다**(`comorbidities`·`smoking`·`alcohol`만). 결과의 `source`는 코드가 파생합니다(CODEBOOK 결정 2026-11-20): 기저질환이 비면 `언급없음`, 근거 문장이나 값 범주 키워드가 [의학적 소견]·[인정 사실]에 있으면 `사실 기록`, [위원회 판단]에만 있으면 `위원회 판단`. 간이 규칙이라 신청 상병명 키워드가 소견 절에 있으면 `사실 기록`으로 잘못 가를 수 있고, 근거를 못 찾으면 `사실 기록`으로 둡니다. 프롬프트는 신청 상병 제외, 퇴행성·기타·비만·뇌혈관 범주 정의를 코드북 문구로 구체화했습니다(합성 예시만 사용).
+  - `prior_career`: 모델은 `mention`과 `careers[]`만 냅니다(`prior_career_months`는 스키마에서 뺐습니다). 개월 수는 검증 단계에서 코드가 `careers` 구간으로 계산해 결과에 넣습니다(양 끝 포함 월 수, 겹친 달은 한 번만, 시작·끝이 없는 구간이 하나라도 있으면 `null`, `mention=없음`이면 0, `언급없음`이면 `null`). 프롬프트는 현재 사업장 근무를 과거 경력에서 제외하고, "이전 근무경력: 무"면 `mention=없음`+빈 배열, 언급이 없으면 `언급없음`으로 하도록 지시합니다(가상 예시 포함). `mention=있음`인데 `careers`가 비거나, 그 밖의 mention인데 `careers`가 있으면 invalid입니다. `careers`는 최대 10개이며 넘으면 코드가 앞에서 10개만 남깁니다(Structured outputs의 `maxItems` 지원 여부를 문서에서 확인하지 못해 스키마에는 넣지 않았습니다). 프롬프트(p4)는 법인 전환·고용승계·상호/소속 변경·사업주 변경·재입사를 현 사업장으로 보고 현 사업장 직력만 있으면 `언급없음`을 쓰게 하며 합성 예시를 더했습니다. 월 미상 구간은 `start_ym`/`end_ym`에 `YYYY`만 받습니다. 개월 수는 월을 모르는 구간이 하나라도 있으면 `null`(보수적, 코드북과 같음)이고 구간은 `careers`에 남습니다. 모델이 판정서 표기(`2012.10`, `2012.10.05`, `2012/10`)를 옮기면 코드가 `YYYY-MM`으로 맞춥니다(일은 버림). 시작>끝 검사는 연만 있는 쪽을 시작은 1월, 끝은 12월로 보고 합니다. v3는 현 사업장 후처리를 더했고 v4는 `same_employer_marker`(근거 문장에 법인 전환·고용승계·상호/소속 변경·재입사 표지)를 review_flags에 더합니다: 종료 시점이 없고 근거가 진행 중 표현(현재·재직 중·진단일까지 등)이면 invalid, 어림짐작이 섞인 의심(입력이 밝힌 현 사업장 시작일 이후·겹침, 같은 업체 고용형태 변경 표지)은 `output.review_flags`(`{rule, career_indexes, message}` 배열, 항상 존재)에 남기고 invalid로 하지 않습니다. 입력 텍스트와 `careers`만 쓰며 DB의 다른 컬럼은 읽지 않습니다.
   - 출력 토큰 상한은 과제별입니다(`Tasks::Base#max_tokens`, 기본 1500, `prior_career` 3000). 실행기가 호출마다 `max_tokens`로 넘기고 클라이언트는 이 값을 생성자 값보다 우선합니다.
-- **시범 결과 요약**(`solar-mini-4-5-preview`, 20건, 요약 수치만. 상세는 `storage/exports/solar/pilot/mini-4-5-preview-p2/REPORT.md`): p1은 comorbidity ok 18/invalid 2, prior_career ok 19/failed 1(출력 잘림), 개월 수 일치 1/19, 현 사업장을 이전 경력으로 넣은 건이 확인한 7건 중 3건, mention 있음 19/19였습니다. p2는 comorbidity ok 18/invalid 2, prior_career ok 17/invalid 3/failed 0이고 mention이 있음 14·언급없음 5·없음 1로 갈렸습니다. 현 사업장 혼입은 일부만 줄었습니다. p3(프롬프트 동일, 검증기 v3, 상세는 `.../mini-4-5-preview-p3/REPORT.md`)는 comorbidity ok 12/invalid 8, prior_career ok 17/invalid 3(review_flags 4개·2건)이며 p2 ok였던 comorbidity 6건이 invalid로 바뀌었고 확정 거짓양성은 0건이었습니다. 20건이라 통계적 결론은 아니며 정답 표본으로 정확도를 재야 합니다.
+- **시범 결과 요약**(`solar-mini-4-5-preview`, 20건, 요약 수치만. 상세는 `storage/exports/solar/pilot/mini-4-5-preview-p2/REPORT.md`): p1은 comorbidity ok 18/invalid 2, prior_career ok 19/failed 1(출력 잘림), 개월 수 일치 1/19, 현 사업장을 이전 경력으로 넣은 건이 확인한 7건 중 3건, mention 있음 19/19였습니다. p2는 comorbidity ok 18/invalid 2, prior_career ok 17/invalid 3/failed 0이고 mention이 있음 14·언급없음 5·없음 1로 갈렸습니다. 현 사업장 혼입은 일부만 줄었습니다. p3(프롬프트 동일, 검증기 v3, 상세는 `.../mini-4-5-preview-p3/REPORT.md`)는 comorbidity ok 12/invalid 8, prior_career ok 17/invalid 3(review_flags 4개·2건)이며 p2 ok였던 comorbidity 6건이 invalid로 바뀌었고 확정 거짓양성은 0건이었습니다. 20건이라 통계적 결론은 아니었습니다.
+- **정답 200건 결과**(`solar-mini-4-5-preview`, 잠정 정답, 채점 N=199, 신뢰 행 44건, 상세 `storage/exports/solar/pilot/mini-4-5-preview-p3-gold200/REPORT.md`와 `...-p4-gold200/REPORT.md`):
+
+| 칸 | p3 전체 | p4 전체 | p3 신뢰 행 | p4 신뢰 행 |
+|---|---|---|---|---|
+| comorbidities 완전 일치 | 49.7% | 54.8% | 59.1% | 54.5% |
+| preexisting_source | 53.8% | 73.4% | 63.6% | 70.5% |
+| smoking / alcohol | 97.0% / 99.0% | 96.0% / 96.5% | 97.7% / 97.7% | 95.5% / 95.5% |
+| prior_career mention | 87.4% | 89.9% | 68.2% | 77.3% |
+| months 정확(null 포함) | 72.9% | 75.9% | 75.0% | 77.3% |
+| careers 구간 수 | 67.3% | 67.8% | 72.7% | 77.3% |
+| invalid 수(comorbidity / prior_career) | 78 / 20 | 46 / 9 | 21 / 3 | 9 / 3 |
+
+  source가 코드 파생으로 가장 크게 좋아졌고 퇴행성 정밀도도 62%에서 84%로 올랐습니다. 현 사업장 혼입(`언급없음->있음` 21건에서 15건)과 기타·뇌혈관 재현율은 아직 낮고, 신뢰 행이 44건이라 몇 건 차이는 모델 변동일 수 있습니다. 모델은 Private Beta 무료 모델이라 시험 전용입니다.
 - **동시 실행 방지**: `APPLY=1`은 `OUT_DIR/.lock`에 배타적 `flock`을 잡습니다. 같은 폴더에서 이미 실행 중이면 안내 문구와 함께 중단합니다(dry-run은 잡지 않음).
 - **이어 받기**: 시작할 때 두 파일을 읽어 `results.jsonl`에 있는 건(`ok`·`invalid`)은 건너뜁니다. `invalid`도 다시 호출하지 않습니다. `failures.jsonl`에만 있는 건은 다시 시도하고, `SKIP_FAILED=1`이면 건너뜁니다. 중단되면 같은 명령을 다시 실행하면 됩니다.
 - **중단 조건**(fail-fast): 아래 중 하나면 새 건을 시작하지 않고 멈춥니다.
@@ -191,6 +204,34 @@ APPLY=1 CONCURRENCY=4 bin/rails "solar:extract[comorbidity]"
 - **배포와 충돌**: 재배포하면 컨테이너가 바뀌어 작업이 끊깁니다. 실행 중에는 배포하지 않거나, 이어 받기로 재개합니다.
 - **DB 부하**: SQLite는 읽기만 하므로 웹과 같이 돌려도 되지만 부하를 확인합니다.
 - **운영 실행은 사용자가 직접 합니다.**
+
+### 6.4 서버 대량 실행 준비 (초안)
+
+실제 서버 실행·비밀값 설정·모델 선택은 **사용자가 직접 결정하고 실행**합니다. 이 절은 준비 절차와 추정입니다.
+
+**모델 선택(사용자 결정)**
+- `solar-mini-4-5-preview`는 무료 베타라 입력이 저장되고 학습·평가에 쓰일 수 있고 11/30에 끝납니다. 운영 대량 추출에는 쓰지 않습니다(비교 시험 전용).
+- 운영에는 입력이 학습에 쓰이지 않는 유료 모델(`solar-mini4` 또는 `solar-pro4`)을 `MODEL` 환경변수로 지정합니다. 어느 모델을 쓸지, 한국 리전·약관 검토(제7·9·22·26조), 비용 상한은 사용자가 정합니다. 유료 모델로는 이 정답 200건 정확도를 아직 재지 않았으니, 전체 실행 전에 같은 방식으로 정답 200건에서 재측정합니다.
+
+**토큰·비용 추정(정답 200건 실측, p4)**
+- 건당 평균: comorbidity 입력 3,316 + 출력 96, prior_career 입력 3,059 + 출력 236 토큰. 두 과제 합 입력 약 6,375 + 출력 약 332.
+- 61,815건 x 2과제 = 입력 약 3.94억, 출력 약 2,050만 토큰. 정답 표본은 층화 표본이라 전체 평균과 다를 수 있습니다(`dry-run`의 추정과 대조).
+- 산식: 비용 = 입력 토큰 x 입력 단가 + 출력 토큰 x 출력 단가. `solar-mini4`($0.10/$0.40 per 1M)는 39.4 + 8.2 = 약 $48, `solar-pro4`($0.30/$1.20)는 118 + 24.6 = 약 $143(두 과제 합, 단가는 4절 표 기준이며 실행 전 콘솔에서 확인).
+- 시간: Tier 0(250K TPM)이면 건당 약 3.4K 토큰이라 분당 약 73건(comorbidity) 또는 76건(prior_career), 과제당 약 14시간, 두 과제 약 28시간(동시성 4 안팎, 값은 실측 지연이 아니라 TPM 상한 기준). Tier 1(500K)이면 절반 정도입니다.
+
+**절차**
+1. 키: 코드가 읽는 환경변수는 `UPSTAGE_API_KEY`입니다(`SolarExtraction::Client`). `.kamal/secrets`에 참조 한 줄을 추가하고 `config/deploy.yml`의 `env.secret`에 `UPSTAGE_API_KEY`를 추가한 뒤 배포하는 일은 사용자가 직접 합니다(6.3). 모델 고정은 `env.clear`에 `SOLAR_MODEL` 또는 실행 때마다 `MODEL`로 줍니다.
+2. dry-run(호출 없음, 키 불필요): `bin/kamal app exec --roles=web --reuse "bin/rails 'solar:extract[comorbidity]'"`. 건수·토큰·비용·시간 추정을 확인합니다. 이전 `mcp` 컨테이너가 남아 있으면 `--roles=web`을 유지합니다(AGENTS.md).
+3. 소량 APPLY: `APPLY=1 MODEL=<유료 모델> LIMIT=300 CONCURRENCY=2 RPM=<계정 한도> TPM=<계정 한도> bin/rails "solar:extract[comorbidity]"`를 같은 `bin/kamal app exec --roles=web --reuse "..."` 안에서 실행하고, 결과를 가져와 검토합니다(아래).
+4. 전체: `LIMIT`을 빼고 같은 명령을 `CONCURRENCY=4`(Tier 0)로 실행합니다. 두 과제는 각각 따로 실행합니다(결과 폴더가 과제별이라 잠금이 겹치지 않음).
+5. 이어 받기: 끊기면 같은 명령을 다시 실행합니다. `results.jsonl`에 있는 건은 건너뜁니다. 실행 방식이 SSH 세션에 묶이는 문제는 6.2의 `[확인 필요]`대로 서버에서 분리 실행(`docker exec -d`, tmux)을 시험해 확인합니다. 배포하면 컨테이너가 바뀌어 작업이 끊깁니다.
+6. 동시성·한도: `CONCURRENCY`(1~8)와 `RPM`/`TPM`(로컬 제한기)을 계정 등급에 맞춥니다. 429는 응답 헤더의 대기 시각을 따르고 한도 초과·401/403은 즉시 중단합니다(6.2 중단 조건).
+
+**결과 위치와 검토**
+- 컨테이너 안 `/rails/storage/exports/solar/<과제>/{results,failures}.jsonl`(볼륨 `/data/workercare/storage`가 호스트에 있으므로 호스트 경로는 `/data/workercare/storage/exports/solar/`). `OUT_DIR`로 바꿀 수 있습니다.
+- 로컬로 가져오기: `scp web01.workercare:/data/workercare/storage/exports/solar/<과제>/results.jsonl <로컬 storage/exports/solar/server/<과제>/>`. 결과는 판정서와 같은 취급이라 저장소·채팅·외부에 올리지 않습니다.
+- 검토: `status` 분포, `validation_errors` 상위 사유, `review_flags`를 보고 표본을 정답과 대조합니다(정답 200건에 대한 비교 스크립트 방식). 이 단계에서 정확도가 기준 아래면 프롬프트를 고치고 새 버전으로 다시 돌립니다. 버전이 다른 결과를 한 파일에 섞지 않도록 `OUT_DIR`을 버전별로 나눕니다.
+- DB 적재는 별도 단계입니다: 검토를 마친 뒤 import 태스크·PR로 적재하고 먼저 `bin/rails db:backup`을 합니다(`CONTRIBUTING.md` 5.6). 이 추출 태스크는 DB에 쓰지 않습니다.
 
 ### 6.3 API 키
 
