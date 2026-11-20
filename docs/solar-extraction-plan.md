@@ -144,6 +144,13 @@ LIMIT=20 bin/rails "solar:extract[comorbidity]"
 APPLY=1 CONCURRENCY=4 bin/rails "solar:extract[comorbidity]"
 ```
 
+서버에서는 컨테이너 안에서 직접 실행합니다. `kamal app exec`는 셸을 거치지 않으므로 환경변수는 `env`로 줍니다(6.4 참고).
+
+```bash
+bin/kamal app exec --roles=web --reuse "env LIMIT=20 bin/rails 'solar:extract[comorbidity]'"
+bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview CONCURRENCY=4 bin/rails 'solar:extract[comorbidity]'"
+```
+
 - **환경변수**(코드 기준):
 
 | 변수 | 기본 | 뜻 |
@@ -223,10 +230,18 @@ APPLY=1 CONCURRENCY=4 bin/rails "solar:extract[comorbidity]"
 - 시간: preview의 요청 한도는 확인되지 않았습니다. 아래는 4절 표 기준 참고 추정이고, dry-run과 소량 실행 실측으로 다시 잡습니다. Tier 0(250K TPM)이면 건당 약 3.4K 토큰이라 분당 약 73건(comorbidity) 또는 76건(prior_career), 과제당 약 14시간, 두 과제 약 28시간(동시성 4 안팎, 값은 실측 지연이 아니라 TPM 상한 기준). Tier 1(500K)이면 절반 정도입니다.
 
 **절차**
+> 주의: `kamal app exec`는 컨테이너 안에서 셸을 거치지 않으므로 환경변수는 `env VAR=값 명령` 형태로 준다(`VAR=값 명령`은 exit 127).
+
 1. 키: 코드가 읽는 환경변수는 `UPSTAGE_API_KEY`입니다(`SolarExtraction::Client`). `.kamal/secrets`에 참조 한 줄을 추가하고 `config/deploy.yml`의 `env.secret`에 `UPSTAGE_API_KEY`를 추가한 뒤 배포하는 일은 사용자가 직접 합니다(6.3). 모델은 `env.clear`에 `SOLAR_MODEL: solar-mini-4-5-preview`로 두거나 실행 때마다 `MODEL=solar-mini-4-5-preview`로 줍니다. 11/30 뒤에는 이 값을 바꿔야 합니다.
 2. dry-run(호출 없음, 키 불필요): `bin/kamal app exec --roles=web --reuse "bin/rails 'solar:extract[comorbidity]'"`. 건수·토큰·비용·시간 추정을 확인합니다. 이전 `mcp` 컨테이너가 남아 있으면 `--roles=web`을 유지합니다(AGENTS.md).
-3. 소량 APPLY: `APPLY=1 MODEL=solar-mini-4-5-preview LIMIT=300 CONCURRENCY=2 RPM=<계정 한도> TPM=<계정 한도> bin/rails "solar:extract[comorbidity]"`를 같은 `bin/kamal app exec --roles=web --reuse "..."` 안에서 실행하고, 결과를 가져와 검토합니다(아래).
-4. 전체: `LIMIT`을 빼고 같은 명령을 `CONCURRENCY=4`(Tier 0)로 실행합니다. 두 과제는 각각 따로 실행합니다(결과 폴더가 과제별이라 잠금이 겹치지 않음).
+3. 소량 APPLY: 아래 명령으로 실행하고, 결과를 가져와 검토합니다(아래). `RPM`·`TPM`에는 계정 한도 숫자를 넣습니다.
+   ```bash
+   bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview LIMIT=300 CONCURRENCY=2 RPM=<계정 한도> TPM=<계정 한도> bin/rails 'solar:extract[comorbidity]'"
+   ```
+4. 전체: 3번 명령에서 `LIMIT=300`을 빼고 `CONCURRENCY=4`(Tier 0)로 바꿔 실행합니다. 두 과제는 각각 따로 실행합니다(결과 폴더가 과제별이라 잠금이 겹치지 않음).
+   ```bash
+   bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview CONCURRENCY=4 RPM=<계정 한도> TPM=<계정 한도> bin/rails 'solar:extract[comorbidity]'"
+   ```
 5. 이어 받기: 끊기면 같은 명령을 다시 실행합니다. `results.jsonl`에 있는 건은 건너뜁니다. 모델을 바꿔 이어 받을 때는 `OUT_DIR`을 따로 줍니다(위 모델 선택 참고). 실행 방식이 SSH 세션에 묶이는 문제는 6.2의 `[확인 필요]`대로 서버에서 분리 실행(`docker exec -d`, tmux)을 시험해 확인합니다. 배포하면 컨테이너가 바뀌어 작업이 끊깁니다.
 6. 동시성·한도: `CONCURRENCY`(1~8)와 `RPM`/`TPM`(로컬 제한기)을 계정 등급에 맞춥니다. 429는 응답 헤더의 대기 시각을 따르고 한도 초과·401/403은 즉시 중단합니다(6.2 중단 조건).
 

@@ -4,6 +4,8 @@
 #
 #   bin/rails "solar:extract[comorbidity]" LIMIT=20           # dry-run(기본): 호출 없음, 추정만
 #   APPLY=1 bin/rails "solar:extract[comorbidity]" LIMIT=200 CONCURRENCY=2   # 실제 호출(UPSTAGE_API_KEY 필요)
+#   서버(kamal app exec은 셸을 거치지 않으므로 env로 준다):
+#   bin/kamal app exec --roles=web --reuse "env APPLY=1 MODEL=solar-mini-4-5-preview LIMIT=200 CONCURRENCY=2 bin/rails 'solar:extract[comorbidity]'"
 #   bin/rails "solar:gold_sample[200]"                          # 정답 표본 CSV
 #
 # 환경변수: LIMIT, SCOPE(all | empty_rows | disease_category=근골격계 | case_nos=파일), CONCURRENCY(1~8), MODEL(기본 SOLAR_MODEL 또는 solar-mini4),
